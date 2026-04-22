@@ -5,10 +5,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': {
-        target: 'http://192.168.0.170:61208',
-        changeOrigin: true,
-      }
+      '/api':       { target: 'http://192.168.0.170:61208', changeOrigin: true },
+      '/qbt':       { target: 'http://192.168.0.170:8080',  changeOrigin: true, cookieDomainRewrite: 'localhost', rewrite: (p) => p.replace(/^\/qbt/, '') },
+      '/jellyfin':  { target: 'http://192.168.0.170:8096',  changeOrigin: true },
+      '/navidrome': { target: 'http://192.168.0.170:4533',  changeOrigin: true },
+      '/unmanic':   { target: 'http://192.168.0.170:8888',  changeOrigin: true },
+      '/speedtest': { target: 'http://192.168.0.170:8083',  changeOrigin: true },
     }
   }
 })

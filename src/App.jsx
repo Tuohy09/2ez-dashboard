@@ -1,11 +1,92 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 // ─── CONFIG ──────────────────────────────────────────────────────
-// Point this at your Glances API. For production, use your real URL.
-const GLANCES_API = "/api/4";
-const POLL_INTERVAL = 2000; // ms
+const GLANCES_API   = "/api/4";
+const POLL_INTERVAL = 2000;
+const JF_KEY        = "176d8ddc607e4278b4f198723b69bd9e";
+const NAV_PARAMS    = "u=tuohy&t=c3414658e4154ef03e5453c495b3b06f&s=poopy1&v=1.16.1&c=2ez-dashboard&f=json";
+const ST_TOKEN      = "FEXsBlewacEQZtiCoU3DQVSyJ49iVDlbZjPXqRDQ86093df3";
 
-// ─── MOCK DATA (used when GLANCES_API is empty) ─────────────────
+// ─── SERVICES REGISTRY ───────────────────────────────────────────
+const SVC = {
+  sonarr:      { id: "sonarr",      name: "Sonarr",         url: "https://2ez.dinosaur-banana.ts.net/sonarr",    abbr: "SN", col: "#3B82F6", desc: "TV show management"   },
+  radarr:      { id: "radarr",      name: "Radarr",         url: "https://2ez.dinosaur-banana.ts.net/radarr",    abbr: "RD", col: "#EF4444", desc: "Movie management"       },
+  lidarr:      { id: "lidarr",      name: "Lidarr",         url: "https://2ez.dinosaur-banana.ts.net/lidarr",    abbr: "LD", col: "#A855F7", desc: "Music management"       },
+  prowlarr:    { id: "prowlarr",    name: "Prowlarr",       url: "https://2ez.dinosaur-banana.ts.net/prowlarr",  abbr: "PW", col: "#F97316", desc: "Indexer manager"        },
+  bazarr:      { id: "bazarr",      name: "Bazarr",         url: "https://2ez.dinosaur-banana.ts.net/bazarr",    abbr: "BZ", col: "#14B8A6", desc: "Subtitle management"    },
+  seerr:       { id: "seerr",       name: "Seerr",          url: "https://2ez.dinosaur-banana.ts.net:5056",      abbr: "SE", col: "#6366F1", desc: "Media requests"         },
+  nextcloud:   { id: "nextcloud",   name: "Nextcloud",      url: "https://2ez.dinosaur-banana.ts.net:8444",      abbr: "NC", col: "#0082C9", desc: "File sync & share"      },
+  immich:      { id: "immich",      name: "Immich",         url: "https://2ez.dinosaur-banana.ts.net:2284",      abbr: "IC", col: "#F59E0B", desc: "Photo management"       },
+  cockpit:     { id: "cockpit",     name: "Cockpit",        url: "https://2ez.dinosaur-banana.ts.net:9091",      abbr: "CP", col: "#EF4444", desc: "System management"      },
+  dockge:      { id: "dockge",      name: "Dockge",         url: "https://2ez.dinosaur-banana.ts.net:5002",      abbr: "DK", col: "#22D3A7", desc: "Container stacks"       },
+  filebrowser: { id: "filebrowser", name: "File Browser",   url: "https://2ez.dinosaur-banana.ts.net:8084",      abbr: "FB", col: "#8B5CF6", desc: "Web file manager"       },
+  slskd:       { id: "slskd",       name: "SLSKD",          url: "https://2ez.dinosaur-banana.ts.net:5031",      abbr: "SL", col: "#EC4899", desc: "Soulseek daemon"        },
+  beetsflask:  { id: "beetsflask",  name: "Beets-Flask",    url: "https://2ez.dinosaur-banana.ts.net:5086",      abbr: "BT", col: "#10B981", desc: "Music tagger"           },
+  lrcget:      { id: "lrcget",      name: "LRCGET",         url: "http://192.168.0.170:5800",                    abbr: "LR", col: "#F59E0B", desc: "Lyrics fetcher"         },
+  jellyfin:    { id: "jellyfin",    name: "Jellyfin",       url: "http://192.168.0.170:8096/jellyfin/",          abbr: "JF", col: "#00A4DC", desc: "Media server"           },
+  navidrome:   { id: "navidrome",   name: "Navidrome",      url: "http://192.168.0.170:4533/navidrome/",         abbr: "NV", col: "#F97316", desc: "Music server"           },
+  qbt:         { id: "qbt",         name: "qBittorrent",    url: "http://192.168.0.170:8080",                    abbr: "QB", col: "#2979FF", desc: "Torrent client"         },
+  unmanic:     { id: "unmanic",     name: "Unmanic",        url: "http://192.168.0.170:8888/unmanic/",           abbr: "UM", col: "#FF6D00", desc: "Media transcoder"       },
+  speedtest:   { id: "speedtest",   name: "Speedtest",      url: "http://192.168.0.170:8083",                    abbr: "ST", col: "#22D3A7", desc: "Speed history"          },
+  uptimekuma:  { id: "uptimekuma",  name: "Uptime Kuma",    url: "http://192.168.0.170:3001",                    abbr: "UK", col: "#5CDD8B", desc: "Service monitoring"     },
+};
+
+// ─── SERVICE ICONS ────────────────────────────────────────────────
+const ICON_PATHS = {
+  // TV monitor + antenna — Sonarr
+  sonarr: <><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M12 7V3"/><path d="M9 3l3 4 3-3"/><path d="M7 17h10"/></>,
+  // Film clapperboard — Radarr
+  radarr: <><rect x="2" y="8" width="20" height="14" rx="2"/><path d="M2 13h20"/><path d="M4 8V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/><path d="M7 6l2 2M13 5l2 3"/></>,
+  // Vinyl record — Lidarr
+  lidarr: <><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></>,
+  // Magnifying glass with inner arc — Prowlarr
+  prowlarr: <><circle cx="10" cy="10" r="7"/><path d="M21 21l-4.35-4.35"/><path d="M7 10a3 3 0 0 1 3-3"/></>,
+  // Chat bubble with subtitle lines — Bazarr
+  bazarr: <><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="13" y2="13"/></>,
+  // Eye with sparkle — Seerr
+  seerr: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/><path d="M19.5 5l1-1M21 5h-1.5M19.5 5v1.5"/></>,
+  // Cloud — Nextcloud
+  nextcloud: <><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></>,
+  // Camera — Immich
+  immich: <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>,
+  // Clock dial — Cockpit
+  cockpit: <><circle cx="12" cy="12" r="10"/><path d="M12 8v4l2.5 2.5"/><path d="M6.5 6.5l1 1M17.5 6.5l-1 1M5 13H4M20 13h-1M17.5 18l-1-1M6.5 18l1-1"/></>,
+  // Stacked boxes — Dockge
+  dockge: <><path d="M12 2l9 5v10l-9 5-9-5V7l9-5z"/><path d="M12 22V12M3 7l9 5 9-5"/></>,
+  // Folder with plus — File Browser
+  filebrowser: <><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></>,
+  // Share nodes — SLSKD (P2P)
+  slskd: <><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></>,
+  // Price tag with music note — Beets
+  beetsflask: <><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1" fill="currentColor" stroke="none"/><path d="M14 9v3"/><path d="M12 11h4"/></>,
+  // Microphone — LRCGET
+  lrcget: <><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></>,
+  // Play button in circle — Jellyfin
+  jellyfin: <><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></>,
+  // Music notes — Navidrome
+  navidrome: <><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></>,
+  // Download with magnet hint — qBittorrent
+  qbt: <><path d="M12 2a7 7 0 0 1 7 7v1h2a3 3 0 1 1 0 6h-2v1a7 7 0 0 1-14 0v-1H3a3 3 0 1 1 0-6h2V9a7 7 0 0 1 7-7z"/><path d="M12 8v8M9 13l3 4 3-4"/></>,
+  // Swap arrows — Unmanic (transcode)
+  unmanic: <><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></>,
+  // Gauge/speedometer — Speedtest
+  speedtest: <><circle cx="12" cy="12" r="10"/><path d="M12 6v2M7.05 7.05l1.41 1.41M5 13H3M21 13h-2M17.54 8.46l-1.41 1.41"/><path d="M12 13l-3-5"/><circle cx="12" cy="13" r="1.5" fill="currentColor" stroke="none"/></>,
+  // Heartbeat line — Uptime Kuma
+  uptimekuma: <><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></>,
+};
+
+function SvcIcon({ id, color, size = 20 }) {
+  const paths = ICON_PATHS[id];
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"
+      style={{ display: "block", flexShrink: 0 }}>
+      {paths ?? <text x="12" y="16" textAnchor="middle" fontSize="9" fontWeight="700" fill={color} stroke="none">{SVC[id]?.abbr}</text>}
+    </svg>
+  );
+}
+
+// ─── MOCK DATA ───────────────────────────────────────────────────
 const MOCK_CONTAINERS = [
   { name: "jellyfin",      cpu: 2.1,  mem: 512e6,  net_rx: 3.2e6,  net_tx: 0.8e6,  uptime: "14d 3h" },
   { name: "navidrome",     cpu: 0.3,  mem: 128e6,  net_rx: 0.1e6,  net_tx: 0.05e6, uptime: "14d 3h" },
@@ -22,7 +103,6 @@ const MOCK_CONTAINERS = [
   { name: "seerr",         cpu: 0.1,  mem: 198e6,  net_rx: 0.3e6,  net_tx: 0.2e6,  uptime: "14d 3h" },
   { name: "nextcloud",     cpu: 0.5,  mem: 278e6,  net_rx: 0.4e6,  net_tx: 0.6e6,  uptime: "14d 3h" },
   { name: "immich_server", cpu: 1.2,  mem: 445e6,  net_rx: 1.5e6,  net_tx: 2.1e6,  uptime: "14d 3h" },
-  { name: "homepage",      cpu: 0.1,  mem: 67e6,   net_rx: 0.1e6,  net_tx: 0.05e6, uptime: "14d 3h" },
   { name: "glances",       cpu: 0.8,  mem: 98e6,   net_rx: 0.2e6,  net_tx: 0.1e6,  uptime: "14d 3h" },
   { name: "uptime-kuma",   cpu: 0.2,  mem: 78e6,   net_rx: 0.15e6, net_tx: 0.08e6, uptime: "14d 3h" },
   { name: "dockge",        cpu: 0.1,  mem: 45e6,   net_rx: 0.08e6, net_tx: 0.04e6, uptime: "14d 3h" },
@@ -48,17 +128,17 @@ const generateMockData = (prev) => {
     },
     sensors: [
       { label: "Package", value: Math.max(30, Math.min(85, jitter(prev?.sensors?.[0]?.value || 48, 4))), unit: "C" },
-      { label: "Core 0", value: Math.max(30, Math.min(85, jitter(prev?.sensors?.[1]?.value || 45, 3))), unit: "C" },
-      { label: "Core 1", value: Math.max(30, Math.min(85, jitter(prev?.sensors?.[2]?.value || 43, 3))), unit: "C" },
+      { label: "Core 0",  value: Math.max(30, Math.min(85, jitter(prev?.sensors?.[1]?.value || 45, 3))), unit: "C" },
+      { label: "Core 1",  value: Math.max(30, Math.min(85, jitter(prev?.sensors?.[2]?.value || 43, 3))), unit: "C" },
     ],
     uptime: "12d 7h 34m",
     fs: [
-      { mnt_point: "/", device_name: "/dev/nvme0n1p2", percent: 34, used: 45.2 * 1e9, size: 233.4 * 1e9 },
-      { mnt_point: "/mnt/ironwolf", device_name: "/dev/sda1", percent: 61, used: 4.5 * 1e12, size: 7.3 * 1e12 },
+      { mnt_point: "/",              device_name: "/dev/nvme0n1p2", percent: 34, used: 45.2 * 1e9,  size: 233.4 * 1e9 },
+      { mnt_point: "/mnt/ironwolf",  device_name: "/dev/sda1",      percent: 61, used: 4.5 * 1e12,  size: 7.3 * 1e12  },
     ],
     diskio: [
-      { disk_name: "nvme0n1", read_bytes: jitter(prev?.diskio?.[0]?.read_bytes || 2.1e6, 1e6), write_bytes: jitter(prev?.diskio?.[0]?.write_bytes || 0.8e6, 5e5) },
-      { disk_name: "sda", read_bytes: jitter(prev?.diskio?.[1]?.read_bytes || 45e6, 20e6), write_bytes: jitter(prev?.diskio?.[1]?.write_bytes || 12e6, 8e6) },
+      { disk_name: "nvme0n1", read_bytes: jitter(prev?.diskio?.[0]?.read_bytes || 2.1e6, 1e6),  write_bytes: jitter(prev?.diskio?.[0]?.write_bytes || 0.8e6, 5e5) },
+      { disk_name: "sda",     read_bytes: jitter(prev?.diskio?.[1]?.read_bytes || 45e6,  20e6), write_bytes: jitter(prev?.diskio?.[1]?.write_bytes || 12e6,  8e6) },
     ],
     network: {
       rx: Math.max(0, jitter(prevNet.rx || 2.4e6, 1.5e6)),
@@ -68,7 +148,7 @@ const generateMockData = (prev) => {
       const p = prev?.docker?.find((d) => d.name === c.name) || c;
       return {
         name: c.name,
-        status: c.name === "dockge" ? (Math.random() > 0.05 ? "running" : "paused") : "running",
+        status: "running",
         cpu: Math.max(0, Math.min(100, jitter(p.cpu, c.cpu * 0.5 + 0.1))),
         mem: c.mem,
         net_rx: Math.max(0, jitter(p.net_rx, c.net_rx * 0.3)),
@@ -83,16 +163,16 @@ const generateMockData = (prev) => {
 const fmt = {
   bytes: (b) => {
     if (b >= 1e12) return (b / 1e12).toFixed(1) + " TB";
-    if (b >= 1e9) return (b / 1e9).toFixed(1) + " GB";
-    if (b >= 1e6) return (b / 1e6).toFixed(1) + " MB";
-    if (b >= 1e3) return (b / 1e3).toFixed(1) + " KB";
+    if (b >= 1e9)  return (b / 1e9).toFixed(1)  + " GB";
+    if (b >= 1e6)  return (b / 1e6).toFixed(1)  + " MB";
+    if (b >= 1e3)  return (b / 1e3).toFixed(1)  + " KB";
     return b.toFixed(0) + " B";
   },
   speed: (bps) => fmt.bytes(Math.abs(bps)) + "/s",
-  pct: (v) => Math.round(v) + "%",
-  temp: (v) => Math.round(v) + "°C",
-  num: (v) => Math.round(v).toLocaleString(),
-  freq: (mhz) => (mhz / 1000).toFixed(1) + " GHz",
+  pct:   (v)   => Math.round(v) + "%",
+  temp:  (v)   => Math.round(v) + "°C",
+  num:   (v)   => Math.round(v).toLocaleString(),
+  freq:  (mhz) => (mhz / 1000).toFixed(1) + " GHz",
 };
 
 const statusColor = (pct) => {
@@ -107,13 +187,243 @@ const tempColor = (t) => {
   return "var(--crit)";
 };
 
-// ─── 2EZ LOGO ────────────────────────────────────────────────────
+// ─── GLOBAL CSS ──────────────────────────────────────────────────
+const GLOBAL_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg: #0a0e14;
+    --bg2: #0d1119;
+    --card: rgba(255,255,255,0.025);
+    --card-hover: rgba(255,255,255,0.04);
+    --card-border: rgba(255,255,255,0.06);
+    --text: #e0e4ea;
+    --text-dim: rgba(224,228,234,0.45);
+    --accent: #22d3a7;
+    --accent-dim: rgba(34,211,167,0.12);
+    --warn: #f59e0b;
+    --crit: #ef4444;
+    --radius: 14px;
+    --font: 'Outfit', -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body, html, #root { background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; min-height: 100vh; }
+
+  /* ── Shell ── */
+  .shell { max-width: 1320px; margin: 0 auto; padding: 28px 24px 48px; }
+
+  /* ── Header ── */
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid var(--card-border); }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .header-title { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .header-sub { font-size: 13px; color: var(--text-dim); font-weight: 400; }
+  .header-right { display: flex; align-items: center; gap: 18px; font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
+
+  /* ── Live badge ── */
+  .live-badge { display: flex; align-items: center; gap: 6px; background: var(--accent-dim); color: var(--accent); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; font-family: var(--mono); flex-shrink: 0; }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse-dot 2s ease-in-out infinite; }
+
+  /* ── Grid (main dashboard) ── */
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; } .shell { padding: 16px 12px 32px; } .header { flex-direction: column; align-items: flex-start; gap: 12px; } }
+
+  /* ── Card ── */
+  .card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; transition: background 0.25s ease, border-color 0.25s ease; }
+  .card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.09); }
+  .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); font-weight: 600; margin-bottom: 14px; }
+  .card-clickable { cursor: pointer; }
+  .card-clickable:hover { border-color: rgba(34, 211, 167, 0.22) !important; }
+
+  /* ── Typography ── */
+  .mono { font-family: var(--mono); }
+  .big-num { font-size: 36px; font-weight: 700; line-height: 1; font-family: var(--mono); }
+  .label-sm { font-size: 12px; color: var(--text-dim); font-weight: 400; }
+  .label-xs { font-size: 10px; color: var(--text-dim); font-weight: 400; }
+
+  /* ── Bar ── */
+  .bar-track { background: rgba(255,255,255,0.04); border-radius: 4px; overflow: hidden; }
+  .bar-fill { border-radius: 4px; transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+
+  /* ── Ring ── */
+  .ring-progress { transition: stroke-dashoffset 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+
+  /* ── Docker ── */
+  .docker-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  @media (max-width: 600px) { .docker-grid { grid-template-columns: 1fr; } }
+  .docker-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; background: rgba(255,255,255,0.015); transition: background 0.2s ease; }
+  .docker-item:hover { background: rgba(255,255,255,0.04); }
+  .docker-dot-wrap { flex-shrink: 0; }
+  .docker-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .dot-live { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .dot-dead { background: var(--crit); box-shadow: 0 0 6px var(--crit); animation: pulse-crit 1.5s ease-in-out infinite; }
+  .docker-name { font-family: var(--mono); font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ── Stat row ── */
+  .stat-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; }
+  .stat-row + .stat-row { border-top: 1px solid rgba(255,255,255,0.03); }
+
+  /* ── Network ── */
+  .net-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .net-arrow { font-size: 14px; width: 22px; text-align: center; flex-shrink: 0; }
+  .net-val { font-family: var(--mono); font-size: 15px; font-weight: 600; min-width: 90px; }
+
+  /* ── Temps ── */
+  .temp-grid { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  /* ── Uptime strip ── */
+  .uptime-strip { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 13px; color: var(--accent); font-weight: 500; }
+
+  /* ── Cores ── */
+  .cores-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 12px; }
+  .core-bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .core-bar-outer { width: 100%; height: 32px; background: rgba(255,255,255,0.04); border-radius: 4px; position: relative; overflow: hidden; display: flex; align-items: flex-end; }
+  .core-bar-inner { width: 100%; border-radius: 4px; transition: height 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+  .core-label { font-family: var(--mono); font-size: 8px; color: var(--text-dim); }
+
+  /* ── Section divider ── */
+  .section-title { grid-column: 1 / -1; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim); font-weight: 600; padding-top: 8px; }
+
+  /* ── Close button ── */
+  .close-btn { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--card-border); border-radius: 8px; padding: 6px 12px; color: var(--text-dim); font-family: var(--font); font-size: 12px; font-weight: 500; cursor: pointer; transition: background 0.2s, color 0.2s, border-color 0.2s; }
+  .close-btn:hover { background: rgba(255,255,255,0.07); color: var(--text); border-color: rgba(255,255,255,0.12); }
+
+  /* ── Container detail ── */
+  .container-detail { width: 100%; }
+  .ct-col-header { display: inline-flex; align-items: center; cursor: pointer; user-select: none; transition: color 0.15s; white-space: nowrap; }
+  .ct-col-header:hover { color: var(--text); }
+  .ct-col-active { color: var(--accent) !important; }
+  .ct-header { display: grid; grid-template-columns: 1fr 180px 100px 120px 120px 90px; padding: 5px 10px 8px; gap: 12px; font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); font-weight: 600; border-bottom: 1px solid var(--card-border); margin-bottom: 2px; }
+  .ct-row { display: grid; grid-template-columns: 1fr 180px 100px 120px 120px 90px; align-items: center; padding: 9px 10px; gap: 12px; border-radius: 8px; transition: background 0.2s; }
+  .ct-row:hover { background: rgba(255,255,255,0.025); }
+  @media (max-width: 900px) { .ct-header, .ct-row { grid-template-columns: 1fr 120px 90px 100px 100px 70px; gap: 8px; } }
+  @media (max-width: 600px) { .ct-header { display: none; } .ct-row { grid-template-columns: 1fr auto; } .ct-row > *:nth-child(n+3) { display: none; } }
+
+  /* ── Hamburger button ── */
+  .hamburger-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 8px; border-radius: 10px; display: flex; align-items: center; justify-content: center; transition: background 0.2s, color 0.2s; flex-shrink: 0; }
+  .hamburger-btn:hover { background: var(--card-hover); color: var(--text); }
+
+  /* ── Nav sidebar ── */
+  .nav-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 999; backdrop-filter: blur(3px); }
+  .nav-sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 256px; background: var(--bg2); border-right: 1px solid var(--card-border); z-index: 1000; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; overflow-y: auto; }
+  .nav-sidebar.open { transform: translateX(0); }
+  .nav-header { padding: 22px 20px 16px; border-bottom: 1px solid var(--card-border); display: flex; align-items: center; gap: 12px; }
+  .nav-header-title { font-size: 16px; font-weight: 700; }
+  .nav-header-sub { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+  .nav-section-lbl { padding: 18px 20px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim); font-weight: 600; }
+  .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 20px; cursor: pointer; background: none; border: none; color: var(--text-dim); font-family: var(--font); font-size: 14px; font-weight: 500; width: 100%; text-align: left; transition: background 0.15s, color 0.15s; border-radius: 0; }
+  .nav-item:hover { background: rgba(255,255,255,0.03); color: var(--text); }
+  .nav-item.active { color: var(--accent); background: var(--accent-dim); }
+  .nav-item-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; font-weight: 700; flex-shrink: 0; }
+
+  /* ── Service card grid ── */
+  .svc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  @media (max-width: 600px) { .svc-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  /* ── Service card ── */
+  .svc-card { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); transition: background 0.2s, border-color 0.2s, transform 0.15s; cursor: pointer; }
+  .svc-card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.12); transform: translateY(-1px); }
+  .svc-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 700; font-size: 12px; flex-shrink: 0; }
+  .svc-name { font-size: 14px; font-weight: 600; line-height: 1.2; }
+  .svc-desc { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
+
+  /* ── Live service card ── */
+  .live-svc-card { display: flex; flex-direction: column; gap: 12px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); transition: background 0.2s, border-color 0.2s, transform 0.15s; cursor: pointer; }
+  .live-svc-card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.12); transform: translateY(-1px); }
+  .live-svc-top { display: flex; align-items: center; gap: 12px; }
+  .live-svc-name { font-size: 14px; font-weight: 600; }
+  .live-svc-desc { font-size: 11px; color: var(--text-dim); }
+
+  /* ── Live stats row ── */
+  .live-stats-row { display: flex; gap: 4px; flex-wrap: wrap; }
+  .live-stat { display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 8px 12px; flex: 1; min-width: 60px; }
+  .live-stat-val { font-family: var(--mono); font-size: 16px; font-weight: 700; line-height: 1.2; color: var(--text); }
+  .live-stat-lbl { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px; font-weight: 500; }
+
+  /* ── Live now-playing / recent ── */
+  .live-now-playing { border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .now-playing-row { display: flex; align-items: center; gap: 8px; }
+  .np-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .live-recent { border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+  .recent-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+  /* ── Page section heading ── */
+  .page-section { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim); font-weight: 600; margin-bottom: 16px; margin-top: 4px; }
+
+  /* ── Animations ── */
+  @keyframes fade-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  @keyframes pulse-crit { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
+
+  .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: var(--font); color: var(--text); }
+
+  /* ── Settings cog button ── */
+  .nav-footer { margin-top: auto; padding: 12px 16px 16px; border-top: 1px solid var(--card-border); }
+  .settings-cog-btn { display: flex; align-items: center; gap: 10px; width: 100%; background: transparent; border: none; cursor: pointer; padding: 8px 10px; border-radius: 8px; color: var(--text-dim); font-family: var(--font); font-size: 13px; transition: background 0.15s, color 0.15s; }
+  .settings-cog-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+  .settings-cog-btn svg { flex-shrink: 0; }
+
+  /* ── Settings panel ── */
+  .settings-panel { position: fixed; bottom: 0; left: 256px; width: 300px; max-height: 80vh; overflow-y: auto; background: var(--bg2); border: 1px solid var(--card-border); border-radius: 12px 12px 0 0; box-shadow: 0 -8px 40px rgba(0,0,0,0.5); z-index: 1100; padding: 20px; font-family: var(--font); animation: slide-up 0.25s cubic-bezier(0.22,1,0.36,1) both; }
+  @media (max-width: 600px) { .settings-panel { left: 0; width: 100%; border-radius: 12px 12px 0 0; } }
+  @keyframes slide-up { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .settings-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .settings-panel-title { font-size: 13px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 1px; }
+  .settings-section-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); font-weight: 600; margin-bottom: 10px; margin-top: 16px; }
+  .settings-section-lbl:first-of-type { margin-top: 0; }
+
+  /* ── Theme tiles ── */
+  .theme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .theme-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; background: transparent; border: 2px solid transparent; border-radius: 10px; padding: 8px 4px; cursor: pointer; transition: border-color 0.15s; }
+  .theme-tile:hover { border-color: rgba(255,255,255,0.2); }
+  .theme-tile.active { border-color: var(--accent); }
+  .theme-swatch { width: 44px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 3px; overflow: hidden; }
+  .theme-swatch-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .theme-tile-name { font-size: 10px; color: var(--text-dim); font-family: var(--font); }
+
+  /* ── Color pickers ── */
+  .color-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .color-row:last-child { border-bottom: none; }
+  .color-row-label { font-size: 12px; color: var(--text); }
+  .color-input-wrap { display: flex; align-items: center; gap: 8px; }
+  .color-input-wrap input[type=color] { width: 32px; height: 24px; border: none; border-radius: 4px; cursor: pointer; padding: 0; background: none; }
+  .color-hex { font-family: var(--mono); font-size: 11px; color: var(--text-dim); width: 52px; }
+  .reset-btn { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: var(--text-dim); font-family: var(--font); font-size: 10px; padding: 3px 8px; border-radius: 4px; cursor: pointer; transition: background 0.12s; }
+  .reset-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+
+  /* ── Drag-and-drop ── */
+  .drag-item { cursor: grab; display: flex; flex-direction: column; }
+  .drag-item > * { flex: 1; }
+  .drag-item:active { cursor: grabbing; }
+  .drag-item.dragging { opacity: 0.3; pointer-events: none; }
+  .drag-item.drag-over { border-radius: 12px; outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  /* ── Card size control ── */
+  .size-ctrl { display: flex; gap: 2px; align-items: center; flex-shrink: 0; }
+  .size-btn { width: 20px; height: 18px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08); background: transparent; color: var(--text-dim); font-family: var(--mono); font-size: 9px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.12s, color 0.12s, border-color 0.12s; padding: 0; }
+  .size-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); border-color: rgba(255,255,255,0.16); }
+  .size-btn.sz-active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+`;
+
+// ─── LOGO ────────────────────────────────────────────────────────
 const Logo = ({ size = 32 }) => (
   <svg width={size} height={size} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect width="120" height="120" rx="24" fill="var(--accent)" />
     <text x="60" y="78" textAnchor="middle" fontFamily="'JetBrains Mono', monospace" fontWeight="800" fontSize="52" fill="var(--bg)" letterSpacing="-2">
       2EZ
     </text>
+  </svg>
+);
+
+// ─── HAMBURGER ICON ──────────────────────────────────────────────
+const HamburgerIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <line x1="3" y1="6"  x2="21" y2="6"  />
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <line x1="3" y1="18" x2="21" y2="18" />
   </svg>
 );
 
@@ -128,20 +438,14 @@ const AnimNum = ({ value, format = "pct", className = "" }) => {
     const end = value;
     const duration = 600;
     const startTime = performance.now();
-
     const animate = (now) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
       const current = start + (end - start) * eased;
-      if (ref.current) {
-        ref.current.textContent = fmt[format](current);
-      }
-      if (progress < 1) {
-        frameRef.current = requestAnimationFrame(animate);
-      } else {
-        prevVal.current = end;
-      }
+      if (ref.current) ref.current.textContent = fmt[format](current);
+      if (progress < 1) frameRef.current = requestAnimationFrame(animate);
+      else prevVal.current = end;
     };
     frameRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(frameRef.current);
@@ -162,14 +466,7 @@ const Bar = ({ value, color, height = 6, label, detail, delay = 0 }) => (
       </div>
     )}
     <div className="bar-track" style={{ height }}>
-      <div
-        className="bar-fill"
-        style={{
-          width: `${Math.min(100, Math.max(0, value))}%`,
-          background: color || statusColor(value),
-          height: "100%",
-        }}
-      />
+      <div className="bar-fill" style={{ width: `${Math.min(100, Math.max(0, value))}%`, background: color || statusColor(value), height: "100%" }} />
     </div>
     {detail && <div className="label-xs" style={{ marginTop: 2, opacity: 0.5 }}>{detail}</div>}
   </div>
@@ -186,45 +483,60 @@ const Spark = ({ data, color = "var(--accent)", height = 32, width = 100 }) => {
     const y = height - ((v - min) / range) * (height - 4) - 2;
     return `${x},${y}`;
   }).join(" ");
-
   return (
     <svg width={width} height={height} style={{ display: "block", overflow: "visible" }}>
       <defs>
         <linearGradient id={`sg-${color.replace(/[^a-z0-9]/gi, "")}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
+          <stop offset="0%"   stopColor={color} stopOpacity="0.3" />
+          <stop offset="100%" stopColor={color} stopOpacity="0"   />
         </linearGradient>
       </defs>
-      <polygon
-        points={`0,${height} ${points} ${width},${height}`}
-        fill={`url(#sg-${color.replace(/[^a-z0-9]/gi, "")})`}
-      />
+      <polygon points={`0,${height} ${points} ${width},${height}`} fill={`url(#sg-${color.replace(/[^a-z0-9]/gi, "")})`} />
       <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 };
 
 // ─── CARD ────────────────────────────────────────────────────────
-const Card = ({ title, children, span = 1, delay = 0, onClick }) => (
+const Card = ({ title, children, span = 1, delay = 0, onClick, controls }) => (
   <div
     className={`card fade-in${onClick ? " card-clickable" : ""}`}
     style={{ gridColumn: `span ${span}`, animationDelay: `${delay}ms` }}
     onClick={onClick}
   >
     {title && (
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 8 }}>
         <div className="card-title" style={{ margin: 0 }}>{title}</div>
-        {onClick && (
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3, flexShrink: 0 }}>
-            <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
-            <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
-          </svg>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {controls}
+          {onClick && (
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3, flexShrink: 0 }}>
+              <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+              <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+            </svg>
+          )}
+        </div>
       </div>
     )}
     {children}
   </div>
 );
+
+// ─── SIZE CONTROL ────────────────────────────────────────────────
+function SizeCtrl({ size, onChange }) {
+  return (
+    <div className="size-ctrl" onClick={e => e.stopPropagation()}>
+      {[["S","compact"],["M","medium"],["L","large"]].map(([lbl, val]) => (
+        <button
+          key={val}
+          className={`size-btn${size === val ? " sz-active" : ""}`}
+          onClick={() => onChange(val)}
+          title={val.charAt(0).toUpperCase() + val.slice(1)}
+        >{lbl}</button>
+      ))}
+    </div>
+  );
+}
 
 // ─── RING GAUGE ──────────────────────────────────────────────────
 const Ring = ({ value, size = 100, stroke = 7, color, label, format = "pct" }) => {
@@ -232,17 +544,12 @@ const Ring = ({ value, size = 100, stroke = 7, color, label, format = "pct" }) =
   const circ = 2 * Math.PI * r;
   const offset = circ - (Math.min(100, Math.max(0, value)) / 100) * circ;
   const c = color || statusColor(value);
-
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
       <div style={{ position: "relative", width: size, height: size }}>
         <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--card-border)" strokeWidth={stroke} />
-          <circle
-            cx={size / 2} cy={size / 2} r={r} fill="none" stroke={c} strokeWidth={stroke}
-            strokeDasharray={circ} strokeDashoffset={offset}
-            strokeLinecap="round" className="ring-progress"
-          />
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--card-border)" strokeWidth={stroke} />
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={c} strokeWidth={stroke} strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" className="ring-progress" />
         </svg>
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div className="mono" style={{ fontSize: size * 0.22, fontWeight: 700, color: c, lineHeight: 1 }}>
@@ -255,7 +562,7 @@ const Ring = ({ value, size = 100, stroke = 7, color, label, format = "pct" }) =
   );
 };
 
-// ─── DOCKER DOT ──────────────────────────────────────────────────
+// ─── DOCKER ITEMS ────────────────────────────────────────────────
 const DockerItem = ({ name, status, cpu, mem }) => {
   const running = status === "running";
   return (
@@ -265,15 +572,13 @@ const DockerItem = ({ name, status, cpu, mem }) => {
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="docker-name">{name}</div>
-        <div className="label-xs" style={{ opacity: 0.4 }}>
-          {cpu.toFixed(1)}% · {fmt.bytes(mem)}
-        </div>
+        <div className="label-xs" style={{ opacity: 0.4 }}>{cpu.toFixed(1)}% · {fmt.bytes(mem)}</div>
       </div>
     </div>
   );
 };
 
-// ─── CONTAINER DETAIL VIEW ───────────────────────────────────────
+// ─── CONTAINER DETAIL ────────────────────────────────────────────
 const parseUptime = (s) => {
   if (!s || s === "—") return 0;
   let t = 0;
@@ -297,12 +602,8 @@ const ContainerDetail = ({ containers, onClose }) => {
   const [sortDir, setSortDir] = useState("desc");
 
   const handleSort = (key) => {
-    if (key === sortKey) {
-      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
-    } else {
-      setSortKey(key);
-      setSortDir("desc");
-    }
+    if (key === sortKey) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    else { setSortKey(key); setSortDir("desc"); }
   };
 
   const sorted = [...containers].sort((a, b) => {
@@ -315,16 +616,10 @@ const ContainerDetail = ({ containers, onClose }) => {
   const ColHeader = ({ label, id }) => {
     const active = sortKey === id;
     return (
-      <span
-        onClick={() => handleSort(id)}
-        className={`ct-col-header${active ? " ct-col-active" : ""}`}
-      >
+      <span onClick={() => handleSort(id)} className={`ct-col-header${active ? " ct-col-active" : ""}`}>
         {label}
-        <svg
-          width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-          style={{ marginLeft: 4, opacity: active ? 1 : 0, transition: "opacity 0.15s, transform 0.2s", transform: active && sortDir === "asc" ? "rotate(180deg)" : "rotate(0deg)" }}
-        >
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+          style={{ marginLeft: 4, opacity: active ? 1 : 0, transition: "opacity 0.15s, transform 0.2s", transform: active && sortDir === "asc" ? "rotate(180deg)" : "rotate(0deg)" }}>
           <polyline points="6 9 12 15 18 9"/>
         </svg>
       </span>
@@ -337,9 +632,7 @@ const ContainerDetail = ({ containers, onClose }) => {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <div className="card-title" style={{ margin: 0 }}>Containers</div>
-            <span className="label-sm">
-              {containers.filter(c => c.status === "running").length} / {containers.length} running
-            </span>
+            <span className="label-sm">{containers.filter(c => c.status === "running").length} / {containers.length} running</span>
           </div>
           <button className="close-btn" onClick={onClose}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -348,16 +641,14 @@ const ContainerDetail = ({ containers, onClose }) => {
             Close
           </button>
         </div>
-
         <div className="ct-header">
-          <ColHeader label="Container" id="name" />
-          <ColHeader label="CPU"       id="cpu" />
-          <ColHeader label="Memory"    id="mem" />
+          <ColHeader label="Container" id="name"   />
+          <ColHeader label="CPU"       id="cpu"    />
+          <ColHeader label="Memory"    id="mem"    />
           <ColHeader label="Net ↓"     id="net_rx" />
           <ColHeader label="Net ↑"     id="net_tx" />
           <ColHeader label="Uptime"    id="uptime" />
         </div>
-
         <div>
           {sorted.map((c) => {
             const running = c.status === "running";
@@ -366,9 +657,7 @@ const ContainerDetail = ({ containers, onClose }) => {
               <div key={c.name} className="ct-row">
                 <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                   <div className={`docker-dot ${running ? "dot-live" : "dot-dead"}`} style={{ flexShrink: 0 }} />
-                  <span className="mono" style={{ fontSize: 12, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {c.name}
-                  </span>
+                  <span className="mono" style={{ fontSize: 12, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden", minWidth: 44 }}>
@@ -389,13 +678,687 @@ const ContainerDetail = ({ containers, onClose }) => {
   );
 };
 
-// ─── MAIN DASHBOARD ──────────────────────────────────────────────
-export default function Dashboard() {
+// ─── USE POLLING HOOK ────────────────────────────────────────────
+function usePolling(fetcher, ms = 30000) {
+  const [state, setState] = useState({ data: null, loading: true, err: null });
+  const ref = useRef(null);
+  useEffect(() => { ref.current = fetcher; });
+  useEffect(() => {
+    let alive = true;
+    async function run() {
+      try {
+        const data = await ref.current();
+        if (alive && data != null) setState({ data, loading: false, err: null });
+        else if (alive) setState(s => ({ ...s, loading: false }));
+      } catch (e) {
+        if (alive) setState(s => ({ ...s, loading: false, err: String(e.message || e) }));
+      }
+    }
+    run();
+    const id = setInterval(run, ms);
+    return () => { alive = false; clearInterval(id); };
+  }, [ms]);
+  return state;
+}
+
+// ─── SERVICE CARD ────────────────────────────────────────────────
+function SvcCard({ id }) {
+  const s = SVC[id];
+  return (
+    <a href={s.url} target="_blank" rel="noopener noreferrer" className="svc-card fade-in">
+      <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
+        <SvcIcon id={s.id} color={s.col} />
+      </div>
+      <div>
+        <div className="svc-name">{s.name}</div>
+        <div className="svc-desc">{s.desc}</div>
+      </div>
+    </a>
+  );
+}
+
+// ─── LIVE CHIP ───────────────────────────────────────────────────
+const LiveChip = () => (
+  <div className="live-badge">
+    <div className="live-dot" />LIVE
+  </div>
+);
+
+// ─── JELLYFIN WIDGET ─────────────────────────────────────────────
+function JellyfinWidget() {
+  const s = SVC.jellyfin;
+  const { data: sessions } = usePolling(
+    () => fetch(`/jellyfin/Sessions?api_key=${JF_KEY}`).then(r => r.json()),
+    15000
+  );
+  const { data: counts } = usePolling(
+    () => fetch(`/jellyfin/Items/Counts?api_key=${JF_KEY}`).then(r => r.json()),
+    60000
+  );
+
+  const activeStreams = sessions ? sessions.filter(s => s.NowPlayingItem).length : null;
+  const nowPlaying   = sessions ? sessions.filter(s => s.NowPlayingItem) : [];
+
+  return (
+    <a href={s.url} target="_blank" rel="noopener noreferrer" className="live-svc-card fade-in">
+      <div className="live-svc-top">
+        <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
+          <SvcIcon id={s.id} color={s.col} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div className="live-svc-name">{s.name}</div>
+          <div className="live-svc-desc">{s.desc}</div>
+        </div>
+        <LiveChip />
+      </div>
+
+      <div className="live-stats-row">
+        <div className="live-stat">
+          <span className="live-stat-val" style={{ color: s.col }}>{activeStreams ?? "—"}</span>
+          <span className="live-stat-lbl">streams</span>
+        </div>
+        <div className="live-stat">
+          <span className="live-stat-val">{counts?.MovieCount ?? "—"}</span>
+          <span className="live-stat-lbl">movies</span>
+        </div>
+        <div className="live-stat">
+          <span className="live-stat-val">{counts?.EpisodeCount ?? "—"}</span>
+          <span className="live-stat-lbl">episodes</span>
+        </div>
+        <div className="live-stat">
+          <span className="live-stat-val">{counts?.SongCount ?? "—"}</span>
+          <span className="live-stat-lbl">songs</span>
+        </div>
+      </div>
+
+      {nowPlaying.length > 0 && (
+        <div className="live-now-playing">
+          {nowPlaying.slice(0, 3).map((sess, i) => (
+            <div key={i} className="now-playing-row">
+              <span className="np-dot" style={{ background: s.col }} />
+              <span className="label-xs" style={{ color: "var(--text)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {sess.NowPlayingItem?.Name}
+              </span>
+              <span className="label-xs" style={{ opacity: 0.45, flexShrink: 0 }}>{sess.UserName}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </a>
+  );
+}
+
+// ─── QBITTORRENT WIDGET ──────────────────────────────────────────
+function QBittorrentWidget() {
+  const s = SVC.qbt;
+  const [qbt, setQbt] = useState({ transfer: null, torrents: null, loading: true, err: null });
+
+  useEffect(() => {
+    let alive = true;
+    async function poll() {
+      try {
+        await fetch("/qbt/api/v2/auth/login", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: "username=tuohy&password=Angcoops",
+        });
+        const [transfer, torrents] = await Promise.all([
+          fetch("/qbt/api/v2/transfer/info",              { credentials: "include" }).then(r => r.json()),
+          fetch("/qbt/api/v2/torrents/info?filter=active", { credentials: "include" }).then(r => r.json()),
+        ]);
+        if (alive) setQbt({ transfer, torrents, loading: false, err: null });
+      } catch (e) {
+        if (alive) setQbt(st => ({ ...st, loading: false, err: e.message }));
+      }
+    }
+    poll();
+    const id = setInterval(poll, 4000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+
+  const { transfer, torrents } = qbt;
+  const activeTorrents = Array.isArray(torrents) ? torrents : [];
+
+  return (
+    <a href={s.url} target="_blank" rel="noopener noreferrer" className="live-svc-card fade-in">
+      <div className="live-svc-top">
+        <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
+          <SvcIcon id={s.id} color={s.col} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div className="live-svc-name">{s.name}</div>
+          <div className="live-svc-desc">{s.desc}</div>
+        </div>
+        <LiveChip />
+      </div>
+
+      <div className="live-stats-row">
+        <div className="live-stat">
+          <span className="live-stat-val" style={{ color: s.col }}>{transfer ? activeTorrents.length : "—"}</span>
+          <span className="live-stat-lbl">active</span>
+        </div>
+        <div className="live-stat">
+          <span className="live-stat-val" style={{ color: "var(--accent)" }}>
+            {transfer ? fmt.speed(transfer.dl_info_speed) : "—"}
+          </span>
+          <span className="live-stat-lbl">↓ down</span>
+        </div>
+        <div className="live-stat">
+          <span className="live-stat-val" style={{ color: "var(--warn)" }}>
+            {transfer ? fmt.speed(transfer.up_info_speed) : "—"}
+          </span>
+          <span className="live-stat-lbl">↑ up</span>
+        </div>
+      </div>
+
+      {activeTorrents.length > 0 && (
+        <div className="live-now-playing">
+          {activeTorrents.slice(0, 3).map((t, i) => (
+            <div key={i} className="now-playing-row">
+              <span className="np-dot" style={{ background: t.state === "downloading" ? "var(--accent)" : "var(--warn)" }} />
+              <span className="label-xs" style={{ color: "var(--text)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {t.name}
+              </span>
+              <span className="label-xs" style={{ opacity: 0.45, flexShrink: 0 }}>{Math.round(t.progress * 100)}%</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </a>
+  );
+}
+
+// ─── NAVIDROME WIDGET ────────────────────────────────────────────
+function NavidromeWidget() {
+  const s = SVC.navidrome;
+
+  const { data: nowPlaying } = usePolling(
+    () => fetch(`/navidrome/rest/getNowPlaying.view?${NAV_PARAMS}`)
+      .then(r => r.json())
+      .then(d => d["subsonic-response"]?.nowPlaying?.entry || []),
+    10000
+  );
+  const { data: artistCount } = usePolling(
+    () => fetch(`/navidrome/rest/getArtists.view?${NAV_PARAMS}`)
+      .then(r => r.json())
+      .then(d => {
+        const idx = d["subsonic-response"]?.artists?.index || [];
+        return idx.reduce((n, i) => n + (i.artist?.length || 0), 0);
+      }),
+    120000
+  );
+  const { data: recentAlbums } = usePolling(
+    () => fetch(`/navidrome/rest/getAlbumList2.view?type=newest&size=3&${NAV_PARAMS}`)
+      .then(r => r.json())
+      .then(d => d["subsonic-response"]?.albumList2?.album || []),
+    60000
+  );
+
+  const playing = Array.isArray(nowPlaying) ? nowPlaying : [];
+  const recent  = Array.isArray(recentAlbums) ? recentAlbums : [];
+
+  return (
+    <a href={s.url} target="_blank" rel="noopener noreferrer" className="live-svc-card fade-in">
+      <div className="live-svc-top">
+        <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
+          <SvcIcon id={s.id} color={s.col} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div className="live-svc-name">{s.name}</div>
+          <div className="live-svc-desc">{s.desc}</div>
+        </div>
+        <LiveChip />
+      </div>
+
+      <div className="live-stats-row">
+        <div className="live-stat">
+          <span className="live-stat-val" style={{ color: s.col }}>{nowPlaying ? playing.length : "—"}</span>
+          <span className="live-stat-lbl">playing</span>
+        </div>
+        <div className="live-stat">
+          <span className="live-stat-val">{artistCount ?? "—"}</span>
+          <span className="live-stat-lbl">artists</span>
+        </div>
+      </div>
+
+      {playing.length > 0 && (
+        <div className="live-now-playing">
+          {playing.slice(0, 2).map((track, i) => (
+            <div key={i} className="now-playing-row">
+              <span className="np-dot" style={{ background: s.col }} />
+              <span className="label-xs" style={{ color: "var(--text)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {track.title} — {track.artist}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {recent.length > 0 && (
+        <div className="live-recent">
+          <div className="label-xs" style={{ marginBottom: 4, textTransform: "uppercase", letterSpacing: 1, opacity: 0.4 }}>Recently Added</div>
+          {recent.map((a, i) => (
+            <div key={i} className="recent-item">
+              <span className="label-xs" style={{ color: "var(--text)" }}>{a.name}</span>
+              <span className="label-xs" style={{ opacity: 0.45 }}>{a.artist}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </a>
+  );
+}
+
+// ─── UNMANIC WIDGET ──────────────────────────────────────────────
+function UnmanicWidget() {
+  const s = SVC.unmanic;
+
+  const { data: pending } = usePolling(
+    () => fetch("/unmanic/api/v2/pending/list", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ start: 0, length: 5 }),
+    }).then(r => r.json()),
+    10000
+  );
+  const { data: workers } = usePolling(
+    () => fetch("/unmanic/api/v2/workers/status").then(r => r.json()),
+    5000
+  );
+  const { data: history } = usePolling(
+    () => fetch("/unmanic/api/v2/history/list", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ start: 0, length: 50 }),
+    }).then(r => r.json()),
+    60000
+  );
+
+  const pendingCount  = pending?.total_count ?? pending?.results?.length ?? null;
+  const workerList    = workers?.workers || workers?.data || [];
+  const activeWorkers = workerList.filter(w => w.status === "in_task" || w.current_task).length;
+  const spaceSaved    = history?.results?.reduce((acc, h) => {
+    const diff = (h.source_data?.file_size || 0) - (h.destination_data?.file_size || 0);
+    return acc + (diff > 0 ? diff : 0);
+  }, 0) ?? null;
+
+  return (
+    <a href={s.url} target="_blank" rel="noopener noreferrer" className="live-svc-card fade-in">
+      <div className="live-svc-top">
+        <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
+          <SvcIcon id={s.id} color={s.col} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div className="live-svc-name">{s.name}</div>
+          <div className="live-svc-desc">{s.desc}</div>
+        </div>
+        <LiveChip />
+      </div>
+
+      <div className="live-stats-row">
+        <div className="live-stat">
+          <span className="live-stat-val" style={{ color: s.col }}>{pendingCount ?? "—"}</span>
+          <span className="live-stat-lbl">queued</span>
+        </div>
+        <div className="live-stat">
+          <span className="live-stat-val">{workers ? activeWorkers : "—"}</span>
+          <span className="live-stat-lbl">working</span>
+        </div>
+        <div className="live-stat">
+          <span className="live-stat-val" style={{ color: "var(--accent)" }}>
+            {spaceSaved != null && spaceSaved > 0 ? fmt.bytes(spaceSaved) : "—"}
+          </span>
+          <span className="live-stat-lbl">saved</span>
+        </div>
+      </div>
+    </a>
+  );
+}
+
+// ─── SPEEDTEST WIDGET ────────────────────────────────────────────
+function SpeedtestWidget() {
+  const s = SVC.speedtest;
+
+  const { data } = usePolling(
+    () => fetch("/speedtest/api/v2/speedtest/latest", {
+      headers: { Authorization: `Bearer ${ST_TOKEN}` },
+    }).then(r => r.json()),
+    60000
+  );
+
+  const result = data?.data;
+
+  return (
+    <a href={s.url} target="_blank" rel="noopener noreferrer" className="live-svc-card fade-in">
+      <div className="live-svc-top">
+        <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
+          <SvcIcon id={s.id} color={s.col} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div className="live-svc-name">{s.name}</div>
+          <div className="live-svc-desc">{s.desc}</div>
+        </div>
+        <LiveChip />
+      </div>
+
+      <div className="live-stats-row">
+        <div className="live-stat">
+          <span className="live-stat-val" style={{ color: "var(--accent)" }}>
+            {result ? parseFloat(result.download).toFixed(0) : "—"}
+          </span>
+          <span className="live-stat-lbl">↓ Mbps</span>
+        </div>
+        <div className="live-stat">
+          <span className="live-stat-val" style={{ color: "var(--warn)" }}>
+            {result ? parseFloat(result.upload).toFixed(0) : "—"}
+          </span>
+          <span className="live-stat-lbl">↑ Mbps</span>
+        </div>
+        <div className="live-stat">
+          <span className="live-stat-val">
+            {result ? parseFloat(result.ping).toFixed(0) + "ms" : "—"}
+          </span>
+          <span className="live-stat-lbl">ping</span>
+        </div>
+      </div>
+
+      {result?.created_at && (
+        <div style={{ textAlign: "right" }}>
+          <span className="label-xs" style={{ opacity: 0.35 }}>
+            Last run: {new Date(result.created_at).toLocaleString()}
+          </span>
+        </div>
+      )}
+    </a>
+  );
+}
+
+// ─── THEME SYSTEM ────────────────────────────────────────────────
+const THEMES = [
+  {
+    id: "default", name: "Default",
+    colors: { bg: "#0d1117", bg2: "#161b22", text: "#e6edf3", accent: "#22D3A7", warn: "#F59E0B", crit: "#EF4444" },
+  },
+  {
+    id: "dracula", name: "Dracula",
+    colors: { bg: "#282a36", bg2: "#44475a", text: "#f8f8f2", accent: "#bd93f9", warn: "#ffb86c", crit: "#ff5555" },
+  },
+  {
+    id: "nord", name: "Nord",
+    colors: { bg: "#2e3440", bg2: "#3b4252", text: "#eceff4", accent: "#88c0d0", warn: "#ebcb8b", crit: "#bf616a" },
+  },
+  {
+    id: "catppuccin", name: "Catppuccin",
+    colors: { bg: "#1e1e2e", bg2: "#313244", text: "#cdd6f4", accent: "#cba6f7", warn: "#fab387", crit: "#f38ba8" },
+  },
+  {
+    id: "gruvbox", name: "Gruvbox",
+    colors: { bg: "#282828", bg2: "#3c3836", text: "#ebdbb2", accent: "#b8bb26", warn: "#fabd2f", crit: "#fb4934" },
+  },
+  {
+    id: "tokyonight", name: "Tokyo Night",
+    colors: { bg: "#1a1b26", bg2: "#24283b", text: "#c0caf5", accent: "#7aa2f7", warn: "#e0af68", crit: "#f7768e" },
+  },
+];
+
+const DEFAULT_THEME = THEMES[0].colors;
+
+function hexToRgba(hex, a) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function buildThemeVars(c) {
+  return `:root {
+    --bg: ${c.bg};
+    --bg2: ${c.bg2};
+    --text: ${c.text};
+    --text-dim: ${hexToRgba(c.text, 0.45)};
+    --accent: ${c.accent};
+    --accent-dim: ${hexToRgba(c.accent, 0.15)};
+    --warn: ${c.warn};
+    --crit: ${c.crit};
+    --bar-fill: ${c.accent};
+    --card-bg: ${hexToRgba(c.bg2, 0.6)};
+    --card-border: ${hexToRgba(c.text, 0.08)};
+  }`;
+}
+
+const COLOR_FIELDS = [
+  { key: "bg",     label: "Background" },
+  { key: "bg2",    label: "Surface"    },
+  { key: "text",   label: "Text"       },
+  { key: "accent", label: "Accent"     },
+  { key: "warn",   label: "Warning"    },
+  { key: "crit",   label: "Critical"   },
+];
+
+function SettingsPanel({ colors, onChange, onClose }) {
+  const activePreset = THEMES.find(t =>
+    Object.keys(t.colors).every(k => t.colors[k] === colors[k])
+  );
+
+  return (
+    <div className="settings-panel">
+      <div className="settings-panel-header">
+        <span className="settings-panel-title">Settings</span>
+        <button className="close-btn" onClick={onClose}>×</button>
+      </div>
+
+      <div className="settings-section-lbl">Theme Presets</div>
+      <div className="theme-grid">
+        {THEMES.map(t => (
+          <button
+            key={t.id}
+            className={`theme-tile${activePreset?.id === t.id ? " active" : ""}`}
+            onClick={() => onChange(t.colors)}
+          >
+            <div className="theme-swatch" style={{ background: t.colors.bg }}>
+              <div className="theme-swatch-dot" style={{ background: t.colors.accent }} />
+              <div className="theme-swatch-dot" style={{ background: t.colors.warn }} />
+              <div className="theme-swatch-dot" style={{ background: t.colors.crit }} />
+            </div>
+            <span className="theme-tile-name">{t.name}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="settings-section-lbl">Customise</div>
+      {COLOR_FIELDS.map(({ key, label }) => (
+        <div key={key} className="color-row">
+          <span className="color-row-label">{label}</span>
+          <div className="color-input-wrap">
+            <span className="color-hex">{colors[key]}</span>
+            <input
+              type="color"
+              value={colors[key]}
+              onChange={e => onChange({ ...colors, [key]: e.target.value })}
+            />
+          </div>
+        </div>
+      ))}
+
+      <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
+        <button className="reset-btn" onClick={() => onChange(DEFAULT_THEME)}>Reset to default</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── DRAG SORT ───────────────────────────────────────────────────
+function useSortable(pageKey, defaultOrder) {
+  const [order, setOrder] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`2ez-order-${pageKey}`) || "null");
+      if (!Array.isArray(saved)) return defaultOrder;
+      const valid = saved.filter(id => defaultOrder.includes(id));
+      const added = defaultOrder.filter(id => !valid.includes(id));
+      return [...valid, ...added];
+    } catch { return defaultOrder; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(`2ez-order-${pageKey}`, JSON.stringify(order));
+  }, [order, pageKey]);
+
+  const ref = useRef({ from: null, overEl: null });
+
+  const getHandlers = (id) => ({
+    draggable: true,
+    onDragStart: (e) => {
+      ref.current.from = id;
+      e.dataTransfer.effectAllowed = "move";
+      e.currentTarget.classList.add("dragging");
+    },
+    onDragOver: (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const el = e.currentTarget;
+      if (ref.current.overEl && ref.current.overEl !== el) {
+        ref.current.overEl.classList.remove("drag-over");
+      }
+      el.classList.add("drag-over");
+      ref.current.overEl = el;
+    },
+    onDragLeave: (e) => {
+      if (!e.currentTarget.contains(e.relatedTarget)) {
+        e.currentTarget.classList.remove("drag-over");
+        if (ref.current.overEl === e.currentTarget) ref.current.overEl = null;
+      }
+    },
+    onDrop: (e) => {
+      e.preventDefault();
+      e.currentTarget.classList.remove("drag-over");
+      const from = ref.current.from;
+      if (from && from !== id) {
+        setOrder(prev => {
+          const next = [...prev];
+          const fi = next.indexOf(from);
+          const ti = next.indexOf(id);
+          if (fi < 0 || ti < 0) return prev;
+          next.splice(fi, 1);
+          next.splice(ti, 0, from);
+          return next;
+        });
+      }
+      ref.current = { from: null, overEl: null };
+    },
+    onDragEnd: (e) => {
+      e.currentTarget.classList.remove("dragging");
+      if (ref.current.overEl) ref.current.overEl.classList.remove("drag-over");
+      ref.current = { from: null, overEl: null };
+    },
+  });
+
+  return [order, getHandlers];
+}
+
+function SortableGrid({ pageKey, items }) {
+  const [order, getHandlers] = useSortable(pageKey, items.map(i => i.id));
+  return (
+    <div className="svc-grid">
+      {order.map(id => {
+        const item = items.find(i => i.id === id);
+        if (!item) return null;
+        return (
+          <div key={id} className="drag-item" {...getHandlers(id)}>
+            {item.node}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── NAV SIDEBAR ─────────────────────────────────────────────────
+const NAV_ITEMS = [
+  { id: "main",       label: "Main",                  abbr: "HM", col: "#22D3A7" },
+  { id: "media-auto", label: "Media Automation",       abbr: "MA", col: "#A855F7" },
+  { id: "media-srv",  label: "Media Server",           abbr: "MS", col: "#00A4DC" },
+  { id: "mgmt",       label: "Management",             abbr: "MG", col: "#EF4444" },
+  { id: "downloads",  label: "Downloads & Transcodes", abbr: "DL", col: "#2979FF" },
+];
+
+function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onThemeChange }) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  return (
+    <>
+      {isOpen && <div className="nav-backdrop" onClick={() => { onClose(); setSettingsOpen(false); }} />}
+      <div className={`nav-sidebar${isOpen ? " open" : ""}`} style={{ display: "flex", flexDirection: "column" }}>
+        <div className="nav-header">
+          <Logo size={32} />
+          <div>
+            <div className="nav-header-title">2EZ</div>
+            <div style={{ fontSize: 10, color: "var(--text-dim)" }}>2ez.dinosaur-banana.ts.net</div>
+          </div>
+        </div>
+
+        <div className="nav-section-lbl">Navigation</div>
+
+        {NAV_ITEMS.map((item) => (
+          <button
+            key={item.id}
+            className={`nav-item${activePage === item.id ? " active" : ""}`}
+            onClick={() => onNavigate(item.id)}
+          >
+            <div className="nav-item-icon" style={{
+              background: activePage === item.id ? item.col + "22" : "rgba(255,255,255,0.04)",
+              border: `1px solid ${activePage === item.id ? item.col + "44" : "rgba(255,255,255,0.06)"}`,
+              color: activePage === item.id ? item.col : "var(--text-dim)",
+            }}>
+              {item.abbr}
+            </div>
+            {item.label}
+          </button>
+        ))}
+
+        <div className="nav-footer">
+          <button className="settings-cog-btn" onClick={() => setSettingsOpen(o => !o)}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            Settings
+          </button>
+        </div>
+
+      </div>
+
+      {settingsOpen && (
+        <SettingsPanel
+          colors={themeColors}
+          onChange={onThemeChange}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+// ─── MAIN PAGE (system dashboard) ────────────────────────────────
+function MainPage({ onMenuToggle }) {
   const [data, setData] = useState(null);
   const [history, setHistory] = useState({ cpu: [], rx: [], tx: [] });
   const [time, setTime] = useState(new Date());
   const [connected, setConnected] = useState(true);
   const [containerView, setContainerView] = useState(false);
+
+  const MAIN_DEFAULTS = ["cpu", "mem", "temps", "storage", "network", "containers", "dockge", "uptimekuma"];
+  const MAIN_SPANS = { cpu: 2, storage: 2 };
+  const [mainOrder, getHandlers] = useSortable("main", MAIN_DEFAULTS);
+
+  const DEFAULT_CARD_SIZES = { cpu: "medium", mem: "medium", temps: "medium", storage: "medium", network: "medium", containers: "medium" };
+  const [cardSizes, setCardSizes] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("2ez-card-sizes") || "null");
+      return { ...DEFAULT_CARD_SIZES, ...(saved || {}) };
+    } catch { return DEFAULT_CARD_SIZES; }
+  });
+  const setSize = (id, s) => setCardSizes(prev => ({ ...prev, [id]: s }));
 
   const fetchData = useCallback(async () => {
     if (!GLANCES_API) {
@@ -412,8 +1375,11 @@ export default function Dashboard() {
       );
       const [cpu, mem, sensors, uptime, fs, diskio, network, docker, percpu] = results;
 
-      // Normalize the Glances API response into our data shape
-      const netIface = network ? (Array.isArray(network) ? network.find(n => !n.interface_name?.startsWith("lo") && !n.interface_name?.startsWith("docker") && !n.interface_name?.startsWith("veth") && !n.interface_name?.startsWith("br-") && !n.interface_name?.startsWith("tailscale")) || network[0] : network) : {};
+      const netIface = network
+        ? (Array.isArray(network)
+            ? network.find(n => !n.interface_name?.startsWith("lo") && !n.interface_name?.startsWith("docker") && !n.interface_name?.startsWith("veth") && !n.interface_name?.startsWith("br-") && !n.interface_name?.startsWith("tailscale")) || network[0]
+            : network)
+        : {};
 
       setData({
         cpu: {
@@ -442,6 +1408,7 @@ export default function Dashboard() {
       });
       setConnected(true);
     } catch {
+      setData((prev) => generateMockData(prev));
       setConnected(false);
     }
   }, []);
@@ -461,10 +1428,14 @@ export default function Dashboard() {
     if (!data) return;
     setHistory((h) => ({
       cpu: [...h.cpu.slice(-59), data.cpu.total],
-      rx: [...h.rx.slice(-59), data.network.rx],
-      tx: [...h.tx.slice(-59), data.network.tx],
+      rx:  [...h.rx.slice(-59),  data.network.rx],
+      tx:  [...h.tx.slice(-59),  data.network.tx],
     }));
   }, [data]);
+
+  useEffect(() => {
+    localStorage.setItem("2ez-card-sizes", JSON.stringify(cardSizes));
+  }, [cardSizes]);
 
   if (!data) {
     return (
@@ -479,574 +1450,446 @@ export default function Dashboard() {
   const sortedDocker = [...data.docker].sort((a, b) => b.cpu - a.cpu);
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Outfit:wght@300;400;500;600;700&display=swap');
-
-        :root {
-          --bg: #0a0e14;
-          --bg2: #0f1318;
-          --card: rgba(255,255,255,0.025);
-          --card-hover: rgba(255,255,255,0.04);
-          --card-border: rgba(255,255,255,0.06);
-          --text: #e0e4ea;
-          --text-dim: rgba(224,228,234,0.45);
-          --accent: #22d3a7;
-          --accent-dim: rgba(34,211,167,0.12);
-          --warn: #f59e0b;
-          --crit: #ef4444;
-          --radius: 14px;
-          --font: 'Outfit', -apple-system, sans-serif;
-          --mono: 'JetBrains Mono', monospace;
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body, html, #root {
-          background: var(--bg);
-          color: var(--text);
-          font-family: var(--font);
-          -webkit-font-smoothing: antialiased;
-          min-height: 100vh;
-        }
-
-        .shell {
-          max-width: 1320px;
-          margin: 0 auto;
-          padding: 28px 24px 48px;
-        }
-
-        /* ── Header ── */
-        .header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 28px;
-          padding-bottom: 20px;
-          border-bottom: 1px solid var(--card-border);
-        }
-        .header-left {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-        }
-        .header-title {
-          font-size: 22px;
-          font-weight: 700;
-          letter-spacing: -0.5px;
-        }
-        .header-sub {
-          font-size: 13px;
-          color: var(--text-dim);
-          font-weight: 400;
-        }
-        .header-right {
-          display: flex;
-          align-items: center;
-          gap: 18px;
-          font-family: var(--mono);
-          font-size: 12px;
-          color: var(--text-dim);
-        }
-        .live-badge {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          background: var(--accent-dim);
-          color: var(--accent);
-          padding: 4px 10px;
-          border-radius: 20px;
-          font-size: 11px;
-          font-weight: 600;
-          font-family: var(--mono);
-        }
-        .live-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: var(--accent);
-          animation: pulse-dot 2s ease-in-out infinite;
-        }
-
-        /* ── Grid ── */
-        .grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 14px;
-        }
-        @media (max-width: 1100px) {
-          .grid { grid-template-columns: repeat(2, 1fr); }
-        }
-        @media (max-width: 600px) {
-          .grid { grid-template-columns: 1fr; }
-          .shell { padding: 16px 12px 32px; }
-          .header { flex-direction: column; align-items: flex-start; gap: 12px; }
-        }
-
-        /* ── Card ── */
-        .card {
-          background: var(--card);
-          border: 1px solid var(--card-border);
-          border-radius: var(--radius);
-          padding: 18px;
-          transition: background 0.25s ease, border-color 0.25s ease;
-        }
-        .card:hover {
-          background: var(--card-hover);
-          border-color: rgba(255,255,255,0.09);
-        }
-        .card-title {
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 1.5px;
-          color: var(--text-dim);
-          font-weight: 600;
-          margin-bottom: 14px;
-        }
-
-        /* ── Typography ── */
-        .mono { font-family: var(--mono); }
-        .big-num { font-size: 36px; font-weight: 700; line-height: 1; font-family: var(--mono); }
-        .label-sm { font-size: 12px; color: var(--text-dim); font-weight: 400; }
-        .label-xs { font-size: 10px; color: var(--text-dim); font-weight: 400; }
-
-        /* ── Bar ── */
-        .bar-track {
-          background: rgba(255,255,255,0.04);
-          border-radius: 4px;
-          overflow: hidden;
-        }
-        .bar-fill {
-          border-radius: 4px;
-          transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-        }
-
-        /* ── Ring ── */
-        .ring-progress {
-          transition: stroke-dashoffset 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-        }
-
-        /* ── Docker ── */
-        .docker-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 6px;
-        }
-        @media (max-width: 600px) {
-          .docker-grid { grid-template-columns: 1fr; }
-        }
-        .docker-item {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 7px 10px;
-          border-radius: 8px;
-          background: rgba(255,255,255,0.015);
-          transition: background 0.2s ease;
-        }
-        .docker-item:hover {
-          background: rgba(255,255,255,0.04);
-        }
-        .docker-dot-wrap { flex-shrink: 0; }
-        .docker-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-        }
-        .dot-live {
-          background: var(--accent);
-          box-shadow: 0 0 6px var(--accent);
-        }
-        .dot-dead {
-          background: var(--crit);
-          box-shadow: 0 0 6px var(--crit);
-          animation: pulse-crit 1.5s ease-in-out infinite;
-        }
-        .docker-name {
-          font-family: var(--mono);
-          font-size: 12px;
-          font-weight: 500;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        /* ── Stat row ── */
-        .stat-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: baseline;
-          padding: 6px 0;
-        }
-        .stat-row + .stat-row {
-          border-top: 1px solid rgba(255,255,255,0.03);
-        }
-
-        /* ── Network ── */
-        .net-row {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 8px;
-        }
-        .net-arrow {
-          font-size: 14px;
-          width: 22px;
-          text-align: center;
-          flex-shrink: 0;
-        }
-        .net-val {
-          font-family: var(--mono);
-          font-size: 15px;
-          font-weight: 600;
-          min-width: 90px;
-        }
-
-        /* ── Temps ── */
-        .temp-grid {
-          display: flex;
-          gap: 12px;
-          justify-content: center;
-          flex-wrap: wrap;
-        }
-
-        /* ── Uptime strip ── */
-        .uptime-strip {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-family: var(--mono);
-          font-size: 13px;
-          color: var(--accent);
-          font-weight: 500;
-        }
-
-        /* ── Animations ── */
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(12px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .fade-in {
-          animation: fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
-        @keyframes pulse-dot {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-        @keyframes pulse-crit {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(0.85); }
-        }
-
-        .loading {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          height: 100vh;
-          font-family: var(--font);
-          color: var(--text);
-        }
-
-        /* ── Cores mini grid ── */
-        .cores-grid {
-          display: grid;
-          grid-template-columns: repeat(5, 1fr);
-          gap: 4px;
-          margin-top: 12px;
-        }
-        .core-bar-wrap {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 3px;
-        }
-        .core-bar-outer {
-          width: 100%;
-          height: 32px;
-          background: rgba(255,255,255,0.04);
-          border-radius: 4px;
-          position: relative;
-          overflow: hidden;
-          display: flex;
-          align-items: flex-end;
-        }
-        .core-bar-inner {
-          width: 100%;
-          border-radius: 4px;
-          transition: height 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-        }
-        .core-label {
-          font-family: var(--mono);
-          font-size: 8px;
-          color: var(--text-dim);
-        }
-
-        /* ── Section divider ── */
-        .section-title {
-          grid-column: 1 / -1;
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 2px;
-          color: var(--text-dim);
-          font-weight: 600;
-          padding-top: 8px;
-        }
-
-        /* ── Clickable card ── */
-        .card-clickable {
-          cursor: pointer;
-        }
-        .card-clickable:hover {
-          border-color: rgba(34, 211, 167, 0.22) !important;
-        }
-
-        /* ── Close button ── */
-        .close-btn {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid var(--card-border);
-          border-radius: 8px;
-          padding: 6px 12px;
-          color: var(--text-dim);
-          font-family: var(--font);
-          font-size: 12px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background 0.2s, color 0.2s, border-color 0.2s;
-        }
-        .close-btn:hover {
-          background: rgba(255,255,255,0.07);
-          color: var(--text);
-          border-color: rgba(255,255,255,0.12);
-        }
-
-        /* ── Container detail ── */
-        .container-detail { width: 100%; }
-        .ct-col-header {
-          display: inline-flex;
-          align-items: center;
-          cursor: pointer;
-          user-select: none;
-          transition: color 0.15s;
-          white-space: nowrap;
-        }
-        .ct-col-header:hover { color: var(--text); }
-        .ct-col-active { color: var(--accent) !important; }
-        .ct-header {
-          display: grid;
-          grid-template-columns: 1fr 180px 100px 120px 120px 90px;
-          padding: 5px 10px 8px;
-          gap: 12px;
-          font-size: 10px;
-          text-transform: uppercase;
-          letter-spacing: 1.5px;
-          color: var(--text-dim);
-          font-weight: 600;
-          border-bottom: 1px solid var(--card-border);
-          margin-bottom: 2px;
-        }
-        .ct-row {
-          display: grid;
-          grid-template-columns: 1fr 180px 100px 120px 120px 90px;
-          align-items: center;
-          padding: 9px 10px;
-          gap: 12px;
-          border-radius: 8px;
-          transition: background 0.2s;
-        }
-        .ct-row:hover {
-          background: rgba(255,255,255,0.025);
-        }
-        @media (max-width: 900px) {
-          .ct-header, .ct-row {
-            grid-template-columns: 1fr 120px 90px 100px 100px 70px;
-            gap: 8px;
-          }
-        }
-        @media (max-width: 600px) {
-          .ct-header { display: none; }
-          .ct-row { grid-template-columns: 1fr auto; }
-          .ct-row > *:nth-child(n+3) { display: none; }
-        }
-      `}</style>
-
-      <div className="shell">
-        {/* ── HEADER ── */}
-        <header className="header fade-in">
-          <div className="header-left">
-            <Logo size={38} />
-            <div>
-              <div className="header-title">2EZ</div>
-              <div className="header-sub">2ez.dinosaur-banana.ts.net</div>
-            </div>
+    <div className="shell">
+      <header className="header fade-in">
+        <div className="header-left">
+          <button className="hamburger-btn" onClick={onMenuToggle} aria-label="Open menu">
+            <HamburgerIcon />
+          </button>
+          <Logo size={38} />
+          <div>
+            <div className="header-title">2EZ</div>
+            <div className="header-sub">2ez.dinosaur-banana.ts.net</div>
           </div>
-          <div className="header-right">
-            <div className="uptime-strip">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              {data.uptime}
-            </div>
-            <span>{time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
-            <div className="live-badge">
-              <div className="live-dot" />
-              {connected ? "LIVE" : "OFFLINE"}
-            </div>
-          </div>
-        </header>
-
-        {/* ── GRID / DETAIL ── */}
-        {containerView ? (
-          <ContainerDetail containers={data.docker} onClose={() => setContainerView(false)} />
-        ) : (
-        <div className="grid">
-
-          {/* CPU */}
-          <Card title="Processor" span={2} delay={50}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-              <div>
-                <div className="big-num" style={{ color: statusColor(data.cpu.total) }}>
-                  <AnimNum value={data.cpu.total} />
-                </div>
-                <div className="label-sm" style={{ marginTop: 4 }}>{data.cpu.model}</div>
-                {data.cpu.freq > 0 && (
-                  <div className="label-xs" style={{ marginTop: 2 }}>{fmt.freq(data.cpu.freq)}</div>
-                )}
-              </div>
-              <div style={{ width: 120, flexShrink: 0 }}>
-                <Spark data={history.cpu} color={statusColor(data.cpu.total)} height={40} width={120} />
-              </div>
-            </div>
-            <div className="cores-grid">
-              {data.cpu.cores.map((c, i) => (
-                <div key={i} className="core-bar-wrap">
-                  <div className="core-bar-outer">
-                    <div
-                      className="core-bar-inner"
-                      style={{
-                        height: `${Math.max(2, c)}%`,
-                        background: statusColor(c),
-                        opacity: 0.8,
-                      }}
-                    />
-                  </div>
-                  <span className="core-label">{i}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* Memory */}
-          <Card title="Memory" delay={100}>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-              <Ring value={data.mem.percent} size={110} label="Used" />
-            </div>
-            <div className="stat-row">
-              <span className="label-sm">Used</span>
-              <span className="mono label-sm">{fmt.bytes(data.mem.used)}</span>
-            </div>
-            <div className="stat-row">
-              <span className="label-sm">Total</span>
-              <span className="mono label-sm">{fmt.bytes(data.mem.total)}</span>
-            </div>
-          </Card>
-
-          {/* Temps */}
-          <Card title="Temperatures" delay={150}>
-            <div className="temp-grid">
-              {data.sensors.map((s, i) => (
-                <Ring key={i} value={s.value} size={72} stroke={5} color={tempColor(s.value)} label={s.label} format="temp" />
-              ))}
-            </div>
-          </Card>
-
-          {/* Storage */}
-          <Card title="Storage" span={2} delay={200}>
-            {data.fs.map((d, i) => (
-              <Bar
-                key={i}
-                value={d.percent}
-                label={d.mnt_point === "/" ? "Boot SSD" : d.mnt_point === "/mnt/ironwolf" ? "Ironwolf 8TB" : d.mnt_point}
-                detail={`${fmt.bytes(d.used)} / ${fmt.bytes(d.size)}`}
-                height={8}
-                delay={i * 80}
-              />
-            ))}
-            {data.diskio.length > 0 && (
-              <div style={{ marginTop: 12, borderTop: "1px solid var(--card-border)", paddingTop: 10 }}>
-                <div className="label-xs" style={{ marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>I/O Rates</div>
-                {data.diskio.map((d, i) => (
-                  <div key={i} className="stat-row">
-                    <span className="mono label-sm">{d.disk_name}</span>
-                    <span className="label-sm">
-                      <span style={{ color: "var(--accent)" }}>↓ {fmt.speed(d.read_bytes)}</span>
-                      {" · "}
-                      <span style={{ color: "var(--warn)" }}>↑ {fmt.speed(d.write_bytes)}</span>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-
-          {/* Network */}
-          <Card title="Network" delay={250}>
-            <div className="net-row">
-              <span className="net-arrow" style={{ color: "var(--accent)" }}>↓</span>
-              <span className="net-val" style={{ color: "var(--accent)" }}>
-                <AnimNum value={Math.abs(data.network.rx)} format="speed" />
-              </span>
-            </div>
-            <div style={{ marginBottom: 8 }}>
-              <Spark data={history.rx} color="var(--accent)" height={28} width={180} />
-            </div>
-            <div className="net-row">
-              <span className="net-arrow" style={{ color: "var(--warn)" }}>↑</span>
-              <span className="net-val" style={{ color: "var(--warn)" }}>
-                <AnimNum value={Math.abs(data.network.tx)} format="speed" />
-              </span>
-            </div>
-            <div>
-              <Spark data={history.tx} color="var(--warn)" height={28} width={180} />
-            </div>
-          </Card>
-
-          {/* Docker header */}
-          <Card title="Containers" span={1} delay={300} onClick={() => setContainerView(true)}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 2 }}>
-              <span className="big-num" style={{ color: "var(--accent)" }}>{runningCount}</span>
-              <span className="label-sm">/ {data.docker.length} running</span>
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <Bar
-                value={(runningCount / data.docker.length) * 100}
-                color="var(--accent)"
-                height={4}
-              />
-            </div>
-            <div className="stat-row" style={{ marginTop: 4 }}>
-              <span className="label-sm">Total CPU</span>
-              <span className="mono label-sm">{data.docker.reduce((a, d) => a + d.cpu, 0).toFixed(1)}%</span>
-            </div>
-            <div className="stat-row">
-              <span className="label-sm">Total RAM</span>
-              <span className="mono label-sm">{fmt.bytes(data.docker.reduce((a, d) => a + d.mem, 0))}</span>
-            </div>
-          </Card>
-
-          {/* Docker list */}
-          <Card title="Container Status" span={3} delay={350}>
-            <div className="docker-grid">
-              {sortedDocker.map((c, i) => (
-                <DockerItem key={c.name} {...c} />
-              ))}
-            </div>
-          </Card>
-
         </div>
-        )}
+        <div className="header-right">
+          <div className="uptime-strip">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            {data.uptime}
+          </div>
+          <span>{time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+          <div className="live-badge">
+            <div className="live-dot" style={{ background: connected ? "var(--accent)" : "var(--crit)" }} />
+            {connected ? "LIVE" : "OFFLINE"}
+          </div>
+        </div>
+      </header>
+
+      <div className="grid">
+        {(() => {
+          const RESIZABLE = new Set(["cpu","mem","temps","storage","network","containers"]);
+          return mainOrder.map((id) => {
+            const size = RESIZABLE.has(id) ? (cardSizes[id] || "medium") : "medium";
+            const ctrl = RESIZABLE.has(id)
+              ? <SizeCtrl size={size} onChange={s => setSize(id, s)} />
+              : null;
+            const containerFull = id === "containers" && (containerView || size === "large");
+            const baseSpan = MAIN_SPANS[id] || 1;
+            const effectiveSpan = size === "compact" ? 1 : baseSpan;
+            const gridColumn = containerFull ? "1 / -1" : effectiveSpan > 1 ? `span ${effectiveSpan}` : undefined;
+
+            let node;
+            switch (id) {
+              case "cpu": node = (
+                <Card title="Processor" controls={ctrl}>
+                  {size === "compact" ? (
+                    <>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+                        <div className="big-num" style={{ color: statusColor(data.cpu.total) }}><AnimNum value={data.cpu.total} /></div>
+                        <span className="label-sm">%</span>
+                      </div>
+                      <Spark data={history.cpu} color={statusColor(data.cpu.total)} height={28} width={180} />
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                        <div>
+                          <div className="big-num" style={{ color: statusColor(data.cpu.total) }}><AnimNum value={data.cpu.total} /></div>
+                          <div className="label-sm" style={{ marginTop: 4 }}>{data.cpu.model}</div>
+                          {data.cpu.freq > 0 && <div className="label-xs" style={{ marginTop: 2 }}>{fmt.freq(data.cpu.freq)}</div>}
+                        </div>
+                        <div style={{ width: size === "large" ? 180 : 120, flexShrink: 0 }}>
+                          <Spark data={history.cpu} color={statusColor(data.cpu.total)} height={size === "large" ? 72 : 40} width={size === "large" ? 180 : 120} />
+                        </div>
+                      </div>
+                      <div className="cores-grid">
+                        {data.cpu.cores.map((c, i) => (
+                          <div key={i} className="core-bar-wrap">
+                            <div className="core-bar-outer" style={size === "large" ? { height: 56 } : {}}>
+                              <div className="core-bar-inner" style={{ height: `${Math.max(2, c)}%`, background: statusColor(c), opacity: 0.8 }} />
+                            </div>
+                            <span className="core-label">{i}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {size === "large" && data.cpu.cores.length > 0 && (
+                        <div style={{ display: "flex", gap: 12, marginTop: 10, borderTop: "1px solid var(--card-border)", paddingTop: 10, flexWrap: "wrap" }}>
+                          <div className="stat-row" style={{ flex: 1 }}>
+                            <span className="label-sm">Peak core</span>
+                            <span className="mono label-sm" style={{ color: statusColor(Math.max(...data.cpu.cores)) }}>{Math.max(...data.cpu.cores).toFixed(0)}%</span>
+                          </div>
+                          <div className="stat-row" style={{ flex: 1 }}>
+                            <span className="label-sm">Avg core</span>
+                            <span className="mono label-sm">{(data.cpu.cores.reduce((a, b) => a + b, 0) / data.cpu.cores.length).toFixed(0)}%</span>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </Card>
+              ); break;
+
+              case "mem": node = (
+                <Card title="Memory" controls={ctrl}>
+                  {size === "compact" ? (
+                    <>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
+                        <div className="big-num" style={{ color: statusColor(data.mem.percent) }}>{data.mem.percent.toFixed(0)}</div>
+                        <span className="label-sm">%</span>
+                      </div>
+                      <Bar value={data.mem.percent} height={6} />
+                      <div className="stat-row" style={{ marginTop: 6 }}>
+                        <span className="label-sm">{fmt.bytes(data.mem.used)}</span>
+                        <span className="label-sm" style={{ opacity: 0.5 }}>/ {fmt.bytes(data.mem.total)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+                        <Ring value={data.mem.percent} size={size === "large" ? 150 : 110} label="Used" />
+                      </div>
+                      <div className="stat-row">
+                        <span className="label-sm">Used</span>
+                        <span className="mono label-sm">{fmt.bytes(data.mem.used)}</span>
+                      </div>
+                      <div className="stat-row">
+                        <span className="label-sm">Total</span>
+                        <span className="mono label-sm">{fmt.bytes(data.mem.total)}</span>
+                      </div>
+                      {size === "large" && (
+                        <div className="stat-row">
+                          <span className="label-sm">Free</span>
+                          <span className="mono label-sm">{fmt.bytes(data.mem.total - data.mem.used)}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </Card>
+              ); break;
+
+              case "temps": node = (
+                <Card title="Temperatures" controls={ctrl}>
+                  {size === "compact" ? (
+                    data.sensors.length > 0 ? (
+                      <>
+                        <div className="big-num" style={{ color: tempColor(Math.max(...data.sensors.map(s => s.value))), marginBottom: 4 }}>
+                          {Math.max(...data.sensors.map(s => s.value)).toFixed(0)}°
+                        </div>
+                        <div className="label-xs" style={{ opacity: 0.5 }}>°C · peak sensor</div>
+                      </>
+                    ) : <span className="label-sm" style={{ opacity: 0.4 }}>No data</span>
+                  ) : (
+                    <div className="temp-grid">
+                      {data.sensors.map((s, i) => (
+                        <Ring key={i} value={s.value} size={size === "large" ? 96 : 72} stroke={5} color={tempColor(s.value)} label={s.label} format="temp" />
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              ); break;
+
+              case "storage": node = (
+                <Card title="Storage" controls={ctrl}>
+                  {data.fs
+                    .filter(d =>
+                      d.mnt_point.includes("ironwolf") ||
+                      d.mnt_point === "/host" ||
+                      d.mnt_point === "/host/boot/efi"
+                    )
+                    .filter((d, i, arr) => arr.findIndex(x => x.device_name === d.device_name) === i)
+                    .map((d, i) => {
+                      const label =
+                        d.mnt_point.endsWith("ironwolf") ? "Ironwolf 8TB" :
+                        d.mnt_point === "/host"           ? "Host"          :
+                        d.mnt_point === "/host/boot/efi"  ? "Boot EFI"      :
+                        d.mnt_point;
+                      return (
+                        <Bar key={d.mnt_point} value={d.percent} label={label}
+                          detail={`${fmt.bytes(d.used)} / ${fmt.bytes(d.size)}`}
+                          height={size === "large" ? 12 : 8} delay={i * 80} />
+                      );
+                    })
+                  }
+                  {size !== "compact" && data.diskio.length > 0 && (
+                    <div style={{ marginTop: 12, borderTop: "1px solid var(--card-border)", paddingTop: 10 }}>
+                      <div className="label-xs" style={{ marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>I/O Rates</div>
+                      {data.diskio.map((d, i) => (
+                        <div key={i} className="stat-row">
+                          <span className="mono label-sm">{d.disk_name}</span>
+                          <span className="label-sm">
+                            <span style={{ color: "var(--accent)" }}>↓ {fmt.speed(d.read_bytes)}</span>
+                            {" · "}
+                            <span style={{ color: "var(--warn)" }}>↑ {fmt.speed(d.write_bytes)}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              ); break;
+
+              case "network": node = (
+                <Card title="Network" controls={ctrl}>
+                  <div className="net-row">
+                    <span className="net-arrow" style={{ color: "var(--accent)" }}>↓</span>
+                    <span className="net-val" style={{ color: "var(--accent)" }}><AnimNum value={Math.abs(data.network.rx)} format="speed" /></span>
+                  </div>
+                  {size !== "compact" && (
+                    <div style={{ marginBottom: 8 }}>
+                      <Spark data={history.rx} color="var(--accent)" height={size === "large" ? 52 : 28} width={180} />
+                    </div>
+                  )}
+                  <div className="net-row">
+                    <span className="net-arrow" style={{ color: "var(--warn)" }}>↑</span>
+                    <span className="net-val" style={{ color: "var(--warn)" }}><AnimNum value={Math.abs(data.network.tx)} format="speed" /></span>
+                  </div>
+                  {size !== "compact" && (
+                    <div>
+                      <Spark data={history.tx} color="var(--warn)" height={size === "large" ? 52 : 28} width={180} />
+                    </div>
+                  )}
+                  {size === "large" && history.rx.length > 0 && (
+                    <div style={{ marginTop: 10, borderTop: "1px solid var(--card-border)", paddingTop: 10 }}>
+                      <div className="stat-row">
+                        <span className="label-sm">Peak ↓</span>
+                        <span className="mono label-sm" style={{ color: "var(--accent)" }}>{fmt.speed(Math.max(...history.rx))}</span>
+                      </div>
+                      <div className="stat-row">
+                        <span className="label-sm">Peak ↑</span>
+                        <span className="mono label-sm" style={{ color: "var(--warn)" }}>{fmt.speed(Math.max(...history.tx))}</span>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              ); break;
+
+              case "containers":
+                if (size === "compact") {
+                  node = (
+                    <Card title="Containers" controls={ctrl}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                        <span className="big-num" style={{ color: "var(--accent)" }}>{runningCount}</span>
+                        <span className="label-sm">/ {data.docker.length} running</span>
+                      </div>
+                    </Card>
+                  );
+                } else if (size === "large" || containerView) {
+                  node = (
+                    <div className="card fade-in">
+                      <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+                        <div style={{ minWidth: 180, flexShrink: 0 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <div className="card-title" style={{ margin: 0 }}>Containers</div>
+                              {ctrl}
+                            </div>
+                            {containerView && size !== "large" && (
+                              <button className="close-btn" onClick={() => setContainerView(false)}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 2 }}>
+                            <span className="big-num" style={{ color: "var(--accent)" }}>{runningCount}</span>
+                            <span className="label-sm">/ {data.docker.length} running</span>
+                          </div>
+                          <div style={{ marginTop: 12 }}>
+                            <Bar value={(runningCount / data.docker.length) * 100} color="var(--accent)" height={4} />
+                          </div>
+                          <div className="stat-row" style={{ marginTop: 4 }}>
+                            <span className="label-sm">Total CPU</span>
+                            <span className="mono label-sm">{data.docker.reduce((a, d) => a + d.cpu, 0).toFixed(1)}%</span>
+                          </div>
+                          <div className="stat-row">
+                            <span className="label-sm">Total RAM</span>
+                            <span className="mono label-sm">{fmt.bytes(data.docker.reduce((a, d) => a + d.mem, 0))}</span>
+                          </div>
+                        </div>
+                        <div style={{ width: 1, background: "var(--card-border)", alignSelf: "stretch", flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 240 }}>
+                          <div className="card-title" style={{ marginBottom: 14 }}>Container Status</div>
+                          <div className="docker-grid">
+                            {sortedDocker.map((c) => <DockerItem key={c.name} {...c} />)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                } else {
+                  node = (
+                    <Card title="Containers" controls={ctrl} onClick={() => setContainerView(true)}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 2 }}>
+                        <span className="big-num" style={{ color: "var(--accent)" }}>{runningCount}</span>
+                        <span className="label-sm">/ {data.docker.length} running</span>
+                      </div>
+                      <div style={{ marginTop: 12 }}>
+                        <Bar value={(runningCount / data.docker.length) * 100} color="var(--accent)" height={4} />
+                      </div>
+                      <div className="stat-row" style={{ marginTop: 4 }}>
+                        <span className="label-sm">Total CPU</span>
+                        <span className="mono label-sm">{data.docker.reduce((a, d) => a + d.cpu, 0).toFixed(1)}%</span>
+                      </div>
+                      <div className="stat-row">
+                        <span className="label-sm">Total RAM</span>
+                        <span className="mono label-sm">{fmt.bytes(data.docker.reduce((a, d) => a + d.mem, 0))}</span>
+                      </div>
+                    </Card>
+                  );
+                }
+                break;
+
+              case "dockge":     node = <SvcCard id="dockge" />;     break;
+              case "uptimekuma": node = <SvcCard id="uptimekuma" />; break;
+              default: return null;
+            }
+
+            return (
+              <div key={id} className="drag-item" style={{ gridColumn }} {...getHandlers(id)}>
+                {node}
+              </div>
+            );
+          });
+        })()}
       </div>
+    </div>
+  );
+}
+
+// ─── PAGE HEADER (non-main pages) ────────────────────────────────
+function PageHeader({ title, onMenuToggle }) {
+  return (
+    <header className="header fade-in">
+      <div className="header-left">
+        <button className="hamburger-btn" onClick={onMenuToggle} aria-label="Open menu">
+          <HamburgerIcon />
+        </button>
+        <Logo size={38} />
+        <div>
+          <div className="header-title">2EZ</div>
+          <div className="header-sub" style={{ color: "var(--accent)", fontWeight: 500 }}>{title}</div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+// ─── MEDIA AUTOMATION PAGE ───────────────────────────────────────
+function MediaAutomationPage({ onMenuToggle }) {
+  const items = ["sonarr", "radarr", "lidarr", "prowlarr", "bazarr", "beetsflask", "slskd", "lrcget"]
+    .map(id => ({ id, node: <SvcCard id={id} /> }));
+  return (
+    <div className="shell">
+      <PageHeader title="Media Automation" onMenuToggle={onMenuToggle} />
+      <p className="page-section">Arr Apps &amp; Tools</p>
+      <SortableGrid pageKey="media-auto" items={items} />
+    </div>
+  );
+}
+
+// ─── MEDIA SERVER PAGE ───────────────────────────────────────────
+function MediaServerPage({ onMenuToggle }) {
+  const items = [
+    { id: "jellyfin",  node: <JellyfinWidget /> },
+    { id: "seerr",     node: <SvcCard id="seerr" /> },
+    { id: "navidrome", node: <NavidromeWidget /> },
+    { id: "immich",    node: <SvcCard id="immich" /> },
+    { id: "nextcloud", node: <SvcCard id="nextcloud" /> },
+  ];
+  return (
+    <div className="shell">
+      <PageHeader title="Media Server" onMenuToggle={onMenuToggle} />
+      <p className="page-section">Streaming &amp; Libraries</p>
+      <SortableGrid pageKey="media-srv" items={items} />
+    </div>
+  );
+}
+
+// ─── MANAGEMENT PAGE ─────────────────────────────────────────────
+function ManagementPage({ onMenuToggle }) {
+  const items = [
+    { id: "cockpit",     node: <SvcCard id="cockpit" /> },
+    { id: "speedtest",   node: <SpeedtestWidget /> },
+    { id: "filebrowser", node: <SvcCard id="filebrowser" /> },
+    { id: "uptimekuma",  node: <SvcCard id="uptimekuma" /> },
+  ];
+  return (
+    <div className="shell">
+      <PageHeader title="Management" onMenuToggle={onMenuToggle} />
+      <p className="page-section">System &amp; Infrastructure</p>
+      <SortableGrid pageKey="mgmt" items={items} />
+    </div>
+  );
+}
+
+// ─── DOWNLOADS & TRANSCODES PAGE ─────────────────────────────────
+function DownloadsPage({ onMenuToggle }) {
+  const items = [
+    { id: "qbittorrent", node: <QBittorrentWidget /> },
+    { id: "unmanic",     node: <UnmanicWidget /> },
+  ];
+  return (
+    <div className="shell">
+      <PageHeader title="Downloads &amp; Transcodes" onMenuToggle={onMenuToggle} />
+      <p className="page-section">Active transfers &amp; encoding queue</p>
+      <SortableGrid pageKey="downloads" items={items} />
+    </div>
+  );
+}
+
+// ─── APP ROOT ────────────────────────────────────────────────────
+export default function App() {
+  const [activePage, setActivePage] = useState("main");
+  const [menuOpen, setMenuOpen]     = useState(false);
+
+  const [themeColors, setThemeColors] = useState(() => {
+    try {
+      const saved = localStorage.getItem("2ez-theme");
+      return saved ? JSON.parse(saved) : DEFAULT_THEME;
+    } catch { return DEFAULT_THEME; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("2ez-theme", JSON.stringify(themeColors));
+  }, [themeColors]);
+
+  const navigate = useCallback((page) => {
+    setActivePage(page);
+    setMenuOpen(false);
+  }, []);
+
+  const toggleMenu = useCallback(() => setMenuOpen(o => !o), []);
+
+  return (
+    <>
+      <style>{GLOBAL_CSS}</style>
+      <style>{buildThemeVars(themeColors)}</style>
+
+      <NavSidebar
+        isOpen={menuOpen}
+        activePage={activePage}
+        onNavigate={navigate}
+        onClose={() => setMenuOpen(false)}
+        themeColors={themeColors}
+        onThemeChange={setThemeColors}
+      />
+
+      {activePage === "main"       && <MainPage            onMenuToggle={toggleMenu} />}
+      {activePage === "media-auto" && <MediaAutomationPage onMenuToggle={toggleMenu} />}
+      {activePage === "media-srv"  && <MediaServerPage     onMenuToggle={toggleMenu} />}
+      {activePage === "mgmt"       && <ManagementPage      onMenuToggle={toggleMenu} />}
+      {activePage === "downloads"  && <DownloadsPage        onMenuToggle={toggleMenu} />}
     </>
   );
 }
