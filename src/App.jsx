@@ -212,9 +212,7 @@ const GLOBAL_CSS = `
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { overflow-x: hidden; }
-  body, html, #root { background: var(--bg); background-image: radial-gradient(ellipse at 15% 0%, rgba(34,211,167,0.07) 0%, transparent 55%), radial-gradient(ellipse at 85% 100%, rgba(99,102,241,0.06) 0%, transparent 55%); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; min-height: 100vh; }
-  body, #root { width: 100%; }
+  body, html, #root { background: var(--bg); background-image: radial-gradient(ellipse at 15% 0%, rgba(34,211,167,0.07) 0%, transparent 55%), radial-gradient(ellipse at 85% 100%, rgba(99,102,241,0.06) 0%, transparent 55%); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; min-height: 100vh; overflow-x: clip; }
 
   /* ── Shell ── */
   .shell { max-width: 1320px; margin: 0 auto; padding: 28px 24px 48px; }
@@ -233,7 +231,7 @@ const GLOBAL_CSS = `
   /* ── Grid (main dashboard) ── */
   .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
   @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; } .shell { padding: 16px 12px 32px; } .header { flex-direction: column; align-items: flex-start; gap: 10px; } .header-right { gap: 10px; flex-wrap: wrap; } .uptime-strip { display: none; } }
+  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; } .grid > * { grid-column: auto !important; } .shell { padding: 16px 12px 32px; } .header { flex-direction: column; align-items: flex-start; gap: 10px; } .header-right { gap: 10px; flex-wrap: wrap; } .uptime-strip { display: none; } }
 
   /* ── Card ── */
   .card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; box-shadow: var(--card-shadow); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
