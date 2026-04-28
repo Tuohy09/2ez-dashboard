@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, forwardRef } from "react";
+import { createPortal } from "react-dom";
 
 // ─── CONFIG ──────────────────────────────────────────────────────
 const GLANCES_API   = "/api/4";
@@ -192,24 +193,28 @@ const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Outfit:wght@300;400;500;600;700&display=swap');
 
   :root {
-    --bg: #0a0e14;
-    --bg2: #0d1119;
-    --card: rgba(255,255,255,0.025);
-    --card-hover: rgba(255,255,255,0.04);
-    --card-border: rgba(255,255,255,0.06);
+    --bg: #080c12;
+    --bg2: #0b0f18;
+    --card: rgba(255,255,255,0.065);
+    --card-hover: rgba(255,255,255,0.10);
+    --card-border: rgba(255,255,255,0.13);
+    --card-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.09);
+    --card-shadow-hover: 0 20px 56px rgba(0,0,0,0.6), 0 6px 20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.14);
     --text: #e0e4ea;
     --text-dim: rgba(224,228,234,0.45);
     --accent: #22d3a7;
     --accent-dim: rgba(34,211,167,0.12);
     --warn: #f59e0b;
     --crit: #ef4444;
-    --radius: 14px;
+    --radius: 20px;
     --font: 'Outfit', -apple-system, sans-serif;
     --mono: 'JetBrains Mono', monospace;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body, html, #root { background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; min-height: 100vh; }
+  html { overflow-x: hidden; }
+  body, html, #root { background: var(--bg); background-image: radial-gradient(ellipse at 15% 0%, rgba(34,211,167,0.07) 0%, transparent 55%), radial-gradient(ellipse at 85% 100%, rgba(99,102,241,0.06) 0%, transparent 55%); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; min-height: 100vh; }
+  body, #root { width: 100%; }
 
   /* ── Shell ── */
   .shell { max-width: 1320px; margin: 0 auto; padding: 28px 24px 48px; }
@@ -222,20 +227,20 @@ const GLOBAL_CSS = `
   .header-right { display: flex; align-items: center; gap: 18px; font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
 
   /* ── Live badge ── */
-  .live-badge { display: flex; align-items: center; gap: 6px; background: var(--accent-dim); color: var(--accent); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; font-family: var(--mono); flex-shrink: 0; }
+  .live-badge { display: flex; align-items: center; gap: 6px; background: var(--accent-dim); color: var(--accent); padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; font-family: var(--mono); flex-shrink: 0; border: 1px solid rgba(34,211,167,0.22); box-shadow: 0 0 16px rgba(34,211,167,0.12); }
   .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse-dot 2s ease-in-out infinite; }
 
   /* ── Grid (main dashboard) ── */
-  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
   @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; } .shell { padding: 16px 12px 32px; } .header { flex-direction: column; align-items: flex-start; gap: 12px; } }
+  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; } .shell { padding: 16px 12px 32px; } .header { flex-direction: column; align-items: flex-start; gap: 10px; } .header-right { gap: 10px; flex-wrap: wrap; } .uptime-strip { display: none; } }
 
   /* ── Card ── */
-  .card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; transition: background 0.25s ease, border-color 0.25s ease; }
-  .card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.09); }
+  .card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; box-shadow: var(--card-shadow); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+  .card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.20); box-shadow: var(--card-shadow-hover); transform: translateY(-4px); }
   .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); font-weight: 600; margin-bottom: 14px; }
   .card-clickable { cursor: pointer; }
-  .card-clickable:hover { border-color: rgba(34, 211, 167, 0.22) !important; }
+  .card-clickable:hover { border-color: rgba(34, 211, 167, 0.35) !important; box-shadow: var(--card-shadow-hover), 0 0 0 1px rgba(34,211,167,0.18) !important; }
 
   /* ── Typography ── */
   .mono { font-family: var(--mono); }
@@ -244,7 +249,7 @@ const GLOBAL_CSS = `
   .label-xs { font-size: 10px; color: var(--text-dim); font-weight: 400; }
 
   /* ── Bar ── */
-  .bar-track { background: rgba(255,255,255,0.04); border-radius: 4px; overflow: hidden; }
+  .bar-track { background: rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; }
   .bar-fill { border-radius: 4px; transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
 
   /* ── Ring ── */
@@ -253,8 +258,8 @@ const GLOBAL_CSS = `
   /* ── Docker ── */
   .docker-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
   @media (max-width: 600px) { .docker-grid { grid-template-columns: 1fr; } }
-  .docker-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; background: rgba(255,255,255,0.015); transition: background 0.2s ease; }
-  .docker-item:hover { background: rgba(255,255,255,0.04); }
+  .docker-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); transition: background 0.2s ease, border-color 0.2s ease; }
+  .docker-item:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.11); }
   .docker-dot-wrap { flex-shrink: 0; }
   .docker-dot { width: 7px; height: 7px; border-radius: 50%; }
   .dot-live { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
@@ -263,7 +268,7 @@ const GLOBAL_CSS = `
 
   /* ── Stat row ── */
   .stat-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; }
-  .stat-row + .stat-row { border-top: 1px solid rgba(255,255,255,0.03); }
+  .stat-row + .stat-row { border-top: 1px solid rgba(255,255,255,0.05); }
 
   /* ── Network ── */
   .net-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -279,7 +284,7 @@ const GLOBAL_CSS = `
   /* ── Cores ── */
   .cores-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 12px; }
   .core-bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-  .core-bar-outer { width: 100%; height: 32px; background: rgba(255,255,255,0.04); border-radius: 4px; position: relative; overflow: hidden; display: flex; align-items: flex-end; }
+  .core-bar-outer { width: 100%; height: 32px; background: rgba(255,255,255,0.06); border-radius: 8px; position: relative; overflow: hidden; display: flex; align-items: flex-end; }
   .core-bar-inner { width: 100%; border-radius: 4px; transition: height 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
   .core-label { font-family: var(--mono); font-size: 8px; color: var(--text-dim); }
 
@@ -306,8 +311,8 @@ const GLOBAL_CSS = `
   .hamburger-btn:hover { background: var(--card-hover); color: var(--text); }
 
   /* ── Nav sidebar ── */
-  .nav-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 999; backdrop-filter: blur(3px); }
-  .nav-sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 256px; background: var(--bg2); border-right: 1px solid var(--card-border); z-index: 1000; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; overflow-y: auto; }
+  .nav-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 999; backdrop-filter: blur(6px); }
+  .nav-sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 256px; background: rgba(11,15,24,0.92); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-right: 1px solid rgba(255,255,255,0.10); box-shadow: 4px 0 40px rgba(0,0,0,0.6); z-index: 1000; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; overflow-y: auto; }
   .nav-sidebar.open { transform: translateX(0); }
   .nav-header { padding: 22px 20px 16px; border-bottom: 1px solid var(--card-border); display: flex; align-items: center; gap: 12px; }
   .nav-header-title { font-size: 16px; font-weight: 700; }
@@ -316,29 +321,29 @@ const GLOBAL_CSS = `
   .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 20px; cursor: pointer; background: none; border: none; color: var(--text-dim); font-family: var(--font); font-size: 14px; font-weight: 500; width: 100%; text-align: left; transition: background 0.15s, color 0.15s; border-radius: 0; }
   .nav-item:hover { background: rgba(255,255,255,0.03); color: var(--text); }
   .nav-item.active { color: var(--accent); background: var(--accent-dim); }
-  .nav-item-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .nav-item-icon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; font-weight: 700; flex-shrink: 0; box-shadow: 0 3px 10px rgba(0,0,0,0.3); }
 
   /* ── Service card grid ── */
-  .svc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  .svc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 18px; }
   @media (max-width: 600px) { .svc-grid { grid-template-columns: repeat(2, 1fr); } }
 
   /* ── Service card ── */
-  .svc-card { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); transition: background 0.2s, border-color 0.2s, transform 0.15s; cursor: pointer; }
-  .svc-card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.12); transform: translateY(-1px); }
-  .svc-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 700; font-size: 12px; flex-shrink: 0; }
+  .svc-card { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); box-shadow: var(--card-shadow); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: background 0.28s, border-color 0.28s, box-shadow 0.28s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); cursor: pointer; }
+  .svc-card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.22); box-shadow: var(--card-shadow-hover); transform: translateY(-5px); }
+  .svc-icon { width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 700; font-size: 12px; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
   .svc-name { font-size: 14px; font-weight: 600; line-height: 1.2; }
   .svc-desc { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
 
   /* ── Live service card ── */
-  .live-svc-card { display: flex; flex-direction: column; gap: 12px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); transition: background 0.2s, border-color 0.2s, transform 0.15s; cursor: pointer; }
-  .live-svc-card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.12); transform: translateY(-1px); }
+  .live-svc-card { display: flex; flex-direction: column; gap: 12px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); box-shadow: var(--card-shadow); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: background 0.28s, border-color 0.28s, box-shadow 0.28s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); cursor: pointer; }
+  .live-svc-card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.22); box-shadow: var(--card-shadow-hover); transform: translateY(-5px); }
   .live-svc-top { display: flex; align-items: center; gap: 12px; }
   .live-svc-name { font-size: 14px; font-weight: 600; }
   .live-svc-desc { font-size: 11px; color: var(--text-dim); }
 
   /* ── Live stats row ── */
   .live-stats-row { display: flex; gap: 4px; flex-wrap: wrap; }
-  .live-stat { display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 8px 12px; flex: 1; min-width: 60px; }
+  .live-stat { display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); border-radius: 12px; padding: 8px 12px; flex: 1; min-width: 60px; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
   .live-stat-val { font-family: var(--mono); font-size: 16px; font-weight: 700; line-height: 1.2; color: var(--text); }
   .live-stat-lbl { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px; font-weight: 500; }
 
@@ -367,7 +372,7 @@ const GLOBAL_CSS = `
   .settings-cog-btn svg { flex-shrink: 0; }
 
   /* ── Settings panel ── */
-  .settings-panel { position: fixed; bottom: 0; left: 256px; width: 300px; max-height: 80vh; overflow-y: auto; background: var(--bg2); border: 1px solid var(--card-border); border-radius: 12px 12px 0 0; box-shadow: 0 -8px 40px rgba(0,0,0,0.5); z-index: 1100; padding: 20px; font-family: var(--font); animation: slide-up 0.25s cubic-bezier(0.22,1,0.36,1) both; }
+  .settings-panel { position: fixed; bottom: 0; left: 256px; width: 300px; max-height: 80vh; overflow-y: auto; background: rgba(11,15,24,0.92); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.13); border-radius: 20px 20px 0 0; box-shadow: 0 -12px 60px rgba(0,0,0,0.65), 0 -2px 16px rgba(0,0,0,0.4); z-index: 1100; padding: 20px; font-family: var(--font); animation: slide-up 0.25s cubic-bezier(0.22,1,0.36,1) both; }
   @media (max-width: 600px) { .settings-panel { left: 0; width: 100%; border-radius: 12px 12px 0 0; } }
   @keyframes slide-up { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .settings-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
@@ -406,10 +411,54 @@ const GLOBAL_CSS = `
   .size-btn { width: 20px; height: 18px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08); background: transparent; color: var(--text-dim); font-family: var(--mono); font-size: 9px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.12s, color 0.12s, border-color 0.12s; padding: 0; }
   .size-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); border-color: rgba(255,255,255,0.16); }
   .size-btn.sz-active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+  /* ── Alerts button & badge ── */
+  .alerts-nav-btn { display: flex; align-items: center; gap: 10px; width: 100%; background: transparent; border: none; cursor: pointer; padding: 8px 10px; border-radius: 8px; color: var(--text-dim); font-family: var(--font); font-size: 13px; transition: background 0.15s, color 0.15s; }
+  .alerts-nav-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+  .alerts-nav-btn svg { flex-shrink: 0; }
+  .alert-count-badge { margin-left: auto; min-width: 18px; height: 18px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; padding: 0 5px; }
+  .alert-count-badge.crit { background: var(--crit); color: #fff; }
+  .alert-count-badge.warn { background: var(--warn); color: #000; }
+  .alert-count-badge.ok   { background: rgba(34,211,167,0.18); color: var(--ok); }
+
+  /* ── Alert list items ── */
+  .alert-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .alert-item:last-child { border-bottom: none; }
+  .alert-state-pill { flex-shrink: 0; font-size: 9px; font-weight: 800; letter-spacing: 1px; padding: 2px 7px; border-radius: 4px; margin-top: 2px; }
+  .alert-state-pill.critical { background: rgba(239,68,68,0.18); color: var(--crit); border: 1px solid rgba(239,68,68,0.3); }
+  .alert-state-pill.warning  { background: rgba(245,158,11,0.18); color: var(--warn); border: 1px solid rgba(245,158,11,0.3); }
+  .alert-item-type { font-size: 12px; font-weight: 600; color: var(--text); }
+  .alert-item-meta { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+  .alerts-all-clear { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 0; color: var(--ok); font-size: 13px; }
+
+  /* ── Notification bell ── */
+  .bell-wrap { position: relative; }
+  .bell-btn { position: relative; background: transparent; border: none; cursor: pointer; color: var(--text-dim); padding: 6px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: color 0.15s, background 0.15s; }
+  .bell-btn:hover { color: var(--text); background: rgba(255,255,255,0.07); }
+  .bell-badge { position: absolute; top: 1px; right: 1px; min-width: 14px; height: 14px; background: var(--crit); border-radius: 7px; font-size: 8px; font-weight: 800; color: #fff; display: flex; align-items: center; justify-content: center; padding: 0 3px; border: 1.5px solid var(--bg); pointer-events: none; }
+
+  /* ── Notification drawer ── */
+  .notif-drawer { position: fixed; width: 320px; max-height: 480px; overflow-y: auto; background: rgba(11,15,24,0.97); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.13); border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.65); z-index: 9999; }
+  @keyframes slide-down { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .notif-drawer-anim { animation: slide-down 0.18s cubic-bezier(0.22,1,0.36,1) both; }
+  .notif-drawer-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); position: sticky; top: 0; background: rgba(11,15,24,0.98); z-index: 1; border-radius: 12px 12px 0 0; }
+  .notif-drawer-title { font-size: 12px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 1px; }
+  .notif-empty { padding: 32px 16px; text-align: center; font-size: 12px; color: var(--text-dim); }
+
+  /* ── Notification items ── */
+  .notif-item { position: relative; overflow: hidden; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .notif-item:last-child { border-bottom: none; }
+  .notif-item-inner { display: flex; align-items: flex-start; gap: 10px; padding: 12px 16px; cursor: pointer; transition: background 0.15s; user-select: none; }
+  .notif-item-inner:hover { background: rgba(255,255,255,0.04); }
+  .notif-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .notif-title { font-size: 12px; font-weight: 600; color: var(--text); }
+  .notif-body  { font-size: 11px; color: var(--text-dim); margin-top: 2px; line-height: 1.4; }
+  .notif-time  { font-size: 10px; color: var(--text-dim); margin-top: 4px; font-family: var(--mono); opacity: 0.7; }
+  .notif-delete-btn { position: absolute; right: 0; top: 0; bottom: 0; width: 64px; display: flex; align-items: center; justify-content: center; background: var(--crit); border: none; color: #fff; font-size: 20px; cursor: pointer; }
 `;
 
 // ─── LOGO ────────────────────────────────────────────────────────
-const Logo = ({ size = 32 }) => (
+const DefaultLogoSvg = ({ size }) => (
   <svg width={size} height={size} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect width="120" height="120" rx="24" fill="var(--accent)" />
     <text x="60" y="78" textAnchor="middle" fontFamily="'JetBrains Mono', monospace" fontWeight="800" fontSize="52" fill="var(--bg)" letterSpacing="-2">
@@ -417,6 +466,24 @@ const Logo = ({ size = 32 }) => (
     </text>
   </svg>
 );
+
+const Logo = ({ size = 32, onClick }) => {
+  const [fallback, setFallback] = useState(false);
+  const imgSize = Math.round(size * 1.68);
+
+  const inner = !fallback
+    ? <img src="/logo.png" width={imgSize} height={imgSize} style={{ borderRadius: 8, objectFit: "cover", flexShrink: 0 }} alt="logo" onError={() => setFallback(true)} />
+    : <DefaultLogoSvg size={size} />;
+
+  if (onClick) {
+    return (
+      <button onClick={onClick} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", flexShrink: 0 }}>
+        {inner}
+      </button>
+    );
+  }
+  return inner;
+};
 
 // ─── HAMBURGER ICON ──────────────────────────────────────────────
 const HamburgerIcon = () => (
@@ -1181,9 +1248,221 @@ function SettingsPanel({ colors, onChange, onClose }) {
         </div>
       ))}
 
+      <div className="settings-section-lbl">Logo</div>
+      <div style={{ fontSize: 11, color: "var(--text-dim)", lineHeight: 1.5 }}>
+        Drop your image as <span style={{ fontFamily: "var(--mono)", color: "var(--text)" }}>public/logo.png</span> in the project folder — it will load on every device automatically.
+      </div>
+
       <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
         <button className="reset-btn" onClick={() => onChange(DEFAULT_THEME)}>Reset to default</button>
       </div>
+    </div>
+  );
+}
+
+// ─── NOTIFICATION COMPONENTS ─────────────────────────────────────
+function fmtAgo(ts) {
+  const s = Math.floor(Date.now() / 1000) - ts;
+  if (s < 60)   return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+
+function NotificationItem({ notif, onDismiss, onClick }) {
+  const [offsetX, setOffsetX] = useState(0);
+  const [revealed, setRevealed] = useState(false);
+  const startX = useRef(null);
+  const dragging = useRef(false);
+
+  const onTouchStart = (e) => { startX.current = e.touches[0].clientX; dragging.current = true; };
+  const onTouchMove  = (e) => {
+    if (!dragging.current) return;
+    const delta = e.touches[0].clientX - startX.current;
+    if (delta < 0) setOffsetX(Math.max(delta, -64));
+  };
+  const onTouchEnd = () => {
+    dragging.current = false;
+    if (offsetX < -32) { setOffsetX(-64); setRevealed(true); }
+    else               { setOffsetX(0);   setRevealed(false); }
+    startX.current = null;
+  };
+
+  const stateColor = notif.severity === "CRITICAL" ? "var(--crit)" : notif.severity === "WARNING" ? "var(--warn)" : "var(--accent)";
+
+  return (
+    <div className="notif-item">
+      <div
+        className="notif-item-inner"
+        style={{ transform: `translateX(${offsetX}px)`, transition: dragging.current ? "none" : "transform 0.2s" }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onClick={() => { if (!revealed) onClick(); }}
+      >
+        <div className="notif-icon" style={{ background: stateColor + "22", border: `1px solid ${stateColor}44` }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={stateColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="notif-title">{notif.title}</div>
+          <div className="notif-body">{notif.body}</div>
+          <div className="notif-time">{fmtAgo(notif.ts)}</div>
+        </div>
+      </div>
+      {revealed && (
+        <button className="notif-delete-btn" onClick={onDismiss}>×</button>
+      )}
+    </div>
+  );
+}
+
+const NotificationDrawer = forwardRef(function NotificationDrawer({ notifications, onDismiss, onClearAll, onNavigate, style }, ref) {
+  return (
+    <div ref={ref} className="notif-drawer notif-drawer-anim" style={style}>
+      <div className="notif-drawer-header">
+        <span className="notif-drawer-title">Notifications</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {notifications.length > 0 && (
+            <button className="reset-btn" onClick={onClearAll}>Clear All</button>
+          )}
+        </div>
+      </div>
+      {notifications.length === 0 ? (
+        <div className="notif-empty">No notifications</div>
+      ) : (
+        notifications.map(n => (
+          <NotificationItem
+            key={n.id}
+            notif={n}
+            onDismiss={() => onDismiss(n.id)}
+            onClick={() => onNavigate(n.page)}
+          />
+        ))
+      )}
+    </div>
+  );
+});
+
+function NotificationBell({ notifications, onDismiss, onClearAll, onNavigate }) {
+  const [open, setOpen] = useState(false);
+  const [drawerStyle, setDrawerStyle] = useState({});
+  const btnRef = useRef(null);
+  const drawerRef = useRef(null);
+  const unread = notifications.length;
+
+  useEffect(() => {
+    if (!open || !btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    setDrawerStyle({ top: r.bottom + 10, right: window.innerWidth - r.right });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (
+        btnRef.current && !btnRef.current.contains(e.target) &&
+        drawerRef.current && !drawerRef.current.contains(e.target)
+      ) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div className="bell-wrap">
+      <button className="bell-btn" ref={btnRef} onClick={() => setOpen(o => !o)} aria-label="Notifications">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        {unread > 0 && <span className="bell-badge">{unread > 9 ? "9+" : unread}</span>}
+      </button>
+      {open && createPortal(
+        <NotificationDrawer
+          ref={drawerRef}
+          style={drawerStyle}
+          notifications={notifications}
+          onDismiss={onDismiss}
+          onClearAll={onClearAll}
+          onNavigate={(page) => { onNavigate(page); setOpen(false); }}
+        />,
+        document.body
+      )}
+    </div>
+  );
+}
+
+// ─── ALERTS PANEL ────────────────────────────────────────────────
+function AlertsPanel({ alerts, onClose }) {
+  const [clearedBefore, setClearedBefore] = useState(
+    () => parseInt(localStorage.getItem("2ez-alerts-cleared") || "0", 10)
+  );
+
+  const all     = alerts || [];
+  const active  = all.filter(a => a.end === -1);
+  const crits   = active.filter(a => a.state === "CRITICAL").length;
+  const warns   = active.filter(a => a.state === "WARNING").length;
+  const history = all
+    .filter(a => a.end !== -1 && a.end > clearedBefore)
+    .sort((a, b) => b.end - a.end)
+    .slice(0, 10);
+
+  const fmt = (ts) => {
+    const secs = Math.floor(Date.now() / 1000) - ts;
+    if (secs < 60)   return `${secs}s ago`;
+    if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+    return `${Math.floor(secs / 3600)}h ago`;
+  };
+
+  const clearHistory = () => {
+    const now = Math.floor(Date.now() / 1000);
+    localStorage.setItem("2ez-alerts-cleared", String(now));
+    setClearedBefore(now);
+  };
+
+  const AlertRow = ({ a }) => (
+    <div className="alert-item">
+      <span className={`alert-state-pill ${a.state.toLowerCase()}`}>{a.state}</span>
+      <div>
+        <div className="alert-item-type">{a.type}</div>
+        <div className="alert-item-meta">
+          Max {a.max?.toFixed(1) ?? "—"} · Avg {a.avg?.toFixed(1) ?? "—"} · {fmt(a.end === -1 ? a.begin : a.end)}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="settings-panel">
+      <div className="settings-panel-header">
+        <span className="settings-panel-title">
+          Alerts {active.length > 0 && <span style={{ color: crits ? "var(--crit)" : "var(--warn)", fontWeight: 400, fontSize: 11 }}>({crits} critical, {warns} warning)</span>}
+        </span>
+        <button className="close-btn" onClick={onClose}>×</button>
+      </div>
+
+      <div className="settings-section-lbl">Current</div>
+      {active.length === 0 ? (
+        <div className="alerts-all-clear">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          All systems normal
+        </div>
+      ) : (
+        active.map((a, i) => <AlertRow key={i} a={a} />)
+      )}
+
+      <div className="settings-section-lbl" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span>Last 10 Alerts</span>
+        {history.length > 0 && (
+          <button className="reset-btn" onClick={clearHistory}>Clear</button>
+        )}
+      </div>
+      {history.length === 0 ? (
+        <div style={{ fontSize: 11, color: "var(--text-dim)", padding: "8px 0" }}>No recent alerts</div>
+      ) : (
+        history.map((a, i) => <AlertRow key={i} a={a} />)
+      )}
     </div>
   );
 }
@@ -1282,15 +1561,20 @@ const NAV_ITEMS = [
   { id: "downloads",  label: "Downloads & Transcodes", abbr: "DL", col: "#2979FF" },
 ];
 
-function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onThemeChange }) {
+function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onThemeChange, alerts }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [alertsOpen,   setAlertsOpen]   = useState(false);
+
+  const activeAlerts = (alerts || []).filter(a => a.end === -1);
+  const hasCrit = activeAlerts.some(a => a.state === "CRITICAL");
+  const hasWarn = activeAlerts.some(a => a.state === "WARNING");
 
   return (
     <>
       {isOpen && <div className="nav-backdrop" onClick={() => { onClose(); setSettingsOpen(false); }} />}
       <div className={`nav-sidebar${isOpen ? " open" : ""}`} style={{ display: "flex", flexDirection: "column" }}>
         <div className="nav-header">
-          <Logo size={32} />
+          <Logo size={32} onClick={() => { onNavigate("main"); onClose(); }} />
           <div>
             <div className="nav-header-title">2EZ</div>
             <div style={{ fontSize: 10, color: "var(--text-dim)" }}>2ez.dinosaur-banana.ts.net</div>
@@ -1317,7 +1601,18 @@ function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onTh
         ))}
 
         <div className="nav-footer">
-          <button className="settings-cog-btn" onClick={() => setSettingsOpen(o => !o)}>
+          <button className="alerts-nav-btn" onClick={() => { setAlertsOpen(o => !o); setSettingsOpen(false); }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            Alerts
+            <span className={`alert-count-badge ${hasCrit ? "crit" : hasWarn ? "warn" : "ok"}`}>
+              {activeAlerts.length}
+            </span>
+          </button>
+
+          <button className="settings-cog-btn" onClick={() => { setSettingsOpen(o => !o); setAlertsOpen(false); }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3"/>
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -1327,6 +1622,13 @@ function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onTh
         </div>
 
       </div>
+
+      {alertsOpen && (
+        <AlertsPanel
+          alerts={alerts}
+          onClose={() => setAlertsOpen(false)}
+        />
+      )}
 
       {settingsOpen && (
         <SettingsPanel
@@ -1340,7 +1642,7 @@ function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onTh
 }
 
 // ─── MAIN PAGE (system dashboard) ────────────────────────────────
-function MainPage({ onMenuToggle }) {
+function MainPage({ onMenuToggle, bellProps }) {
   const [data, setData] = useState(null);
   const [history, setHistory] = useState({ cpu: [], rx: [], tx: [] });
   const [time, setTime] = useState(new Date());
@@ -1468,6 +1770,7 @@ function MainPage({ onMenuToggle }) {
             {data.uptime}
           </div>
           <span>{time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+          {bellProps && <NotificationBell {...bellProps} />}
           <div className="live-badge">
             <div className="live-dot" style={{ background: connected ? "var(--accent)" : "var(--crit)" }} />
             {connected ? "LIVE" : "OFFLINE"}
@@ -1768,30 +2071,33 @@ function MainPage({ onMenuToggle }) {
 }
 
 // ─── PAGE HEADER (non-main pages) ────────────────────────────────
-function PageHeader({ title, onMenuToggle }) {
+function PageHeader({ title, onMenuToggle, onNavigate, bellProps }) {
   return (
     <header className="header fade-in">
       <div className="header-left">
         <button className="hamburger-btn" onClick={onMenuToggle} aria-label="Open menu">
           <HamburgerIcon />
         </button>
-        <Logo size={38} />
+        <Logo size={38} onClick={() => onNavigate("main")} />
         <div>
           <div className="header-title">2EZ</div>
           <div className="header-sub" style={{ color: "var(--accent)", fontWeight: 500 }}>{title}</div>
         </div>
+      </div>
+      <div className="header-right">
+        {bellProps && <NotificationBell {...bellProps} />}
       </div>
     </header>
   );
 }
 
 // ─── MEDIA AUTOMATION PAGE ───────────────────────────────────────
-function MediaAutomationPage({ onMenuToggle }) {
+function MediaAutomationPage({ onMenuToggle, onNavigate, bellProps }) {
   const items = ["sonarr", "radarr", "lidarr", "prowlarr", "bazarr", "beetsflask", "slskd", "lrcget"]
     .map(id => ({ id, node: <SvcCard id={id} /> }));
   return (
     <div className="shell">
-      <PageHeader title="Media Automation" onMenuToggle={onMenuToggle} />
+      <PageHeader title="Media Automation" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
       <p className="page-section">Arr Apps &amp; Tools</p>
       <SortableGrid pageKey="media-auto" items={items} />
     </div>
@@ -1799,7 +2105,7 @@ function MediaAutomationPage({ onMenuToggle }) {
 }
 
 // ─── MEDIA SERVER PAGE ───────────────────────────────────────────
-function MediaServerPage({ onMenuToggle }) {
+function MediaServerPage({ onMenuToggle, onNavigate, bellProps }) {
   const items = [
     { id: "jellyfin",  node: <JellyfinWidget /> },
     { id: "seerr",     node: <SvcCard id="seerr" /> },
@@ -1809,7 +2115,7 @@ function MediaServerPage({ onMenuToggle }) {
   ];
   return (
     <div className="shell">
-      <PageHeader title="Media Server" onMenuToggle={onMenuToggle} />
+      <PageHeader title="Media Server" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
       <p className="page-section">Streaming &amp; Libraries</p>
       <SortableGrid pageKey="media-srv" items={items} />
     </div>
@@ -1817,7 +2123,7 @@ function MediaServerPage({ onMenuToggle }) {
 }
 
 // ─── MANAGEMENT PAGE ─────────────────────────────────────────────
-function ManagementPage({ onMenuToggle }) {
+function ManagementPage({ onMenuToggle, onNavigate, bellProps }) {
   const items = [
     { id: "cockpit",     node: <SvcCard id="cockpit" /> },
     { id: "speedtest",   node: <SpeedtestWidget /> },
@@ -1826,7 +2132,7 @@ function ManagementPage({ onMenuToggle }) {
   ];
   return (
     <div className="shell">
-      <PageHeader title="Management" onMenuToggle={onMenuToggle} />
+      <PageHeader title="Management" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
       <p className="page-section">System &amp; Infrastructure</p>
       <SortableGrid pageKey="mgmt" items={items} />
     </div>
@@ -1834,14 +2140,14 @@ function ManagementPage({ onMenuToggle }) {
 }
 
 // ─── DOWNLOADS & TRANSCODES PAGE ─────────────────────────────────
-function DownloadsPage({ onMenuToggle }) {
+function DownloadsPage({ onMenuToggle, onNavigate, bellProps }) {
   const items = [
     { id: "qbittorrent", node: <QBittorrentWidget /> },
     { id: "unmanic",     node: <UnmanicWidget /> },
   ];
   return (
     <div className="shell">
-      <PageHeader title="Downloads &amp; Transcodes" onMenuToggle={onMenuToggle} />
+      <PageHeader title="Downloads &amp; Transcodes" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
       <p className="page-section">Active transfers &amp; encoding queue</p>
       <SortableGrid pageKey="downloads" items={items} />
     </div>
@@ -1864,12 +2170,69 @@ export default function App() {
     localStorage.setItem("2ez-theme", JSON.stringify(themeColors));
   }, [themeColors]);
 
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => {
+      const link = document.querySelector("link[rel='icon']");
+      if (link) { link.type = "image/png"; link.href = "/logo.png"; }
+    };
+    img.src = "/logo.png";
+  }, []);
+
+  // ── Notifications ──────────────────────────────────────────────
+  const [notifications, setNotifications] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("2ez-notifications") || "[]"); }
+    catch { return []; }
+  });
+  useEffect(() => {
+    localStorage.setItem("2ez-notifications", JSON.stringify(notifications));
+  }, [notifications]);
+
+  const addNotification   = useCallback((n) => setNotifications(p => [n, ...p].slice(0, 50)), []);
+  const dismissNotif      = useCallback((id) => setNotifications(p => p.filter(n => n.id !== id)), []);
+  const clearAllNotifs    = useCallback(() => setNotifications([]), []);
+
+  // ── Alert polling + bridge ─────────────────────────────────────
+  const { data: alerts } = usePolling(
+    () => fetch(`${GLANCES_API}/alert`).then(r => r.json()).catch(() => []),
+    10000
+  );
+
+  const seenAlertIds = useRef(new Set(
+    JSON.parse(localStorage.getItem("2ez-seen-alerts") || "[]")
+  ));
+
+  useEffect(() => {
+    if (!alerts) return;
+    let changed = false;
+    alerts.filter(a => a.end === -1).forEach(a => {
+      const id = `alert_${a.type}_${a.begin}`;
+      if (!seenAlertIds.current.has(id)) {
+        seenAlertIds.current.add(id);
+        changed = true;
+        addNotification({
+          id,
+          type: "alert",
+          severity: a.state,
+          title: `${a.type} ${a.state}`,
+          body: `Max ${a.max?.toFixed(1) ?? "—"} · Avg ${a.avg?.toFixed(1) ?? "—"}`,
+          ts: Math.floor(Date.now() / 1000),
+          page: "main",
+        });
+      }
+    });
+    if (changed) localStorage.setItem("2ez-seen-alerts", JSON.stringify([...seenAlertIds.current]));
+  }, [alerts, addNotification]);
+
+  // ── Navigation ────────────────────────────────────────────────
   const navigate = useCallback((page) => {
     setActivePage(page);
     setMenuOpen(false);
   }, []);
 
   const toggleMenu = useCallback(() => setMenuOpen(o => !o), []);
+
+  const bellProps = { notifications, onDismiss: dismissNotif, onClearAll: clearAllNotifs, onNavigate: navigate };
 
   return (
     <>
@@ -1883,13 +2246,14 @@ export default function App() {
         onClose={() => setMenuOpen(false)}
         themeColors={themeColors}
         onThemeChange={setThemeColors}
+        alerts={alerts}
       />
 
-      {activePage === "main"       && <MainPage            onMenuToggle={toggleMenu} />}
-      {activePage === "media-auto" && <MediaAutomationPage onMenuToggle={toggleMenu} />}
-      {activePage === "media-srv"  && <MediaServerPage     onMenuToggle={toggleMenu} />}
-      {activePage === "mgmt"       && <ManagementPage      onMenuToggle={toggleMenu} />}
-      {activePage === "downloads"  && <DownloadsPage        onMenuToggle={toggleMenu} />}
+      {activePage === "main"       && <MainPage            onMenuToggle={toggleMenu} bellProps={bellProps} />}
+      {activePage === "media-auto" && <MediaAutomationPage onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
+      {activePage === "media-srv"  && <MediaServerPage     onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
+      {activePage === "mgmt"       && <ManagementPage      onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
+      {activePage === "downloads"  && <DownloadsPage        onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
     </>
   );
 }
