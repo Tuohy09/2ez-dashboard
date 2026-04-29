@@ -127,6 +127,13 @@ const generateMockData = (prev) => {
       used: 10.1 * 1024 * 1024 * 1024,
       total: 24 * 1024 * 1024 * 1024,
     },
+    memswap: {
+      percent: Math.max(0, Math.min(90, jitter(prev?.memswap?.percent || 14, 4))),
+      used: 1.1 * 1024 * 1024 * 1024,
+      total: 8 * 1024 * 1024 * 1024,
+      sin:  Math.max(0, jitter(prev?.memswap?.sin  || 0, 1e5)),
+      sout: Math.max(0, jitter(prev?.memswap?.sout || 0, 1e5)),
+    },
     sensors: [
       { label: "Package", value: Math.max(30, Math.min(85, jitter(prev?.sensors?.[0]?.value || 48, 4))), unit: "C" },
       { label: "Core 0",  value: Math.max(30, Math.min(85, jitter(prev?.sensors?.[1]?.value || 45, 3))), unit: "C" },
@@ -195,11 +202,11 @@ const GLOBAL_CSS = `
   :root {
     --bg: #080c12;
     --bg2: #0b0f18;
-    --card: rgba(255,255,255,0.065);
-    --card-hover: rgba(255,255,255,0.10);
-    --card-border: rgba(255,255,255,0.13);
-    --card-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.09);
-    --card-shadow-hover: 0 20px 56px rgba(0,0,0,0.6), 0 6px 20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.14);
+    --card: rgba(255,255,255,0.09);
+    --card-hover: rgba(255,255,255,0.15);
+    --card-border: rgba(255,255,255,0.20);
+    --card-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.18);
+    --card-shadow-hover: 0 20px 56px rgba(0,0,0,0.55), 0 6px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.22);
     --text: #e0e4ea;
     --text-dim: rgba(224,228,234,0.45);
     --accent: #22d3a7;
@@ -212,7 +219,7 @@ const GLOBAL_CSS = `
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body, html, #root { background: var(--bg); background-image: radial-gradient(ellipse at 15% 0%, rgba(34,211,167,0.07) 0%, transparent 55%), radial-gradient(ellipse at 85% 100%, rgba(99,102,241,0.06) 0%, transparent 55%); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; min-height: 100vh; overflow-x: clip; }
+  body, html, #root { background: var(--bg); background-image: radial-gradient(ellipse at 15% 0%, rgba(34,211,167,0.14) 0%, transparent 55%), radial-gradient(ellipse at 85% 100%, rgba(99,102,241,0.12) 0%, transparent 55%); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; min-height: 100vh; overflow-x: clip; }
 
   /* ── Shell ── */
   .shell { max-width: 1320px; margin: 0 auto; padding: 28px 24px 48px; }
@@ -222,6 +229,7 @@ const GLOBAL_CSS = `
   .header-left { display: flex; align-items: center; gap: 14px; }
   .header-title { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
   .header-sub { font-size: 13px; color: var(--text-dim); font-weight: 400; }
+  .header-url { font-size: 13px; color: var(--text-dim); font-weight: 400; }
   .header-right { display: flex; align-items: center; gap: 18px; font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
 
   /* ── Live badge ── */
@@ -229,12 +237,12 @@ const GLOBAL_CSS = `
   .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse-dot 2s ease-in-out infinite; }
 
   /* ── Grid (main dashboard) ── */
-  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; align-items: start; }
   @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; } .grid > * { grid-column: auto !important; } .shell { padding: 16px 12px 32px; } .header { flex-direction: column; align-items: flex-start; gap: 10px; } .header-right { gap: 10px; flex-wrap: wrap; } .uptime-strip { display: none; } }
+  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; } .grid > * { grid-column: auto !important; } .shell { padding: 16px 12px 32px; } .header { gap: 8px; } .header-left { gap: 8px; flex: 1; min-width: 0; } .header-right { gap: 8px; flex-shrink: 0; } .header-url { display: none; } .header-clock { display: none; } .uptime-strip { display: none; } }
 
   /* ── Card ── */
-  .card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; box-shadow: var(--card-shadow); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+  .card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
   .card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.20); box-shadow: var(--card-shadow-hover); transform: translateY(-4px); }
   .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); font-weight: 600; margin-bottom: 14px; }
   .card-clickable { cursor: pointer; }
@@ -310,7 +318,7 @@ const GLOBAL_CSS = `
 
   /* ── Nav sidebar ── */
   .nav-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 999; backdrop-filter: blur(6px); }
-  .nav-sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 256px; background: rgba(11,15,24,0.92); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-right: 1px solid rgba(255,255,255,0.10); box-shadow: 4px 0 40px rgba(0,0,0,0.6); z-index: 1000; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; overflow-y: auto; }
+  .nav-sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 256px; background: rgba(8,12,18,0.65); backdrop-filter: blur(32px) saturate(160%); -webkit-backdrop-filter: blur(32px) saturate(160%); border-right: 1px solid rgba(255,255,255,0.16); box-shadow: 4px 0 40px rgba(0,0,0,0.5); z-index: 1000; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; overflow-y: auto; }
   .nav-sidebar.open { transform: translateX(0); }
   .nav-header { padding: 22px 20px 16px; border-bottom: 1px solid var(--card-border); display: flex; align-items: center; gap: 12px; }
   .nav-header-title { font-size: 16px; font-weight: 700; }
@@ -323,17 +331,17 @@ const GLOBAL_CSS = `
 
   /* ── Service card grid ── */
   .svc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 18px; }
-  @media (max-width: 600px) { .svc-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .svc-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); } }
 
   /* ── Service card ── */
-  .svc-card { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); box-shadow: var(--card-shadow); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: background 0.28s, border-color 0.28s, box-shadow 0.28s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); cursor: pointer; }
+  .svc-card { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s, border-color 0.28s, box-shadow 0.28s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); cursor: pointer; }
   .svc-card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.22); box-shadow: var(--card-shadow-hover); transform: translateY(-5px); }
   .svc-icon { width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 700; font-size: 12px; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
   .svc-name { font-size: 14px; font-weight: 600; line-height: 1.2; }
   .svc-desc { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
 
   /* ── Live service card ── */
-  .live-svc-card { display: flex; flex-direction: column; gap: 12px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); box-shadow: var(--card-shadow); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: background 0.28s, border-color 0.28s, box-shadow 0.28s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); cursor: pointer; }
+  .live-svc-card { display: flex; flex-direction: column; gap: 12px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s, border-color 0.28s, box-shadow 0.28s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); cursor: pointer; }
   .live-svc-card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.22); box-shadow: var(--card-shadow-hover); transform: translateY(-5px); }
   .live-svc-top { display: flex; align-items: center; gap: 12px; }
   .live-svc-name { font-size: 14px; font-weight: 600; }
@@ -370,7 +378,7 @@ const GLOBAL_CSS = `
   .settings-cog-btn svg { flex-shrink: 0; }
 
   /* ── Settings panel ── */
-  .settings-panel { position: fixed; bottom: 0; left: 256px; width: 300px; max-height: 80vh; overflow-y: auto; background: rgba(11,15,24,0.92); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.13); border-radius: 20px 20px 0 0; box-shadow: 0 -12px 60px rgba(0,0,0,0.65), 0 -2px 16px rgba(0,0,0,0.4); z-index: 1100; padding: 20px; font-family: var(--font); animation: slide-up 0.25s cubic-bezier(0.22,1,0.36,1) both; }
+  .settings-panel { position: fixed; bottom: 0; left: 256px; width: 300px; max-height: 80vh; overflow-y: auto; background: rgba(8,12,18,0.65); backdrop-filter: blur(32px) saturate(160%); -webkit-backdrop-filter: blur(32px) saturate(160%); border: 1px solid rgba(255,255,255,0.18); border-radius: 20px 20px 0 0; box-shadow: 0 -12px 60px rgba(0,0,0,0.5), 0 -2px 16px rgba(0,0,0,0.35); z-index: 1100; padding: 20px; font-family: var(--font); animation: slide-up 0.25s cubic-bezier(0.22,1,0.36,1) both; }
   @media (max-width: 600px) { .settings-panel { left: 0; width: 100%; border-radius: 12px 12px 0 0; } }
   @keyframes slide-up { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .settings-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
@@ -398,11 +406,20 @@ const GLOBAL_CSS = `
   .reset-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
 
   /* ── Drag-and-drop ── */
-  .drag-item { cursor: grab; display: flex; flex-direction: column; }
+  .card-stack { display: flex; flex-direction: column; gap: 18px; position: relative; }
+  .drag-item { cursor: grab; display: flex; flex-direction: column; position: relative; }
   .drag-item > * { flex: 1; }
   .drag-item:active { cursor: grabbing; }
   .drag-item.dragging { opacity: 0.3; pointer-events: none; }
-  .drag-item.drag-over { border-radius: 12px; outline: 2px solid var(--accent); outline-offset: 3px; }
+  /* within-stack: horizontal snap lines */
+  .drag-item.drop-card-top::before { content: ''; position: absolute; left: 0; right: 0; top: -10px; height: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; pointer-events: none; }
+  .drag-item.drop-card-bottom::after { content: ''; position: absolute; left: 0; right: 0; bottom: -10px; height: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; pointer-events: none; }
+  /* new column: vertical snap lines on stack edges */
+  .card-stack.drop-stack-left::before { content: ''; position: absolute; left: -10px; top: 0; bottom: 0; width: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; pointer-events: none; }
+  .card-stack.drop-stack-right::after { content: ''; position: absolute; right: -10px; top: 0; bottom: 0; width: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; pointer-events: none; }
+  /* keep old classes for sub-page SortableGrids */
+  .drag-item.drop-before::before { content: ''; position: absolute; top: 0; bottom: 0; left: -10px; width: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; pointer-events: none; }
+  .drag-item.drop-after::after { content: ''; position: absolute; top: 0; bottom: 0; right: -10px; width: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; pointer-events: none; }
 
   /* ── Card size control ── */
   .size-ctrl { display: flex; gap: 2px; align-items: center; flex-shrink: 0; }
@@ -436,10 +453,10 @@ const GLOBAL_CSS = `
   .bell-badge { position: absolute; top: 1px; right: 1px; min-width: 14px; height: 14px; background: var(--crit); border-radius: 7px; font-size: 8px; font-weight: 800; color: #fff; display: flex; align-items: center; justify-content: center; padding: 0 3px; border: 1.5px solid var(--bg); pointer-events: none; }
 
   /* ── Notification drawer ── */
-  .notif-drawer { position: fixed; width: 320px; max-height: 480px; overflow-y: auto; background: rgba(11,15,24,0.97); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.13); border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.65); z-index: 9999; }
+  .notif-drawer { position: fixed; width: 320px; max-height: 480px; overflow-y: auto; background: rgba(8,12,18,0.70); backdrop-filter: blur(32px) saturate(160%); -webkit-backdrop-filter: blur(32px) saturate(160%); border: 1px solid rgba(255,255,255,0.18); border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.55); z-index: 9999; }
   @keyframes slide-down { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .notif-drawer-anim { animation: slide-down 0.18s cubic-bezier(0.22,1,0.36,1) both; }
-  .notif-drawer-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); position: sticky; top: 0; background: rgba(11,15,24,0.98); z-index: 1; border-radius: 12px 12px 0 0; }
+  .notif-drawer-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.12); position: sticky; top: 0; background: rgba(8,12,18,0.80); backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px); z-index: 1; border-radius: 12px 12px 0 0; }
   .notif-drawer-title { font-size: 12px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 1px; }
   .notif-empty { padding: 32px 16px; text-align: center; font-size: 12px; color: var(--text-dim); }
 
@@ -1481,7 +1498,14 @@ function useSortable(pageKey, defaultOrder) {
     localStorage.setItem(`2ez-order-${pageKey}`, JSON.stringify(order));
   }, [order, pageKey]);
 
-  const ref = useRef({ from: null, overEl: null });
+  const ref = useRef({ from: null, overEl: null, before: true });
+
+  const clearIndicator = () => {
+    if (ref.current.overEl) {
+      ref.current.overEl.classList.remove("drop-before", "drop-after");
+      ref.current.overEl = null;
+    }
+  };
 
   const getHandlers = (id) => ({
     draggable: true,
@@ -1494,39 +1518,40 @@ function useSortable(pageKey, defaultOrder) {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       const el = e.currentTarget;
-      if (ref.current.overEl && ref.current.overEl !== el) {
-        ref.current.overEl.classList.remove("drag-over");
-      }
-      el.classList.add("drag-over");
+      if (ref.current.overEl && ref.current.overEl !== el) clearIndicator();
+      const rect = el.getBoundingClientRect();
+      const before = e.clientX < rect.left + rect.width / 2;
+      el.classList.remove("drop-before", "drop-after");
+      el.classList.add(before ? "drop-before" : "drop-after");
       ref.current.overEl = el;
+      ref.current.before = before;
     },
     onDragLeave: (e) => {
       if (!e.currentTarget.contains(e.relatedTarget)) {
-        e.currentTarget.classList.remove("drag-over");
+        e.currentTarget.classList.remove("drop-before", "drop-after");
         if (ref.current.overEl === e.currentTarget) ref.current.overEl = null;
       }
     },
     onDrop: (e) => {
       e.preventDefault();
-      e.currentTarget.classList.remove("drag-over");
+      clearIndicator();
       const from = ref.current.from;
+      const before = ref.current.before;
       if (from && from !== id) {
         setOrder(prev => {
-          const next = [...prev];
-          const fi = next.indexOf(from);
-          const ti = next.indexOf(id);
-          if (fi < 0 || ti < 0) return prev;
-          next.splice(fi, 1);
+          const next = prev.filter(x => x !== from);
+          let ti = next.indexOf(id);
+          if (!before) ti++;
           next.splice(ti, 0, from);
           return next;
         });
       }
-      ref.current = { from: null, overEl: null };
+      ref.current = { from: null, overEl: null, before: true };
     },
     onDragEnd: (e) => {
       e.currentTarget.classList.remove("dragging");
-      if (ref.current.overEl) ref.current.overEl.classList.remove("drag-over");
-      ref.current = { from: null, overEl: null };
+      clearIndicator();
+      ref.current = { from: null, overEl: null, before: true };
     },
   });
 
@@ -1639,6 +1664,21 @@ function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onTh
   );
 }
 
+// ─── STACK LAYOUT CONSTANTS ──────────────────────────────────────
+const CARD_COL_SPANS = { cpu: 2, storage: 2 };
+
+const DEFAULT_STACKS = [
+  { id: "st-cpu",        cards: ["cpu"] },
+  { id: "st-mem",        cards: ["mem"] },
+  { id: "st-memswap",    cards: ["memswap"] },
+  { id: "st-temps",      cards: ["temps"] },
+  { id: "st-storage",    cards: ["storage"] },
+  { id: "st-network",    cards: ["network"] },
+  { id: "st-containers", cards: ["containers"] },
+  { id: "st-dockge",     cards: ["dockge"] },
+  { id: "st-uptimekuma", cards: ["uptimekuma"] },
+];
+
 // ─── MAIN PAGE (system dashboard) ────────────────────────────────
 function MainPage({ onMenuToggle, bellProps }) {
   const [data, setData] = useState(null);
@@ -1647,11 +1687,106 @@ function MainPage({ onMenuToggle, bellProps }) {
   const [connected, setConnected] = useState(true);
   const [containerView, setContainerView] = useState(false);
 
-  const MAIN_DEFAULTS = ["cpu", "mem", "temps", "storage", "network", "containers", "dockge", "uptimekuma"];
-  const MAIN_SPANS = { cpu: 2, storage: 2 };
-  const [mainOrder, getHandlers] = useSortable("main", MAIN_DEFAULTS);
+  const [stacks, setStacks] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("2ez-stacks-main") || "null");
+      if (saved && Array.isArray(saved)) {
+        const allSaved = saved.flatMap(s => s.cards);
+        const missing = DEFAULT_STACKS.flatMap(s => s.cards).filter(id => !allSaved.includes(id));
+        return missing.length > 0
+          ? [...saved, ...missing.map(id => ({ id: `st-${id}-new`, cards: [id] }))]
+          : saved;
+      }
+    } catch {}
+    return DEFAULT_STACKS;
+  });
 
-  const DEFAULT_CARD_SIZES = { cpu: "medium", mem: "medium", temps: "medium", storage: "medium", network: "medium", containers: "medium" };
+  useEffect(() => {
+    localStorage.setItem("2ez-stacks-main", JSON.stringify(stacks));
+  }, [stacks]);
+
+  const dndRef = useRef({ cardId: null, fromStackId: null });
+  const indicRef = useRef({ el: null, cls: "" });
+
+  const clearIndic = useCallback(() => {
+    if (indicRef.current.el) {
+      indicRef.current.el.classList.remove(indicRef.current.cls);
+      indicRef.current = { el: null, cls: "" };
+    }
+  }, []);
+
+  const getCardHandlers = (cardId, stackId) => ({
+    draggable: true,
+    onDragStart: (e) => {
+      dndRef.current = { cardId, fromStackId: stackId };
+      e.dataTransfer.effectAllowed = "move";
+      e.currentTarget.classList.add("dragging");
+    },
+    onDragOver: (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const el = e.currentTarget;
+      const rect = el.getBoundingClientRect();
+      const relX = (e.clientX - rect.left) / rect.width;
+      const relY = (e.clientY - rect.top) / rect.height;
+      let targetEl, cls;
+      if (relX < 0.22) {
+        targetEl = el.closest(".card-stack") || el;
+        cls = "drop-stack-left";
+      } else if (relX > 0.78) {
+        targetEl = el.closest(".card-stack") || el;
+        cls = "drop-stack-right";
+      } else {
+        targetEl = el;
+        cls = relY < 0.5 ? "drop-card-top" : "drop-card-bottom";
+      }
+      if (indicRef.current.el !== targetEl || indicRef.current.cls !== cls) {
+        clearIndic();
+        targetEl.classList.add(cls);
+        indicRef.current = { el: targetEl, cls };
+      }
+    },
+    onDragLeave: (e) => {
+      if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return;
+      const stack = e.currentTarget.closest(".card-stack");
+      if (stack?.contains(e.relatedTarget)) return;
+      clearIndic();
+    },
+    onDrop: (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const { cardId: fromCard, fromStackId } = dndRef.current;
+      if (!fromCard || fromCard === cardId) { clearIndic(); return; }
+      const rect = e.currentTarget.getBoundingClientRect();
+      const relX = (e.clientX - rect.left) / rect.width;
+      const relY = (e.clientY - rect.top) / rect.height;
+      clearIndic();
+      setStacks(prev => {
+        const next = prev.map(s => ({ ...s, cards: [...s.cards] }));
+        const src = next.find(s => s.id === fromStackId);
+        if (src) src.cards = src.cards.filter(c => c !== fromCard);
+        const tgtIdx = next.findIndex(s => s.id === stackId);
+        if (relX < 0.22) {
+          next.splice(tgtIdx, 0, { id: `st-${Date.now()}`, cards: [fromCard] });
+        } else if (relX > 0.78) {
+          next.splice(tgtIdx + 1, 0, { id: `st-${Date.now()}`, cards: [fromCard] });
+        } else {
+          const tgt = next.find(s => s.id === stackId);
+          const ti = tgt.cards.indexOf(cardId);
+          tgt.cards.splice(relY < 0.5 ? ti : ti + 1, 0, fromCard);
+        }
+        return next.filter(s => s.cards.length > 0);
+      });
+      dndRef.current = { cardId: null, fromStackId: null };
+    },
+    onDragEnd: (e) => {
+      e.currentTarget.classList.remove("dragging");
+      clearIndic();
+      dndRef.current = { cardId: null, fromStackId: null };
+    },
+  });
+
+  const DEFAULT_CARD_SIZES = { cpu: "medium", mem: "medium", memswap: "medium", temps: "medium", storage: "medium", network: "medium", containers: "medium" };
   const [cardSizes, setCardSizes] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("2ez-card-sizes") || "null");
@@ -1667,13 +1802,13 @@ function MainPage({ onMenuToggle, bellProps }) {
       return;
     }
     try {
-      const endpoints = ["cpu", "mem", "sensors", "uptime", "fs", "diskio", "network", "containers", "percpu"];
+      const endpoints = ["cpu", "mem", "sensors", "uptime", "fs", "diskio", "network", "containers", "percpu", "memswap"];
       const results = await Promise.all(
         endpoints.map((ep) =>
           fetch(`${GLANCES_API}/${ep}`).then((r) => r.json()).catch(() => null)
         )
       );
-      const [cpu, mem, sensors, uptime, fs, diskio, network, docker, percpu] = results;
+      const [cpu, mem, sensors, uptime, fs, diskio, network, docker, percpu, memswap] = results;
 
       const netIface = network
         ? (Array.isArray(network)
@@ -1689,6 +1824,7 @@ function MainPage({ onMenuToggle, bellProps }) {
           freq: cpu?.cpufreq_current || 0,
         },
         mem: { percent: mem?.percent || 0, used: mem?.used || 0, total: mem?.total || 0 },
+        memswap: { percent: memswap?.percent || 0, used: memswap?.used || 0, total: memswap?.total || 0, sin: memswap?.sin || 0, sout: memswap?.sout || 0 },
         sensors: (sensors || []).filter(s => s.type === "temperature_core").slice(0, 5).map(s => ({
           label: s.label, value: s.value, unit: "C"
         })),
@@ -1759,7 +1895,7 @@ function MainPage({ onMenuToggle, bellProps }) {
           <Logo size={38} />
           <div>
             <div className="header-title">2EZ</div>
-            <div className="header-sub">2ez.dinosaur-banana.ts.net</div>
+            <div className="header-url">2ez.dinosaur-banana.ts.net</div>
           </div>
         </div>
         <div className="header-right">
@@ -1767,7 +1903,7 @@ function MainPage({ onMenuToggle, bellProps }) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             {data.uptime}
           </div>
-          <span>{time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+          <span className="header-clock">{time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
           {bellProps && <NotificationBell {...bellProps} />}
           <div className="live-badge">
             <div className="live-dot" style={{ background: connected ? "var(--accent)" : "var(--crit)" }} />
@@ -1777,19 +1913,21 @@ function MainPage({ onMenuToggle, bellProps }) {
       </header>
 
       <div className="grid">
-        {(() => {
-          const RESIZABLE = new Set(["cpu","mem","temps","storage","network","containers"]);
-          return mainOrder.map((id) => {
-            const size = RESIZABLE.has(id) ? (cardSizes[id] || "medium") : "medium";
-            const ctrl = RESIZABLE.has(id)
-              ? <SizeCtrl size={size} onChange={s => setSize(id, s)} />
-              : null;
-            const containerFull = id === "containers" && (containerView || size === "large");
-            const baseSpan = MAIN_SPANS[id] || 1;
-            const effectiveSpan = size === "compact" ? 1 : baseSpan;
-            const gridColumn = containerFull ? "1 / -1" : effectiveSpan > 1 ? `span ${effectiveSpan}` : undefined;
+        {stacks.map((stack) => {
+          const RESIZABLE = new Set(["cpu","mem","memswap","temps","storage","network","containers"]);
+          const stackColSpan = Math.max(...stack.cards.map(id => CARD_COL_SPANS[id] || 1));
+          const isContainerFull = stack.cards.includes("containers") &&
+            (containerView || (cardSizes["containers"] || "medium") === "large");
+          const stackGridCol = isContainerFull ? "1 / -1" : stackColSpan > 1 ? `span ${stackColSpan}` : undefined;
+          return (
+            <div key={stack.id} className="card-stack" style={{ gridColumn: stackGridCol }}>
+              {stack.cards.map((id) => {
+                const size = RESIZABLE.has(id) ? (cardSizes[id] || "medium") : "medium";
+                const ctrl = RESIZABLE.has(id)
+                  ? <SizeCtrl size={size} onChange={s => setSize(id, s)} />
+                  : null;
 
-            let node;
+                let node;
             switch (id) {
               case "cpu": node = (
                 <Card title="Processor" controls={ctrl}>
@@ -1872,6 +2010,54 @@ function MainPage({ onMenuToggle, bellProps }) {
                           <span className="label-sm">Free</span>
                           <span className="mono label-sm">{fmt.bytes(data.mem.total - data.mem.used)}</span>
                         </div>
+                      )}
+                    </>
+                  )}
+                </Card>
+              ); break;
+
+              case "memswap": node = (
+                <Card title="Swap" controls={ctrl}>
+                  {size === "compact" ? (
+                    <>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
+                        <div className="big-num" style={{ color: statusColor(data.memswap.percent) }}>{data.memswap.percent.toFixed(0)}</div>
+                        <span className="label-sm">%</span>
+                      </div>
+                      <Bar value={data.memswap.percent} height={6} />
+                      <div className="stat-row" style={{ marginTop: 6 }}>
+                        <span className="label-sm">{fmt.bytes(data.memswap.used)}</span>
+                        <span className="label-sm" style={{ opacity: 0.5 }}>/ {fmt.bytes(data.memswap.total)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+                        <Ring value={data.memswap.total > 0 ? data.memswap.percent : 0} size={size === "large" ? 150 : 110} label="Used" color={data.memswap.total === 0 ? "var(--text-dim)" : undefined} />
+                      </div>
+                      <div className="stat-row">
+                        <span className="label-sm">Used</span>
+                        <span className="mono label-sm">{fmt.bytes(data.memswap.used)}</span>
+                      </div>
+                      <div className="stat-row">
+                        <span className="label-sm">Total</span>
+                        <span className="mono label-sm">{data.memswap.total > 0 ? fmt.bytes(data.memswap.total) : "No swap"}</span>
+                      </div>
+                      {size === "large" && (
+                        <>
+                          <div className="stat-row">
+                            <span className="label-sm">Free</span>
+                            <span className="mono label-sm">{fmt.bytes(data.memswap.total - data.memswap.used)}</span>
+                          </div>
+                          <div className="stat-row">
+                            <span className="label-sm">Swap In</span>
+                            <span className="mono label-sm" style={{ color: "var(--accent)" }}>{fmt.bytes(data.memswap.sin)}</span>
+                          </div>
+                          <div className="stat-row">
+                            <span className="label-sm">Swap Out</span>
+                            <span className="mono label-sm" style={{ color: "var(--warn)" }}>{fmt.bytes(data.memswap.sout)}</span>
+                          </div>
+                        </>
                       )}
                     </>
                   )}
@@ -2057,12 +2243,14 @@ function MainPage({ onMenuToggle, bellProps }) {
             }
 
             return (
-              <div key={id} className="drag-item" style={{ gridColumn }} {...getHandlers(id)}>
+              <div key={id} className="drag-item" {...getCardHandlers(id, stack.id)}>
                 {node}
               </div>
             );
-          });
-        })()}
+          })}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
