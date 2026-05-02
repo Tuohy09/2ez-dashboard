@@ -600,10 +600,13 @@ const Card = ({ title, children, delay = 0, onClick, controls }) => (
 );
 
 // ─── SIZE CONTROL ────────────────────────────────────────────────
-function SizeCtrl({ size, onChange }) {
+const ALL_SIZES = [["S","compact"],["M","medium"],["L","large"]];
+const SM_SIZES  = [["S","compact"],["M","medium"]];
+
+function SizeCtrl({ size, onChange, sizes = ALL_SIZES }) {
   return (
     <div className="size-ctrl" onClick={e => e.stopPropagation()}>
-      {[["S","compact"],["M","medium"],["L","large"]].map(([lbl, val]) => (
+      {sizes.map(([lbl, val]) => (
         <button
           key={val}
           className={`size-btn${size === val ? " sz-active" : ""}`}
@@ -1213,7 +1216,7 @@ const COLOR_FIELDS = [
   { key: "crit",   label: "Critical"   },
 ];
 
-function SettingsPanel({ colors, onChange, onClose }) {
+function SettingsPanel({ colors, onChange, onClose, onResetLayout }) {
   const activePreset = THEMES.find(t =>
     Object.keys(t.colors).every(k => t.colors[k] === colors[k])
   );
@@ -1266,6 +1269,12 @@ function SettingsPanel({ colors, onChange, onClose }) {
       <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
         <button className="reset-btn" onClick={() => onChange(DEFAULT_THEME)}>Reset to default</button>
       </div>
+
+      <div className="settings-section-lbl">Dashboard Layout</div>
+      <div style={{ fontSize: 11, color: "var(--text-dim)", lineHeight: 1.5, marginBottom: 10 }}>
+        Resets the main page to all Small cards, arranged alphabetically.
+      </div>
+      <button className="reset-btn" onClick={onResetLayout} style={{ width: "100%" }}>Reset layout</button>
     </div>
   );
 }
@@ -1579,7 +1588,7 @@ const NAV_ITEMS = [
   { id: "downloads",  label: "Downloads & Transcodes", abbr: "DL", col: "#2979FF" },
 ];
 
-function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onThemeChange, alerts }) {
+function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onThemeChange, alerts, onResetLayout }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [alertsOpen,   setAlertsOpen]   = useState(false);
 
@@ -1653,6 +1662,7 @@ function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onTh
           colors={themeColors}
           onChange={onThemeChange}
           onClose={() => setSettingsOpen(false)}
+          onResetLayout={onResetLayout}
         />
       )}
     </>
@@ -1675,12 +1685,25 @@ const DEFAULT_POSITIONS = {
   storage:    { col: 1, row: 3 },
   network:    { col: 2, row: 3 },
   containers: { col: 3, row: 3 },
-  dockge:     { col: 1, row: 5 },
-  uptimekuma: { col: 2, row: 5 },
+};
+
+// Reset layout: all Small, alphabetical A-Z left-to-right
+const RESET_POSITIONS = {
+  containers: { col: 1, row: 1 },
+  cpu:        { col: 2, row: 1 },
+  mem:        { col: 3, row: 1 },
+  memswap:    { col: 4, row: 1 },
+  network:    { col: 1, row: 2 },
+  storage:    { col: 2, row: 2 },
+  temps:      { col: 3, row: 2 },
+};
+const RESET_SIZES = {
+  cpu: "compact", mem: "compact", memswap: "compact", temps: "compact",
+  storage: "compact", network: "compact", containers: "compact",
 };
 
 // ─── MAIN PAGE (system dashboard) ────────────────────────────────
-function MainPage({ onMenuToggle, bellProps }) {
+function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
   const [data, setData] = useState(null);
   const [history, setHistory] = useState({ cpu: [], rx: [], tx: [] });
   const [time, setTime] = useState(new Date());
@@ -1712,6 +1735,13 @@ function MainPage({ onMenuToggle, bellProps }) {
       return { ...DEFAULT_CARD_SIZES, ...(saved || {}) };
     } catch { return DEFAULT_CARD_SIZES; }
   });
+
+  useEffect(() => {
+    if (layoutResetKey === 0) return;
+    setCardPositions(RESET_POSITIONS);
+    setCardSizes(RESET_SIZES);
+  }, [layoutResetKey]);
+
   const setSize = (id, s) => {
     const { cols } = CARD_SIZE_SPANS[s];
     setCardPositions(prev => {
@@ -1904,8 +1934,9 @@ function MainPage({ onMenuToggle, bellProps }) {
           const pos = cardPositions[id] || DEFAULT_POSITIONS[id];
           const size = RESIZABLE.has(id) ? (cardSizes[id] || "medium") : "medium";
           const { cols, rows } = CARD_SIZE_SPANS[size];
+          const SM_ONLY = new Set(["mem","temps","storage"]);
           const ctrl = RESIZABLE.has(id)
-            ? <SizeCtrl size={size} onChange={s => setSize(id, s)} />
+            ? <SizeCtrl size={size} onChange={s => setSize(id, s)} sizes={SM_ONLY.has(id) ? SM_SIZES : ALL_SIZES} />
             : null;
           const isContainerFull = id === "containers" && containerView;
           const gridCol = isContainerFull ? "1 / -1" : `${pos.col} / span ${cols}`;
@@ -2221,8 +2252,6 @@ function MainPage({ onMenuToggle, bellProps }) {
                 }
                 break;
 
-              case "dockge":     node = <SvcCard id="dockge" />;     break;
-              case "uptimekuma": node = <SvcCard id="uptimekuma" />; break;
               default: return null;
             }
 
@@ -2406,6 +2435,9 @@ export default function App() {
 
   const toggleMenu = useCallback(() => setMenuOpen(o => !o), []);
 
+  const [layoutResetKey, setLayoutResetKey] = useState(0);
+  const resetLayout = useCallback(() => setLayoutResetKey(k => k + 1), []);
+
   const bellProps = { notifications, onDismiss: dismissNotif, onClearAll: clearAllNotifs, onNavigate: navigate };
 
   return (
@@ -2421,9 +2453,10 @@ export default function App() {
         themeColors={themeColors}
         onThemeChange={setThemeColors}
         alerts={alerts}
+        onResetLayout={resetLayout}
       />
 
-      {activePage === "main"       && <MainPage            onMenuToggle={toggleMenu} bellProps={bellProps} />}
+      {activePage === "main"       && <MainPage            onMenuToggle={toggleMenu} bellProps={bellProps} layoutResetKey={layoutResetKey} />}
       {activePage === "media-auto" && <MediaAutomationPage onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "media-srv"  && <MediaServerPage     onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "mgmt"       && <ManagementPage      onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
