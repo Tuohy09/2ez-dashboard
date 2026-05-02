@@ -164,6 +164,12 @@ const generateMockData = (prev) => {
         uptime: c.uptime,
       };
     }),
+    processes: [
+      { pid: 1,    name: "systemd",   username: "root",   cpu_percent: 0.0, memory_percent: 0.1, num_threads: 1,  status: "S", cmdline: ["/sbin/init"] },
+      { pid: 1234, name: "python3",   username: "root",   cpu_percent: jitter(12, 4), memory_percent: 2.3, num_threads: 4,  status: "S", cmdline: ["python3", "glances"] },
+      { pid: 5678, name: "jellyfin",  username: "tuohy",  cpu_percent: jitter(6, 3),  memory_percent: 4.1, num_threads: 32, status: "S", cmdline: ["/usr/bin/jellyfin"] },
+      { pid: 910,  name: "nginx",     username: "www-data", cpu_percent: 0.2, memory_percent: 0.3, num_threads: 2, status: "S", cmdline: ["nginx", "-g", "daemon off;"] },
+    ],
   };
 };
 
@@ -446,6 +452,20 @@ const GLOBAL_CSS = `
   .bell-btn { position: relative; background: transparent; border: none; cursor: pointer; color: var(--text-dim); padding: 6px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: color 0.15s, background 0.15s; }
   .bell-btn:hover { color: var(--text); background: rgba(255,255,255,0.07); }
   .bell-badge { position: absolute; top: 1px; right: 1px; min-width: 14px; height: 14px; background: var(--crit); border-radius: 7px; font-size: 8px; font-weight: 800; color: #fff; display: flex; align-items: center; justify-content: center; padding: 0 3px; border: 1.5px solid var(--bg); pointer-events: none; }
+
+  /* ── Process modal ── */
+  .proc-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 8000; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .proc-modal { background: rgba(8,12,18,0.96); border: 1px solid rgba(255,255,255,0.16); border-radius: 16px; box-shadow: 0 24px 80px rgba(0,0,0,0.7); width: 100%; max-width: 1000px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
+  .proc-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
+  .proc-table-wrap { overflow-y: auto; flex: 1; }
+  .proc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .proc-table th { text-align: left; padding: 8px 12px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.1); position: sticky; top: 0; background: rgba(8,12,18,0.96); }
+  .proc-table th.r, .proc-table td.r { text-align: right; }
+  .proc-table td { padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text); font-family: var(--font); white-space: nowrap; }
+  .proc-table tr:hover td { background: rgba(255,255,255,0.04); }
+  .proc-table .mono { font-family: var(--mono); }
+  .proc-table .dim { color: var(--text-dim); }
+  .proc-cmd { max-width: 260px; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
 
   /* ── Notification drawer ── */
   .notif-drawer { position: fixed; width: 320px; max-height: 480px; overflow-y: auto; background: rgba(8,12,18,0.70); backdrop-filter: blur(32px) saturate(160%); -webkit-backdrop-filter: blur(32px) saturate(160%); border: 1px solid rgba(255,255,255,0.18); border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.55); z-index: 9999; }
@@ -1808,6 +1828,7 @@ const DEFAULT_POSITIONS = {
   storage:    { col: 1, row: 3 },
   network:    { col: 2, row: 3 },
   containers: { col: 3, row: 3 },
+  processes:  { col: 4, row: 3 },
 };
 
 // Reset layout: all Small, alphabetical A-Z left-to-right
@@ -1817,8 +1838,9 @@ const RESET_POSITIONS = {
   mem:        { col: 3, row: 1 },
   memswap:    { col: 4, row: 1 },
   network:    { col: 1, row: 2 },
-  storage:    { col: 2, row: 2 },
-  temps:      { col: 3, row: 2 },
+  processes:  { col: 2, row: 2 },
+  storage:    { col: 3, row: 2 },
+  temps:      { col: 4, row: 2 },
 };
 const RESET_SIZES = {
   cpu: "compact", mem: "compact", memswap: "compact", temps: "compact",
@@ -1832,6 +1854,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
   const [time, setTime] = useState(new Date());
   const [connected, setConnected] = useState(true);
   const [containerView, setContainerView] = useState(false);
+  const [processView,   setProcessView]   = useState(false);
 
   const [cardPositions, setCardPositions] = useState(() => {
     try {
@@ -1851,7 +1874,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
   const [draggingId, setDraggingId] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
 
-  const DEFAULT_CARD_SIZES = { cpu: "medium", mem: "medium", memswap: "medium", temps: "medium", storage: "medium", network: "medium", containers: "medium" };
+  const DEFAULT_CARD_SIZES = { cpu: "medium", mem: "medium", memswap: "medium", temps: "medium", storage: "medium", network: "medium", containers: "medium", processes: "compact" };
   const [cardSizes, setCardSizes] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("2ez-card-sizes") || "null");
@@ -1933,13 +1956,13 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
       return;
     }
     try {
-      const endpoints = ["cpu", "mem", "sensors", "uptime", "fs", "diskio", "network", "containers", "percpu", "memswap"];
+      const endpoints = ["cpu", "mem", "sensors", "uptime", "fs", "diskio", "network", "containers", "percpu", "memswap", "processlist"];
       const results = await Promise.all(
         endpoints.map((ep) =>
           fetch(`${GLANCES_API}/${ep}`).then((r) => r.json()).catch(() => null)
         )
       );
-      const [cpu, mem, sensors, uptime, fs, diskio, network, docker, percpu, memswap] = results;
+      const [cpu, mem, sensors, uptime, fs, diskio, network, docker, percpu, memswap, processlist] = results;
 
       const netIface = network
         ? (Array.isArray(network)
@@ -1972,6 +1995,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
           net_tx: c.network_tx || c.network?.tx || 0,
           uptime: c.uptime || "—",
         })),
+        processes: Array.isArray(processlist) ? processlist : [],
       });
       setConnected(true);
     } catch {
@@ -2055,8 +2079,9 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
         })()}
         {Object.keys(DEFAULT_POSITIONS).map((id) => {
           const RESIZABLE = new Set(["cpu","mem","memswap","temps","storage","network","containers"]);
+          const COMPACT_ONLY = new Set(["processes"]);
           const pos = cardPositions[id] || DEFAULT_POSITIONS[id];
-          const size = RESIZABLE.has(id) ? (cardSizes[id] || "medium") : "medium";
+          const size = RESIZABLE.has(id) ? (cardSizes[id] || "medium") : COMPACT_ONLY.has(id) ? "compact" : "medium";
           const { cols, rows } = CARD_SIZE_SPANS[size];
           const SM_ONLY = new Set(["mem","temps","storage","memswap"]);
           const ctrl = RESIZABLE.has(id)
@@ -2364,6 +2389,69 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                   );
                 }
                 break;
+
+              case "processes": {
+                const sorted = [...(data.processes || [])].sort((a, b) => (b.cpu_percent || 0) - (a.cpu_percent || 0));
+                const topProc = sorted[0];
+                node = (
+                  <>
+                    <Card title="Processes" onClick={() => setProcessView(true)}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+                        <span className="big-num">{data.processes.length}</span>
+                        <span className="label-sm">processes</span>
+                      </div>
+                      {topProc && (
+                        <div className="stat-row" style={{ marginTop: 2 }}>
+                          <span className="label-sm" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "65%" }}>{topProc.name}</span>
+                          <span className="mono label-sm" style={{ color: statusColor(topProc.cpu_percent) }}>{(topProc.cpu_percent || 0).toFixed(1)}%</span>
+                        </div>
+                      )}
+                    </Card>
+                    {processView && createPortal(
+                      <div className="proc-backdrop" onClick={() => setProcessView(false)}>
+                        <div className="proc-modal" onClick={e => e.stopPropagation()}>
+                          <div className="proc-modal-header">
+                            <div className="card-title" style={{ margin: 0 }}>Processes ({data.processes.length})</div>
+                            <button className="close-btn" onClick={() => setProcessView(false)}>× Close</button>
+                          </div>
+                          <div className="proc-table-wrap">
+                            <table className="proc-table">
+                              <thead>
+                                <tr>
+                                  <th>Name</th>
+                                  <th className="r">PID</th>
+                                  <th>User</th>
+                                  <th className="r">CPU%</th>
+                                  <th className="r">RAM%</th>
+                                  <th className="r">Threads</th>
+                                  <th>Status</th>
+                                  <th>Command</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {sorted.map(p => (
+                                  <tr key={p.pid}>
+                                    <td className="mono">{p.name}</td>
+                                    <td className="r dim mono">{p.pid}</td>
+                                    <td className="dim">{p.username || "—"}</td>
+                                    <td className="r mono" style={{ color: statusColor(p.cpu_percent || 0) }}>{(p.cpu_percent || 0).toFixed(1)}</td>
+                                    <td className="r mono" style={{ color: statusColor(p.memory_percent || 0) }}>{(p.memory_percent || 0).toFixed(1)}</td>
+                                    <td className="r dim mono">{p.num_threads ?? "—"}</td>
+                                    <td className="dim">{p.status || "—"}</td>
+                                    <td><div className="proc-cmd">{Array.isArray(p.cmdline) ? p.cmdline.join(" ") : (p.cmdline || "—")}</div></td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>,
+                      document.body
+                    )}
+                  </>
+                );
+                break;
+              }
 
               default: return null;
             }
