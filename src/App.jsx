@@ -23,9 +23,9 @@ const SVC = {
   filebrowser: { id: "filebrowser", name: "File Browser",   url: "https://2ez.dinosaur-banana.ts.net:8084",      abbr: "FB", col: "#8B5CF6", desc: "Web file manager"       },
   slskd:       { id: "slskd",       name: "SLSKD",          url: "https://2ez.dinosaur-banana.ts.net:5031",      abbr: "SL", col: "#EC4899", desc: "Soulseek daemon"        },
   beetsflask:  { id: "beetsflask",  name: "Beets-Flask",    url: "https://2ez.dinosaur-banana.ts.net:5086",      abbr: "BT", col: "#10B981", desc: "Music tagger"           },
-  lrcget:      { id: "lrcget",      name: "LRCGET",         url: "http://192.168.0.170:5800",                    abbr: "LR", col: "#F59E0B", desc: "Lyrics fetcher"         },
-  jellyfin:    { id: "jellyfin",    name: "Jellyfin",       url: "http://192.168.0.170:8096/jellyfin/",          abbr: "JF", col: "#00A4DC", desc: "Media server"           },
-  navidrome:   { id: "navidrome",   name: "Navidrome",      url: "http://192.168.0.170:4533/navidrome/",         abbr: "NV", col: "#F97316", desc: "Music server"           },
+  lrcget:      { id: "lrcget",      name: "LRCGET",         url: "http://100.107.207.57:5800",                   abbr: "LR", col: "#F59E0B", desc: "Lyrics fetcher"         },
+  jellyfin:    { id: "jellyfin",    name: "Jellyfin",       url: "https://2ez.dinosaur-banana.ts.net/jellyfin",  abbr: "JF", col: "#00A4DC", desc: "Media server"           },
+  navidrome:   { id: "navidrome",   name: "Navidrome",      url: "https://2ez.dinosaur-banana.ts.net/navidrome", abbr: "NV", col: "#F97316", desc: "Music server"           },
   qbt:         { id: "qbt",         name: "qBittorrent",    url: "http://192.168.0.170:8080",                    abbr: "QB", col: "#2979FF", desc: "Torrent client"         },
   unmanic:     { id: "unmanic",     name: "Unmanic",        url: "http://192.168.0.170:8888/unmanic/",           abbr: "UM", col: "#FF6D00", desc: "Media transcoder"       },
   speedtest:   { id: "speedtest",   name: "Speedtest",      url: "http://192.168.0.170:8083",                    abbr: "ST", col: "#22D3A7", desc: "Speed history"          },
@@ -341,14 +341,14 @@ const GLOBAL_CSS = `
   @media (max-width: 600px) { .svc-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); } }
 
   /* ── Service card ── */
-  .svc-card { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s, border-color 0.28s, box-shadow 0.28s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); cursor: pointer; }
+  .svc-card { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s, border-color 0.28s, box-shadow 0.28s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); cursor: pointer; height: 100%; box-sizing: border-box; }
   .svc-card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.22); box-shadow: var(--card-shadow-hover); transform: translateY(-5px); }
   .svc-icon { width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 700; font-size: 12px; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
   .svc-name { font-size: 14px; font-weight: 600; line-height: 1.2; }
   .svc-desc { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
 
   /* ── Live service card ── */
-  .live-svc-card { display: flex; flex-direction: column; gap: 12px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s, border-color 0.28s, box-shadow 0.28s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); cursor: pointer; }
+  .live-svc-card { display: flex; flex-direction: column; gap: 12px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s, border-color 0.28s, box-shadow 0.28s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); cursor: pointer; height: 100%; box-sizing: border-box; }
   .live-svc-card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.22); box-shadow: var(--card-shadow-hover); transform: translateY(-5px); }
   .live-svc-top { display: flex; align-items: center; gap: 12px; }
   .live-svc-name { font-size: 14px; font-weight: 600; }
@@ -421,6 +421,10 @@ const GLOBAL_CSS = `
   /* sub-page SortableGrid indicators */
   .drag-item.drop-before::before { content: ''; position: absolute; top: 0; bottom: 0; left: -10px; width: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; pointer-events: none; }
   .drag-item.drop-after::after { content: ''; position: absolute; top: 0; bottom: 0; right: -10px; width: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; pointer-events: none; }
+
+  /* ── Size overlay for sub-page draggable grid ── */
+  .size-overlay { position: absolute; top: 8px; right: 8px; z-index: 10; opacity: 0; transition: opacity 0.18s; pointer-events: none; }
+  .drag-item:hover .size-overlay { opacity: 1; pointer-events: auto; }
 
   /* ── Card size control ── */
   .size-ctrl { display: flex; gap: 2px; align-items: center; flex-shrink: 0; }
@@ -1629,6 +1633,158 @@ function SortableGrid({ pageKey, items }) {
   );
 }
 
+// ─── DRAGGABLE GRID (sub-pages) ──────────────────────────────────
+function useDraggableGrid(pageKey, ids, defaultSizes, defaultPositions) {
+  const [positions, setPositions] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`2ez-positions-${pageKey}`) || "null");
+      if (saved && typeof saved === "object" && !Array.isArray(saved))
+        return { ...defaultPositions, ...saved };
+    } catch {}
+    return defaultPositions;
+  });
+  useEffect(() => {
+    localStorage.setItem(`2ez-positions-${pageKey}`, JSON.stringify(positions));
+  }, [positions, pageKey]);
+
+  const [sizes, setSizes] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`2ez-sizes-${pageKey}`) || "null");
+      return { ...defaultSizes, ...(saved || {}) };
+    } catch { return defaultSizes; }
+  });
+  useEffect(() => {
+    localStorage.setItem(`2ez-sizes-${pageKey}`, JSON.stringify(sizes));
+  }, [sizes, pageKey]);
+
+  const gridRef = useRef(null);
+  const [draggingId, setDraggingId] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
+
+  const getCellFromMouse = useCallback((clientX, clientY) => {
+    if (!gridRef.current) return null;
+    const el = gridRef.current;
+    const rect = el.getBoundingClientRect();
+    const rowH = parseInt(getComputedStyle(el).gridAutoRows) || 150;
+    const gap = 18;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const cellW = (rect.width - gap * 3) / 4;
+    const col = Math.max(1, Math.min(4, Math.floor(x / (cellW + gap)) + 1));
+    const row = Math.max(1, Math.floor(y / (rowH + gap)) + 1);
+    return { col, row };
+  }, []);
+
+  const checkConflict = useCallback((cardId, pos, spans) => {
+    const { cols, rows } = spans;
+    if (pos.col + cols - 1 > 4) return true;
+    for (const [otherId, otherPos] of Object.entries(positions)) {
+      if (otherId === cardId) continue;
+      const { cols: oc, rows: or } = CARD_SIZE_SPANS[sizes[otherId] || "medium"];
+      if (
+        pos.col < otherPos.col + oc && pos.col + cols > otherPos.col &&
+        pos.row < otherPos.row + or && pos.row + rows > otherPos.row
+      ) return true;
+    }
+    return false;
+  }, [positions, sizes]);
+
+  const setSize = useCallback((id, s) => {
+    const { cols } = CARD_SIZE_SPANS[s];
+    setPositions(prev => {
+      const pos = prev[id] || { col: 1, row: 1 };
+      const clampedCol = Math.min(pos.col, 5 - cols);
+      return clampedCol !== pos.col ? { ...prev, [id]: { ...pos, col: clampedCol } } : prev;
+    });
+    setSizes(prev => ({ ...prev, [id]: s }));
+  }, []);
+
+  const handleGridDragOver = useCallback((e) => {
+    e.preventDefault();
+    if (!draggingId) return;
+    const cell = getCellFromMouse(e.clientX, e.clientY);
+    if (cell) setDropTarget(cell);
+  }, [draggingId, getCellFromMouse]);
+
+  const handleGridDrop = useCallback((e) => {
+    e.preventDefault();
+    if (!draggingId || !dropTarget) return;
+    const spans = CARD_SIZE_SPANS[sizes[draggingId] || "medium"];
+    if (!checkConflict(draggingId, dropTarget, spans))
+      setPositions(prev => ({ ...prev, [draggingId]: dropTarget }));
+    setDraggingId(null);
+    setDropTarget(null);
+  }, [draggingId, dropTarget, sizes, checkConflict]);
+
+  return {
+    gridRef, positions, sizes, setSize,
+    draggingId, setDraggingId, dropTarget, setDropTarget,
+    handleGridDragOver, handleGridDrop, checkConflict,
+  };
+}
+
+function DraggableGrid({ pageKey, items, resizable, defaultSizes, defaultPositions }) {
+  const {
+    gridRef, positions, sizes, setSize,
+    draggingId, setDraggingId, dropTarget, setDropTarget,
+    handleGridDragOver, handleGridDrop, checkConflict,
+  } = useDraggableGrid(pageKey, items.map(i => i.id), defaultSizes, defaultPositions);
+
+  return (
+    <div
+      className="grid"
+      ref={gridRef}
+      onDragOver={handleGridDragOver}
+      onDrop={handleGridDrop}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) {
+          setDraggingId(null);
+          setDropTarget(null);
+        }
+      }}
+    >
+      {dropTarget && draggingId && (() => {
+        const sz = sizes[draggingId] || "medium";
+        const sp = CARD_SIZE_SPANS[sz];
+        const conflict = checkConflict(draggingId, dropTarget, sp);
+        return (
+          <div
+            className="drop-ghost"
+            style={{
+              gridColumn: `${dropTarget.col} / span ${sp.cols}`,
+              gridRow: `${dropTarget.row} / span ${sp.rows}`,
+              borderColor: conflict ? "var(--crit)" : "var(--accent)",
+              background: conflict ? "rgba(255,80,80,0.08)" : "rgba(34,211,167,0.08)",
+            }}
+          />
+        );
+      })()}
+      {items.map(({ id, node }) => {
+        const pos = positions[id] || { col: 1, row: 1 };
+        const size = sizes[id] || "medium";
+        const { cols, rows } = CARD_SIZE_SPANS[size];
+        return (
+          <div
+            key={id}
+            className={`drag-item${draggingId === id ? " dragging" : ""}`}
+            style={{ gridColumn: `${pos.col} / span ${cols}`, gridRow: `${pos.row} / span ${rows}` }}
+            draggable
+            onDragStart={(e) => { setDraggingId(id); e.dataTransfer.effectAllowed = "move"; }}
+            onDragEnd={() => { setDraggingId(null); setDropTarget(null); }}
+          >
+            {resizable.has(id) && (
+              <div className="size-overlay">
+                <SizeCtrl size={size} onChange={s => setSize(id, s)} sizes={ALL_SIZES} />
+              </div>
+            )}
+            {node}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── SYSTEM INFO BUTTON ──────────────────────────────────────────
 const SysRow = ({ label, value }) => (
   <div className="sysinfo-row">
@@ -2499,11 +2655,16 @@ function PageHeader({ title, onMenuToggle, onNavigate, bellProps }) {
 function MediaAutomationPage({ onMenuToggle, onNavigate, bellProps }) {
   const items = ["sonarr", "radarr", "lidarr", "prowlarr", "bazarr", "beetsflask", "slskd", "lrcget"]
     .map(id => ({ id, node: <SvcCard id={id} /> }));
+  const defaultSizes = Object.fromEntries(items.map(i => [i.id, "compact"]));
+  const defaultPositions = {
+    sonarr: {col:1,row:1}, radarr: {col:2,row:1}, lidarr: {col:3,row:1}, prowlarr: {col:4,row:1},
+    bazarr: {col:1,row:2}, beetsflask: {col:2,row:2}, slskd: {col:3,row:2}, lrcget: {col:4,row:2},
+  };
   return (
     <div className="shell">
       <PageHeader title="Media Automation" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
       <p className="page-section">Arr Apps &amp; Tools</p>
-      <SortableGrid pageKey="media-auto" items={items} />
+      <DraggableGrid pageKey="media-auto" items={items} resizable={new Set()} defaultSizes={defaultSizes} defaultPositions={defaultPositions} />
     </div>
   );
 }
@@ -2512,16 +2673,21 @@ function MediaAutomationPage({ onMenuToggle, onNavigate, bellProps }) {
 function MediaServerPage({ onMenuToggle, onNavigate, bellProps }) {
   const items = [
     { id: "jellyfin",  node: <JellyfinWidget /> },
-    { id: "seerr",     node: <SvcCard id="seerr" /> },
     { id: "navidrome", node: <NavidromeWidget /> },
+    { id: "seerr",     node: <SvcCard id="seerr" /> },
     { id: "immich",    node: <SvcCard id="immich" /> },
     { id: "nextcloud", node: <SvcCard id="nextcloud" /> },
   ];
+  const defaultSizes = { jellyfin: "medium", navidrome: "medium", seerr: "compact", immich: "compact", nextcloud: "compact" };
+  const defaultPositions = {
+    jellyfin: {col:1,row:1}, navidrome: {col:2,row:1},
+    seerr: {col:3,row:1}, immich: {col:4,row:1}, nextcloud: {col:3,row:2},
+  };
   return (
     <div className="shell">
       <PageHeader title="Media Server" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
       <p className="page-section">Streaming &amp; Libraries</p>
-      <SortableGrid pageKey="media-srv" items={items} />
+      <DraggableGrid pageKey="media-srv" items={items} resizable={new Set(["jellyfin","navidrome"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} />
     </div>
   );
 }
@@ -2534,11 +2700,15 @@ function ManagementPage({ onMenuToggle, onNavigate, bellProps }) {
     { id: "filebrowser", node: <SvcCard id="filebrowser" /> },
     { id: "uptimekuma",  node: <SvcCard id="uptimekuma" /> },
   ];
+  const defaultSizes = { cockpit: "compact", speedtest: "medium", filebrowser: "compact", uptimekuma: "compact" };
+  const defaultPositions = {
+    cockpit: {col:1,row:1}, speedtest: {col:2,row:1}, filebrowser: {col:3,row:1}, uptimekuma: {col:4,row:1},
+  };
   return (
     <div className="shell">
       <PageHeader title="Management" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
       <p className="page-section">System &amp; Infrastructure</p>
-      <SortableGrid pageKey="mgmt" items={items} />
+      <DraggableGrid pageKey="mgmt" items={items} resizable={new Set(["speedtest"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} />
     </div>
   );
 }
@@ -2549,11 +2719,13 @@ function DownloadsPage({ onMenuToggle, onNavigate, bellProps }) {
     { id: "qbittorrent", node: <QBittorrentWidget /> },
     { id: "unmanic",     node: <UnmanicWidget /> },
   ];
+  const defaultSizes = { qbittorrent: "medium", unmanic: "medium" };
+  const defaultPositions = { qbittorrent: {col:1,row:1}, unmanic: {col:2,row:1} };
   return (
     <div className="shell">
       <PageHeader title="Downloads &amp; Transcodes" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
       <p className="page-section">Active transfers &amp; encoding queue</p>
-      <SortableGrid pageKey="downloads" items={items} />
+      <DraggableGrid pageKey="downloads" items={items} resizable={new Set(["qbittorrent","unmanic"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} />
     </div>
   );
 }
