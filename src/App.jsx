@@ -216,6 +216,7 @@ const GLOBAL_CSS = `
     --radius: 20px;
     --font: 'Outfit', -apple-system, sans-serif;
     --mono: 'JetBrains Mono', monospace;
+    --row-h: 150px;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -237,12 +238,12 @@ const GLOBAL_CSS = `
   .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse-dot 2s ease-in-out infinite; }
 
   /* ── Grid (main dashboard) ── */
-  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; align-items: start; }
-  @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; } .grid > * { grid-column: auto !important; } .shell { padding: 16px 12px 32px; } .header { gap: 8px; } .header-left { gap: 8px; flex: 1; min-width: 0; } .header-right { gap: 8px; flex-shrink: 0; } .header-url { display: none; } .header-clock { display: none; } .uptime-strip { display: none; } }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: var(--row-h, 150px); gap: 18px; align-items: stretch; position: relative; }
+  @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); } .grid > * { grid-column: auto !important; grid-row: auto !important; } }
+  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; } .grid > * { grid-column: auto !important; grid-row: auto !important; } .shell { padding: 16px 12px 32px; } .header { gap: 8px; } .header-left { gap: 8px; flex: 1; min-width: 0; } .header-right { gap: 8px; flex-shrink: 0; } .header-url { display: none; } .header-clock { display: none; } .uptime-strip { display: none; } }
 
   /* ── Card ── */
-  .card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+  .card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); height: 100%; box-sizing: border-box; overflow: hidden; }
   .card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.20); box-shadow: var(--card-shadow-hover); transform: translateY(-4px); }
   .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); font-weight: 600; margin-bottom: 14px; }
   .card-clickable { cursor: pointer; }
@@ -406,18 +407,12 @@ const GLOBAL_CSS = `
   .reset-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
 
   /* ── Drag-and-drop ── */
-  .card-stack { display: flex; flex-direction: column; gap: 18px; position: relative; }
-  .drag-item { cursor: grab; display: flex; flex-direction: column; position: relative; }
-  .drag-item > * { flex: 1; }
+  .drag-item { cursor: grab; position: relative; }
   .drag-item:active { cursor: grabbing; }
   .drag-item.dragging { opacity: 0.3; pointer-events: none; }
-  /* within-stack: horizontal snap lines */
-  .drag-item.drop-card-top::before { content: ''; position: absolute; left: 0; right: 0; top: -10px; height: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; pointer-events: none; }
-  .drag-item.drop-card-bottom::after { content: ''; position: absolute; left: 0; right: 0; bottom: -10px; height: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; pointer-events: none; }
-  /* new column: vertical snap lines on stack edges */
-  .card-stack.drop-stack-left::before { content: ''; position: absolute; left: -10px; top: 0; bottom: 0; width: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; pointer-events: none; }
-  .card-stack.drop-stack-right::after { content: ''; position: absolute; right: -10px; top: 0; bottom: 0; width: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; pointer-events: none; }
-  /* keep old classes for sub-page SortableGrids */
+  /* drop ghost: shows target position while dragging */
+  .drop-ghost { border-radius: var(--radius); border: 2px dashed var(--accent); background: rgba(34,211,167,0.08); pointer-events: none; z-index: 5; transition: background 0.12s, border-color 0.12s; }
+  /* sub-page SortableGrid indicators */
   .drag-item.drop-before::before { content: ''; position: absolute; top: 0; bottom: 0; left: -10px; width: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; pointer-events: none; }
   .drag-item.drop-after::after { content: ''; position: absolute; top: 0; bottom: 0; right: -10px; width: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; pointer-events: none; }
 
@@ -580,10 +575,10 @@ const Spark = ({ data, color = "var(--accent)", height = 32, width = 100 }) => {
 };
 
 // ─── CARD ────────────────────────────────────────────────────────
-const Card = ({ title, children, span = 1, delay = 0, onClick, controls }) => (
+const Card = ({ title, children, delay = 0, onClick, controls }) => (
   <div
     className={`card fade-in${onClick ? " card-clickable" : ""}`}
-    style={{ gridColumn: `span ${span}`, animationDelay: `${delay}ms` }}
+    style={{ animationDelay: `${delay}ms` }}
     onClick={onClick}
   >
     {title && (
@@ -1664,20 +1659,25 @@ function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onTh
   );
 }
 
-// ─── STACK LAYOUT CONSTANTS ──────────────────────────────────────
-const CARD_COL_SPANS = { cpu: 2, storage: 2 };
+// ─── GRID LAYOUT CONSTANTS ────────────────────────────────────────
+// Small=1×1, Medium=1×2, Large=2×3. M+S=L, 3S=L.
+const CARD_SIZE_SPANS = {
+  compact: { cols: 1, rows: 1 },
+  medium:  { cols: 1, rows: 2 },
+  large:   { cols: 2, rows: 3 },
+};
 
-const DEFAULT_STACKS = [
-  { id: "st-cpu",        cards: ["cpu"] },
-  { id: "st-mem",        cards: ["mem"] },
-  { id: "st-memswap",    cards: ["memswap"] },
-  { id: "st-temps",      cards: ["temps"] },
-  { id: "st-storage",    cards: ["storage"] },
-  { id: "st-network",    cards: ["network"] },
-  { id: "st-containers", cards: ["containers"] },
-  { id: "st-dockge",     cards: ["dockge"] },
-  { id: "st-uptimekuma", cards: ["uptimekuma"] },
-];
+const DEFAULT_POSITIONS = {
+  cpu:        { col: 1, row: 1 },
+  mem:        { col: 2, row: 1 },
+  memswap:    { col: 3, row: 1 },
+  temps:      { col: 4, row: 1 },
+  storage:    { col: 1, row: 3 },
+  network:    { col: 2, row: 3 },
+  containers: { col: 3, row: 3 },
+  dockge:     { col: 1, row: 5 },
+  uptimekuma: { col: 2, row: 5 },
+};
 
 // ─── MAIN PAGE (system dashboard) ────────────────────────────────
 function MainPage({ onMenuToggle, bellProps }) {
@@ -1687,104 +1687,23 @@ function MainPage({ onMenuToggle, bellProps }) {
   const [connected, setConnected] = useState(true);
   const [containerView, setContainerView] = useState(false);
 
-  const [stacks, setStacks] = useState(() => {
+  const [cardPositions, setCardPositions] = useState(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem("2ez-stacks-main") || "null");
-      if (saved && Array.isArray(saved)) {
-        const allSaved = saved.flatMap(s => s.cards);
-        const missing = DEFAULT_STACKS.flatMap(s => s.cards).filter(id => !allSaved.includes(id));
-        return missing.length > 0
-          ? [...saved, ...missing.map(id => ({ id: `st-${id}-new`, cards: [id] }))]
-          : saved;
+      const saved = JSON.parse(localStorage.getItem("2ez-positions-main") || "null");
+      if (saved && typeof saved === "object" && !Array.isArray(saved)) {
+        return { ...DEFAULT_POSITIONS, ...saved };
       }
     } catch {}
-    return DEFAULT_STACKS;
+    return DEFAULT_POSITIONS;
   });
 
   useEffect(() => {
-    localStorage.setItem("2ez-stacks-main", JSON.stringify(stacks));
-  }, [stacks]);
+    localStorage.setItem("2ez-positions-main", JSON.stringify(cardPositions));
+  }, [cardPositions]);
 
-  const dndRef = useRef({ cardId: null, fromStackId: null });
-  const indicRef = useRef({ el: null, cls: "" });
-
-  const clearIndic = useCallback(() => {
-    if (indicRef.current.el) {
-      indicRef.current.el.classList.remove(indicRef.current.cls);
-      indicRef.current = { el: null, cls: "" };
-    }
-  }, []);
-
-  const getCardHandlers = (cardId, stackId) => ({
-    draggable: true,
-    onDragStart: (e) => {
-      dndRef.current = { cardId, fromStackId: stackId };
-      e.dataTransfer.effectAllowed = "move";
-      e.currentTarget.classList.add("dragging");
-    },
-    onDragOver: (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const el = e.currentTarget;
-      const rect = el.getBoundingClientRect();
-      const relX = (e.clientX - rect.left) / rect.width;
-      const relY = (e.clientY - rect.top) / rect.height;
-      let targetEl, cls;
-      if (relX < 0.22) {
-        targetEl = el.closest(".card-stack") || el;
-        cls = "drop-stack-left";
-      } else if (relX > 0.78) {
-        targetEl = el.closest(".card-stack") || el;
-        cls = "drop-stack-right";
-      } else {
-        targetEl = el;
-        cls = relY < 0.5 ? "drop-card-top" : "drop-card-bottom";
-      }
-      if (indicRef.current.el !== targetEl || indicRef.current.cls !== cls) {
-        clearIndic();
-        targetEl.classList.add(cls);
-        indicRef.current = { el: targetEl, cls };
-      }
-    },
-    onDragLeave: (e) => {
-      if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return;
-      const stack = e.currentTarget.closest(".card-stack");
-      if (stack?.contains(e.relatedTarget)) return;
-      clearIndic();
-    },
-    onDrop: (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const { cardId: fromCard, fromStackId } = dndRef.current;
-      if (!fromCard || fromCard === cardId) { clearIndic(); return; }
-      const rect = e.currentTarget.getBoundingClientRect();
-      const relX = (e.clientX - rect.left) / rect.width;
-      const relY = (e.clientY - rect.top) / rect.height;
-      clearIndic();
-      setStacks(prev => {
-        const next = prev.map(s => ({ ...s, cards: [...s.cards] }));
-        const src = next.find(s => s.id === fromStackId);
-        if (src) src.cards = src.cards.filter(c => c !== fromCard);
-        const tgtIdx = next.findIndex(s => s.id === stackId);
-        if (relX < 0.22) {
-          next.splice(tgtIdx, 0, { id: `st-${Date.now()}`, cards: [fromCard] });
-        } else if (relX > 0.78) {
-          next.splice(tgtIdx + 1, 0, { id: `st-${Date.now()}`, cards: [fromCard] });
-        } else {
-          const tgt = next.find(s => s.id === stackId);
-          const ti = tgt.cards.indexOf(cardId);
-          tgt.cards.splice(relY < 0.5 ? ti : ti + 1, 0, fromCard);
-        }
-        return next.filter(s => s.cards.length > 0);
-      });
-      dndRef.current = { cardId: null, fromStackId: null };
-    },
-    onDragEnd: (e) => {
-      e.currentTarget.classList.remove("dragging");
-      clearIndic();
-      dndRef.current = { cardId: null, fromStackId: null };
-    },
-  });
+  const gridRef = useRef(null);
+  const [draggingId, setDraggingId] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
 
   const DEFAULT_CARD_SIZES = { cpu: "medium", mem: "medium", memswap: "medium", temps: "medium", storage: "medium", network: "medium", containers: "medium" };
   const [cardSizes, setCardSizes] = useState(() => {
@@ -1793,7 +1712,66 @@ function MainPage({ onMenuToggle, bellProps }) {
       return { ...DEFAULT_CARD_SIZES, ...(saved || {}) };
     } catch { return DEFAULT_CARD_SIZES; }
   });
-  const setSize = (id, s) => setCardSizes(prev => ({ ...prev, [id]: s }));
+  const setSize = (id, s) => {
+    const { cols } = CARD_SIZE_SPANS[s];
+    setCardPositions(prev => {
+      const pos = prev[id] || { col: 1, row: 1 };
+      const clampedCol = Math.min(pos.col, 5 - cols);
+      return clampedCol !== pos.col ? { ...prev, [id]: { ...pos, col: clampedCol } } : prev;
+    });
+    setCardSizes(prev => ({ ...prev, [id]: s }));
+  };
+
+  const getCellFromMouse = useCallback((clientX, clientY) => {
+    if (!gridRef.current) return null;
+    const el = gridRef.current;
+    const rect = el.getBoundingClientRect();
+    const rowH = parseInt(getComputedStyle(el).gridAutoRows) || 150;
+    const gap = 18;
+    const numCols = 4;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const cellW = (rect.width - gap * (numCols - 1)) / numCols;
+    const col = Math.max(1, Math.min(numCols, Math.floor(x / (cellW + gap)) + 1));
+    const row = Math.max(1, Math.floor(y / (rowH + gap)) + 1);
+    return { col, row };
+  }, []);
+
+  const checkConflict = useCallback((cardId, pos, spans) => {
+    const { cols, rows } = spans;
+    if (pos.col + cols - 1 > 4) return true;
+    for (const [otherId, otherPos] of Object.entries(cardPositions)) {
+      if (otherId === cardId) continue;
+      const otherSize = cardSizes[otherId] || "medium";
+      const { cols: oc, rows: or } = CARD_SIZE_SPANS[otherSize];
+      if (
+        pos.col < otherPos.col + oc &&
+        pos.col + cols > otherPos.col &&
+        pos.row < otherPos.row + or &&
+        pos.row + rows > otherPos.row
+      ) return true;
+    }
+    return false;
+  }, [cardPositions, cardSizes]);
+
+  const handleGridDragOver = useCallback((e) => {
+    e.preventDefault();
+    if (!draggingId) return;
+    const cell = getCellFromMouse(e.clientX, e.clientY);
+    if (cell) setDropTarget(cell);
+  }, [draggingId, getCellFromMouse]);
+
+  const handleGridDrop = useCallback((e) => {
+    e.preventDefault();
+    if (!draggingId || !dropTarget) return;
+    const size = cardSizes[draggingId] || "medium";
+    const spans = CARD_SIZE_SPANS[size];
+    if (!checkConflict(draggingId, dropTarget, spans)) {
+      setCardPositions(prev => ({ ...prev, [draggingId]: dropTarget }));
+    }
+    setDraggingId(null);
+    setDropTarget(null);
+  }, [draggingId, dropTarget, cardSizes, checkConflict]);
 
   const fetchData = useCallback(async () => {
     if (!GLANCES_API) {
@@ -1912,20 +1890,26 @@ function MainPage({ onMenuToggle, bellProps }) {
         </div>
       </header>
 
-      <div className="grid">
-        {stacks.map((stack) => {
-          const RESIZABLE = new Set(["cpu","mem","memswap","temps","storage","network","containers"]);
-          const stackColSpan = Math.max(...stack.cards.map(id => CARD_COL_SPANS[id] || 1));
-          const isContainerFull = stack.cards.includes("containers") &&
-            (containerView || (cardSizes["containers"] || "medium") === "large");
-          const stackGridCol = isContainerFull ? "1 / -1" : stackColSpan > 1 ? `span ${stackColSpan}` : undefined;
+      <div className="grid" ref={gridRef} onDragOver={handleGridDragOver} onDrop={handleGridDrop} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) { setDraggingId(null); setDropTarget(null); } }}>
+        {dropTarget && draggingId && (() => {
+          const sz = cardSizes[draggingId] || "medium";
+          const sp = CARD_SIZE_SPANS[sz];
+          const conflict = checkConflict(draggingId, dropTarget, sp);
           return (
-            <div key={stack.id} className="card-stack" style={{ gridColumn: stackGridCol }}>
-              {stack.cards.map((id) => {
-                const size = RESIZABLE.has(id) ? (cardSizes[id] || "medium") : "medium";
-                const ctrl = RESIZABLE.has(id)
-                  ? <SizeCtrl size={size} onChange={s => setSize(id, s)} />
-                  : null;
+            <div className="drop-ghost" style={{ gridColumn: `${dropTarget.col} / span ${sp.cols}`, gridRow: `${dropTarget.row} / span ${sp.rows}`, borderColor: conflict ? "var(--crit)" : "var(--accent)", background: conflict ? "rgba(255,80,80,0.08)" : "rgba(34,211,167,0.08)" }} />
+          );
+        })()}
+        {Object.keys(DEFAULT_POSITIONS).map((id) => {
+          const RESIZABLE = new Set(["cpu","mem","memswap","temps","storage","network","containers"]);
+          const pos = cardPositions[id] || DEFAULT_POSITIONS[id];
+          const size = RESIZABLE.has(id) ? (cardSizes[id] || "medium") : "medium";
+          const { cols, rows } = CARD_SIZE_SPANS[size];
+          const ctrl = RESIZABLE.has(id)
+            ? <SizeCtrl size={size} onChange={s => setSize(id, s)} />
+            : null;
+          const isContainerFull = id === "containers" && containerView;
+          const gridCol = isContainerFull ? "1 / -1" : `${pos.col} / span ${cols}`;
+          const gridRow = `${pos.row} / span ${rows}`;
 
                 let node;
             switch (id) {
@@ -2243,14 +2227,18 @@ function MainPage({ onMenuToggle, bellProps }) {
             }
 
             return (
-              <div key={id} className="drag-item" {...getCardHandlers(id, stack.id)}>
+              <div
+                key={id}
+                className={`drag-item${draggingId === id ? " dragging" : ""}`}
+                style={{ gridColumn: gridCol, gridRow }}
+                draggable
+                onDragStart={(e) => { setDraggingId(id); e.dataTransfer.effectAllowed = "move"; }}
+                onDragEnd={() => { setDraggingId(null); setDropTarget(null); }}
+              >
                 {node}
               </div>
             );
           })}
-            </div>
-          );
-        })}
       </div>
     </div>
   );
