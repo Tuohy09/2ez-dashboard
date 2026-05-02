@@ -465,6 +465,36 @@ const GLOBAL_CSS = `
   .notif-body  { font-size: 11px; color: var(--text-dim); margin-top: 2px; line-height: 1.4; }
   .notif-time  { font-size: 10px; color: var(--text-dim); margin-top: 4px; font-family: var(--mono); opacity: 0.7; }
   .notif-delete-btn { position: absolute; right: 0; top: 0; bottom: 0; width: 64px; display: flex; align-items: center; justify-content: center; background: var(--crit); border: none; color: #fff; font-size: 20px; cursor: pointer; }
+
+  /* ── Quick Look Page ── */
+  .ql-wrap { max-width: 440px; display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
+  .ql-section { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 16px 18px; backdrop-filter: blur(22px) saturate(160%); }
+  .ql-row-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .ql-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); font-weight: 600; }
+  .ql-value { font-size: 20px; font-weight: 700; font-family: var(--mono); line-height: 1; }
+  .ql-cores { display: flex; gap: 4px; align-items: flex-end; height: 40px; margin-top: 12px; }
+  .ql-core-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; height: 100%; }
+  .ql-core-track { flex: 1; width: 100%; background: rgba(255,255,255,0.06); border-radius: 3px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; min-height: 0; }
+  .ql-core-fill { width: 100%; border-radius: 3px; transition: height 0.5s cubic-bezier(0.22, 1, 0.36, 1); min-height: 2px; }
+  .ql-core-num { font-size: 8px; font-family: var(--mono); color: var(--text-dim); flex-shrink: 0; }
+  .ql-load-row { display: flex; gap: 0; margin-top: 8px; }
+  .ql-load-item { flex: 1; text-align: center; padding: 6px 0; border-right: 1px solid var(--card-border); }
+  .ql-load-item:last-child { border-right: none; }
+  .ql-load-val { font-size: 22px; font-weight: 700; font-family: var(--mono); color: var(--text); line-height: 1; }
+  .ql-load-lbl { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+  /* ── System Info Popover ── */
+  .sysinfo-wrap { position: relative; display: inline-flex; align-items: center; }
+  .sysinfo-btn { width: 16px; height: 16px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); color: var(--text-dim); font-size: 10px; font-style: italic; font-weight: 700; font-family: serif; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s, color 0.2s, border-color 0.2s; flex-shrink: 0; line-height: 1; padding: 0; }
+  .sysinfo-btn:hover, .sysinfo-btn.active { background: var(--accent-dim); border-color: rgba(34,211,167,0.5); color: var(--accent); }
+  .sysinfo-popover { position: fixed; z-index: 9999; background: rgba(8,12,18,0.94); backdrop-filter: blur(32px) saturate(160%); border: 1px solid var(--card-border); border-radius: 14px; padding: 14px 16px; min-width: 270px; box-shadow: 0 20px 56px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.4); }
+  .sysinfo-heading { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--accent); font-weight: 600; margin-bottom: 10px; }
+  .sysinfo-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 5px 0; border-top: 1px solid rgba(255,255,255,0.05); }
+  .sysinfo-row:first-child { border-top: none; }
+  .sysinfo-lbl { font-size: 11px; color: var(--text-dim); white-space: nowrap; flex-shrink: 0; }
+  .sysinfo-val { font-size: 11px; font-family: var(--mono); color: var(--text); text-align: right; word-break: break-all; }
+  .sysinfo-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 6px 0; }
+  .sysinfo-loading { padding: 16px; text-align: center; font-size: 12px; color: var(--text-dim); }
 `;
 
 // ─── LOGO ────────────────────────────────────────────────────────
@@ -1579,6 +1609,98 @@ function SortableGrid({ pageKey, items }) {
   );
 }
 
+// ─── SYSTEM INFO BUTTON ──────────────────────────────────────────
+const SysRow = ({ label, value }) => (
+  <div className="sysinfo-row">
+    <span className="sysinfo-lbl">{label}</span>
+    <span className="sysinfo-val">{value}</span>
+  </div>
+);
+
+function InfoButton() {
+  const [open, setOpen]       = useState(false);
+  const [info, setInfo]       = useState(null);
+  const [fetching, setFetch]  = useState(false);
+  const [pos, setPos]         = useState({ top: 0, left: 0 });
+  const wrapRef               = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (rect) setPos({ top: rect.bottom + 10, left: rect.left });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || info || fetching) return;
+    setFetch(true);
+    Promise.all([
+      fetch(`${GLANCES_API}/system`).then(r => r.json()).catch(() => null),
+      fetch(`${GLANCES_API}/version`).then(r => r.json()).catch(() => null),
+      fetch(`${GLANCES_API}/core`).then(r => r.json()).catch(() => null),
+      fetch(`${GLANCES_API}/psutilversion`).then(r => r.json()).catch(() => null),
+      fetch(`${GLANCES_API}/ip`).then(r => r.json()).catch(() => null),
+    ]).then(([system, version, core, psutil, ip]) => {
+      setInfo({ system, version, core, psutil, ip });
+      setFetch(false);
+    });
+  }, [open, info, fetching]);
+
+  const ver = info?.version;
+  const glancesVer = typeof ver === "string" ? ver : (ver?.version ?? ver?.glances ?? null);
+  const psutilVer  = typeof info?.psutil === "string" ? info.psutil : (info?.psutil?.version ?? null);
+  const cores      = info?.core;
+  const sys        = info?.system;
+  const ip         = info?.ip;
+
+  return (
+    <div className="sysinfo-wrap" ref={wrapRef}>
+      <button
+        className={`sysinfo-btn${open ? " active" : ""}`}
+        onClick={() => setOpen(o => !o)}
+        aria-label="System information"
+      >
+        i
+      </button>
+      {open && createPortal(
+        <div className="sysinfo-popover fade-in" style={{ top: pos.top, left: pos.left }}>
+          {fetching ? (
+            <div className="sysinfo-loading">Loading…</div>
+          ) : (
+            <>
+              <div className="sysinfo-heading">System</div>
+              {sys?.hostname    && <SysRow label="Hostname" value={sys.hostname} />}
+              {sys?.os_name     && <SysRow label="OS"       value={`${sys.os_name} ${sys.os_version ?? ""}`.trim()} />}
+              {sys?.linux_distro && <SysRow label="Distro"  value={sys.linux_distro} />}
+              {sys?.platform    && <SysRow label="Platform" value={sys.platform} />}
+              {cores            && <SysRow label="CPU Cores" value={`${cores.phys_cores ?? "—"} phys / ${cores.log_cores ?? "—"} logical`} />}
+              {ip && (<>
+                <div className="sysinfo-divider" />
+                <div className="sysinfo-heading">Network</div>
+                {ip.address    && <SysRow label="Local IP"   value={ip.address} />}
+                {ip.mask       && <SysRow label="Mask"       value={ip.mask} />}
+                {ip.gateway    && <SysRow label="Gateway"    value={ip.gateway} />}
+                {ip.public_address && <SysRow label="Public IP"  value={ip.public_address} />}
+              </>)}
+              <div className="sysinfo-divider" />
+              <div className="sysinfo-heading">Versions</div>
+              {glancesVer  && <SysRow label="Glances" value={glancesVer} />}
+              {psutilVer   && <SysRow label="psutil"  value={psutilVer} />}
+            </>
+          )}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
 // ─── NAV SIDEBAR ─────────────────────────────────────────────────
 const NAV_ITEMS = [
   { id: "main",       label: "Main",                  abbr: "HM", col: "#22D3A7" },
@@ -1586,6 +1708,7 @@ const NAV_ITEMS = [
   { id: "media-srv",  label: "Media Server",           abbr: "MS", col: "#00A4DC" },
   { id: "mgmt",       label: "Management",             abbr: "MG", col: "#EF4444" },
   { id: "downloads",  label: "Downloads & Transcodes", abbr: "DL", col: "#2979FF" },
+  { id: "quick-look", label: "Quick Look",             abbr: "QL", col: "#22D3A7" },
 ];
 
 function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onThemeChange, alerts, onResetLayout }) {
@@ -1905,6 +2028,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
             <div className="header-title">2EZ</div>
             <div className="header-url">2ez.dinosaur-banana.ts.net</div>
           </div>
+          <InfoButton />
         </div>
         <div className="header-right">
           <div className="uptime-strip">
@@ -1934,7 +2058,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
           const pos = cardPositions[id] || DEFAULT_POSITIONS[id];
           const size = RESIZABLE.has(id) ? (cardSizes[id] || "medium") : "medium";
           const { cols, rows } = CARD_SIZE_SPANS[size];
-          const SM_ONLY = new Set(["mem","temps","storage"]);
+          const SM_ONLY = new Set(["mem","temps","storage","memswap"]);
           const ctrl = RESIZABLE.has(id)
             ? <SizeCtrl size={size} onChange={s => setSize(id, s)} sizes={SM_ONLY.has(id) ? SM_SIZES : ALL_SIZES} />
             : null;
@@ -2048,7 +2172,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                   ) : (
                     <>
                       <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-                        <Ring value={data.memswap.total > 0 ? data.memswap.percent : 0} size={size === "large" ? 150 : 110} label="Used" color={data.memswap.total === 0 ? "var(--text-dim)" : undefined} />
+                        <Ring value={data.memswap.total > 0 ? data.memswap.percent : 0} size={110} label="Used" color={data.memswap.total === 0 ? "var(--text-dim)" : undefined} />
                       </div>
                       <div className="stat-row">
                         <span className="label-sm">Used</span>
@@ -2058,22 +2182,14 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                         <span className="label-sm">Total</span>
                         <span className="mono label-sm">{data.memswap.total > 0 ? fmt.bytes(data.memswap.total) : "No swap"}</span>
                       </div>
-                      {size === "large" && (
-                        <>
-                          <div className="stat-row">
-                            <span className="label-sm">Free</span>
-                            <span className="mono label-sm">{fmt.bytes(data.memswap.total - data.memswap.used)}</span>
-                          </div>
-                          <div className="stat-row">
-                            <span className="label-sm">Swap In</span>
-                            <span className="mono label-sm" style={{ color: "var(--accent)" }}>{fmt.bytes(data.memswap.sin)}</span>
-                          </div>
-                          <div className="stat-row">
-                            <span className="label-sm">Swap Out</span>
-                            <span className="mono label-sm" style={{ color: "var(--warn)" }}>{fmt.bytes(data.memswap.sout)}</span>
-                          </div>
-                        </>
-                      )}
+                      <div className="stat-row">
+                        <span className="label-sm">Swap In</span>
+                        <span className="mono label-sm" style={{ color: "var(--accent)" }}>{fmt.bytes(data.memswap.sin)}</span>
+                      </div>
+                      <div className="stat-row">
+                        <span className="label-sm">Swap Out</span>
+                        <span className="mono label-sm" style={{ color: "var(--warn)" }}>{fmt.bytes(data.memswap.sout)}</span>
+                      </div>
                     </>
                   )}
                 </Card>
@@ -2105,15 +2221,13 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                   {data.fs
                     .filter(d =>
                       d.mnt_point.includes("ironwolf") ||
-                      d.mnt_point === "/host" ||
-                      d.mnt_point === "/host/boot/efi"
+                      d.mnt_point === "/host"
                     )
                     .filter((d, i, arr) => arr.findIndex(x => x.device_name === d.device_name) === i)
                     .map((d, i) => {
                       const label =
                         d.mnt_point.endsWith("ironwolf") ? "Ironwolf 8TB" :
                         d.mnt_point === "/host"           ? "Host"          :
-                        d.mnt_point === "/host/boot/efi"  ? "Boot EFI"      :
                         d.mnt_point;
                       return (
                         <Bar key={d.mnt_point} value={d.percent} label={label}
@@ -2125,12 +2239,11 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                   {size !== "compact" && data.diskio.length > 0 && (
                     <div style={{ marginTop: 12, borderTop: "1px solid var(--card-border)", paddingTop: 10 }}>
                       <div className="label-xs" style={{ marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>I/O Rates</div>
-                      {data.diskio.map((d, i) => (
-                        <div key={i} className="stat-row">
+                      {data.diskio.filter(d => /^nvme\d+n\d+$/.test(d.disk_name) || /^sd[a-z]$/.test(d.disk_name)).map((d, i, arr) => (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: i < arr.length - 1 ? 4 : 0, marginBottom: i < arr.length - 1 ? 4 : 0, borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
                           <span className="mono label-sm">{d.disk_name}</span>
-                          <span className="label-sm">
+                          <span className="label-sm" style={{ display: "flex", gap: 8 }}>
                             <span style={{ color: "var(--accent)" }}>↓ {fmt.speed(d.read_bytes)}</span>
-                            {" · "}
                             <span style={{ color: "var(--warn)" }}>↑ {fmt.speed(d.write_bytes)}</span>
                           </span>
                         </div>
@@ -2357,6 +2470,93 @@ function DownloadsPage({ onMenuToggle, onNavigate, bellProps }) {
   );
 }
 
+// ─── QUICK LOOK PAGE ─────────────────────────────────────────────
+function QuickLookPage({ onMenuToggle, onNavigate, bellProps }) {
+  const { data, loading } = usePolling(
+    () => fetch(`${GLANCES_API}/quicklook`).then(r => r.json()),
+    5000
+  );
+
+  if (loading && !data) {
+    return (
+      <div className="shell">
+        <PageHeader title="Quick Look" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
+        <div className="loading" style={{ paddingTop: 60 }}>
+          <Logo size={36} />
+          <div style={{ marginTop: 12, opacity: 0.5, fontSize: 13 }}>Loading…</div>
+        </div>
+      </div>
+    );
+  }
+
+  const cpu  = data?.cpu  ?? 0;
+  const mem  = data?.mem  ?? 0;
+  const swap = data?.swap ?? 0;
+  const loadArr = Array.isArray(data?.load)
+    ? data.load
+    : [data?.load?.min1 ?? data?.load1 ?? 0, data?.load?.min5 ?? data?.load5 ?? 0, data?.load?.min15 ?? data?.load15 ?? 0];
+  const percpu = Array.isArray(data?.percpu)
+    ? data.percpu.map(c => c.total ?? c.cpu_percent ?? 0)
+    : [];
+
+  return (
+    <div className="shell">
+      <PageHeader title="Quick Look" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
+      <div className="ql-wrap">
+
+        <div className="ql-section">
+          <div className="ql-row-header">
+            <span className="ql-label">CPU</span>
+            <span className="ql-value" style={{ color: statusColor(cpu) }}>{cpu.toFixed(1)}%</span>
+          </div>
+          <Bar value={cpu} height={8} />
+          {percpu.length > 0 && (
+            <div className="ql-cores">
+              {percpu.map((v, i) => (
+                <div key={i} className="ql-core-col">
+                  <div className="ql-core-track">
+                    <div className="ql-core-fill" style={{ height: `${Math.min(100, Math.max(2, v))}%`, background: statusColor(v) }} />
+                  </div>
+                  <div className="ql-core-num">{Math.round(v)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="ql-section">
+          <div className="ql-row-header">
+            <span className="ql-label">Memory</span>
+            <span className="ql-value" style={{ color: statusColor(mem) }}>{mem.toFixed(1)}%</span>
+          </div>
+          <Bar value={mem} height={8} />
+        </div>
+
+        <div className="ql-section">
+          <div className="ql-row-header">
+            <span className="ql-label">Swap</span>
+            <span className="ql-value" style={{ color: statusColor(swap) }}>{swap.toFixed(1)}%</span>
+          </div>
+          <Bar value={swap} height={8} />
+        </div>
+
+        <div className="ql-section">
+          <div className="ql-label" style={{ marginBottom: 0 }}>Load Average</div>
+          <div className="ql-load-row">
+            {["1m", "5m", "15m"].map((lbl, i) => (
+              <div key={lbl} className="ql-load-item">
+                <div className="ql-load-val">{(loadArr[i] ?? 0).toFixed(2)}</div>
+                <div className="ql-load-lbl">{lbl}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 // ─── APP ROOT ────────────────────────────────────────────────────
 export default function App() {
   const [activePage, setActivePage] = useState("main");
@@ -2461,6 +2661,7 @@ export default function App() {
       {activePage === "media-srv"  && <MediaServerPage     onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "mgmt"       && <ManagementPage      onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "downloads"  && <DownloadsPage        onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
+      {activePage === "quick-look" && <QuickLookPage        onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
     </>
   );
 }
