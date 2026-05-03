@@ -112,7 +112,8 @@ const MOCK_CONTAINERS = [
 const generateMockData = (prev) => {
   const jitter = (base, range) => base + (Math.random() - 0.5) * range;
   const prevCpu = prev?.cpu?.total || 24;
-  const prevNet = prev?.network || {};
+  const prevLan = prev?.network?.lan || {};
+  const prevTs  = prev?.network?.ts  || {};
   return {
     cpu: {
       total: Math.max(1, Math.min(100, jitter(prevCpu, 8))),
@@ -149,8 +150,8 @@ const generateMockData = (prev) => {
       { disk_name: "sda",     read_bytes: jitter(prev?.diskio?.[1]?.read_bytes || 45e6,  20e6), write_bytes: jitter(prev?.diskio?.[1]?.write_bytes || 12e6,  8e6) },
     ],
     network: {
-      rx: Math.max(0, jitter(prevNet.rx || 2.4e6, 1.5e6)),
-      tx: Math.max(0, jitter(prevNet.tx || 0.8e6, 0.5e6)),
+      lan: { rx: Math.max(0, jitter(prevLan.rx || 2.4e6, 1.5e6)), tx: Math.max(0, jitter(prevLan.tx || 0.8e6, 0.5e6)) },
+      ts:  { rx: Math.max(0, jitter(prevTs.rx  || 0.3e6, 0.1e6)), tx: Math.max(0, jitter(prevTs.tx  || 0.1e6, 0.05e6)) },
     },
     docker: MOCK_CONTAINERS.map((c) => {
       const p = prev?.docker?.find((d) => d.name === c.name) || c;
@@ -246,7 +247,7 @@ const GLOBAL_CSS = `
   /* ── Grid (main dashboard) ── */
   .grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: var(--row-h, 150px); gap: 18px; align-items: stretch; position: relative; }
   @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); } .grid > * { grid-column: auto !important; grid-row: auto !important; } }
-  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; } .grid > * { grid-column: auto !important; grid-row: auto !important; } .shell { padding: 16px 12px 32px; } .header { gap: 8px; } .header-left { gap: 8px; flex: 1; min-width: 0; } .header-right { gap: 8px; flex-shrink: 0; } .header-url { display: none; } .header-clock { display: none; } .uptime-strip { display: none; } }
+  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; } .grid > * { grid-column: auto !important; grid-row: span var(--card-rows, 1) !important; } .shell { padding: 16px 12px 32px; } .header { gap: 8px; } .header-left { gap: 8px; flex: 1; min-width: 0; overflow: hidden; } .header-right { gap: 8px; flex-shrink: 0; } .header-url { display: none; } .header-clock { display: none; } .uptime-strip { display: none; } }
 
   /* ── Card ── */
   .card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); height: 100%; box-sizing: border-box; overflow: hidden; }
@@ -375,6 +376,9 @@ const GLOBAL_CSS = `
   .fade-in { animation: fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
   @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
   @keyframes pulse-crit { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
+  @keyframes shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+  .skeleton-line { height: 12px; border-radius: 4px; background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 75%); background-size: 200% 100%; animation: shimmer 1.8s infinite; margin-bottom: 10px; }
+  .skeleton-line:last-child { margin-bottom: 0; }
 
   .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: var(--font); color: var(--text); }
 
@@ -624,6 +628,38 @@ const Spark = ({ data, color = "var(--accent)", height = 32, width = 100 }) => {
       </defs>
       <polygon points={`0,${height} ${points} ${width},${height}`} fill={`url(#sg-${color.replace(/[^a-z0-9]/gi, "")})`} />
       <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+};
+
+const DualSpark = ({ rxData, txData, height = 40, width = 180, id = "ds" }) => {
+  const hasRx = rxData && rxData.length >= 2;
+  const hasTx = txData && txData.length >= 2;
+  if (!hasRx && !hasTx) return null;
+  const max = Math.max(...(hasRx ? rxData : []), ...(hasTx ? txData : []), 1);
+  const toPoints = (data) => data.map((v, i) => {
+    const x = (i / (data.length - 1)) * width;
+    const y = height - (v / max) * (height - 4) - 2;
+    return `${x},${y}`;
+  }).join(" ");
+  const rxPts = hasRx ? toPoints(rxData) : null;
+  const txPts = hasTx ? toPoints(txData) : null;
+  return (
+    <svg width={width} height={height} style={{ display: "block", overflow: "visible" }}>
+      <defs>
+        <linearGradient id={`${id}-rx`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="var(--accent)" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="var(--accent)" stopOpacity="0"   />
+        </linearGradient>
+        <linearGradient id={`${id}-tx`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="var(--warn)" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="var(--warn)" stopOpacity="0"    />
+        </linearGradient>
+      </defs>
+      {rxPts && <polygon points={`0,${height} ${rxPts} ${width},${height}`} fill={`url(#${id}-rx)`} />}
+      {txPts && <polygon points={`0,${height} ${txPts} ${width},${height}`} fill={`url(#${id}-tx)`} />}
+      {rxPts && <polyline points={rxPts} fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />}
+      {txPts && <polyline points={txPts} fill="none" stroke="var(--warn)"   strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />}
     </svg>
   );
 };
@@ -2003,14 +2039,33 @@ const RESET_SIZES = {
   storage: "compact", network: "compact", containers: "compact",
 };
 
+function Skeleton() {
+  return (
+    <div style={{ padding: "4px 0" }}>
+      <div className="skeleton-line" style={{ width: "60%" }} />
+      <div className="skeleton-line" style={{ width: "85%" }} />
+      <div className="skeleton-line" style={{ width: "45%" }} />
+    </div>
+  );
+}
+
 // ─── MAIN PAGE (system dashboard) ────────────────────────────────
 function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
-  const [data, setData] = useState(null);
-  const [history, setHistory] = useState({ cpu: [], rx: [], tx: [] });
+  const [data, setData] = useState({ cpu: null, mem: null, memswap: null, sensors: null, uptime: null, fs: null, diskio: null, network: null, docker: null, processes: null });
+  const [history, setHistory] = useState({ cpu: [], lan: { rx: [], tx: [] }, ts: { rx: [], tx: [] } });
+  const [diskioHistory, setDiskioHistory] = useState({});
   const [time, setTime] = useState(new Date());
   const [connected, setConnected] = useState(true);
   const [containerView, setContainerView] = useState(false);
   const [processView,   setProcessView]   = useState(false);
+
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width: 600px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 600px)");
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   const [cardPositions, setCardPositions] = useState(() => {
     try {
@@ -2105,66 +2160,82 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
     setDropTarget(null);
   }, [draggingId, dropTarget, cardSizes, checkConflict]);
 
-  const fetchData = useCallback(async () => {
+  const fetchAll = useCallback(() => {
     if (!GLANCES_API) {
-      setData((prev) => generateMockData(prev));
+      setData(prev => generateMockData(prev));
       setConnected(true);
       return;
     }
-    try {
-      const endpoints = ["cpu", "mem", "sensors", "uptime", "fs", "diskio", "network", "containers", "percpu", "memswap", "processlist"];
-      const results = await Promise.all(
-        endpoints.map((ep) =>
-          fetch(`${GLANCES_API}/${ep}`).then((r) => r.json()).catch(() => null)
-        )
-      );
-      const [cpu, mem, sensors, uptime, fs, diskio, network, docker, percpu, memswap, processlist] = results;
 
-      const netIface = network
-        ? (Array.isArray(network)
-            ? network.find(n => !n.interface_name?.startsWith("lo") && !n.interface_name?.startsWith("docker") && !n.interface_name?.startsWith("veth") && !n.interface_name?.startsWith("br-") && !n.interface_name?.startsWith("tailscale")) || network[0]
-            : network)
-        : {};
+    // mem — fast, used as connectivity probe
+    fetch(`${GLANCES_API}/mem`).then(r => r.json())
+      .then(mem => {
+        setData(prev => ({ ...prev, mem: { percent: mem?.percent || 0, used: mem?.used || 0, total: mem?.total || 0 } }));
+        setConnected(true);
+      })
+      .catch(() => setConnected(false));
 
-      setData({
-        cpu: {
-          total: cpu?.total || 0,
-          cores: Array.isArray(percpu) ? percpu.map(c => c.total) : [],
-          model: cpu?.cpucore ? `${cpu.cpucore} cores` : "",
-          freq: cpu?.cpufreq_current || 0,
-        },
-        mem: { percent: mem?.percent || 0, used: mem?.used || 0, total: mem?.total || 0 },
-        memswap: { percent: memswap?.percent || 0, used: memswap?.used || 0, total: memswap?.total || 0, sin: memswap?.sin || 0, sout: memswap?.sout || 0 },
-        sensors: (sensors || []).filter(s => s.type === "temperature_core").slice(0, 5).map(s => ({
-          label: s.label, value: s.value, unit: "C"
-        })),
-        uptime: typeof uptime === "string" ? uptime : "—",
-        fs: fs || [],
-        diskio: diskio || [],
-        network: { rx: netIface?.bytes_recv_rate_per_sec || 0, tx: netIface?.bytes_sent_rate_per_sec || 0 },
-        docker: (Array.isArray(docker) ? docker : []).map(c => ({
-          name: c.name || "unknown",
-          status: c.status || "stopped",
-          cpu: c.cpu_percent || c.cpu?.total || 0,
-          mem: c.memory_usage || c.memory?.usage || 0,
-          net_rx: c.network_rx || c.network?.rx || 0,
-          net_tx: c.network_tx || c.network?.tx || 0,
-          uptime: c.uptime || "—",
-        })),
-        processes: Array.isArray(processlist) ? processlist : [],
-      });
-      setConnected(true);
-    } catch {
-      setData((prev) => generateMockData(prev));
-      setConnected(false);
-    }
+    fetch(`${GLANCES_API}/memswap`).then(r => r.json())
+      .then(memswap => setData(prev => ({ ...prev, memswap: { percent: memswap?.percent || 0, used: memswap?.used || 0, total: memswap?.total || 0, sin: memswap?.sin || 0, sout: memswap?.sout || 0 } })))
+      .catch(() => {});
+
+    fetch(`${GLANCES_API}/sensors`).then(r => r.json())
+      .then(sensors => setData(prev => ({ ...prev, sensors: (sensors || []).filter(s => s.type === "temperature_core").slice(0, 5).map(s => ({ label: s.label, value: s.value, unit: "C" })) })))
+      .catch(() => {});
+
+    fetch(`${GLANCES_API}/uptime`).then(r => r.json())
+      .then(uptime => setData(prev => ({ ...prev, uptime: typeof uptime === "string" ? uptime : "—" })))
+      .catch(() => {});
+
+    fetch(`${GLANCES_API}/network`).then(r => r.json())
+      .then(raw => {
+        const ifaces = Array.isArray(raw) ? raw : [];
+        const pick = (name) => {
+          const n = ifaces.find(i => i.interface_name === name);
+          return n ? { rx: n.bytes_recv_rate_per_sec || 0, tx: n.bytes_sent_rate_per_sec || 0 } : null;
+        };
+        setData(prev => ({ ...prev, network: { lan: pick("enp3s0"), ts: pick("tailscale0") } }));
+      })
+      .catch(() => {});
+
+    fetch(`${GLANCES_API}/containers`).then(r => r.json())
+      .then(docker => setData(prev => ({ ...prev, docker: (Array.isArray(docker) ? docker : []).map(c => ({
+        name: c.name || "unknown", status: c.status || "stopped",
+        cpu: c.cpu_percent || c.cpu?.total || 0, mem: c.memory_usage || c.memory?.usage || 0,
+        net_rx: c.network_rx || c.network?.rx || 0, net_tx: c.network_tx || c.network?.tx || 0,
+        uptime: c.uptime || "—",
+      })) })))
+      .catch(() => {});
+
+    fetch(`${GLANCES_API}/processlist`).then(r => r.json())
+      .then(processlist => setData(prev => ({ ...prev, processes: Array.isArray(processlist) ? processlist : [] })))
+      .catch(() => {});
+
+    // fs + diskio are related, fetch together
+    Promise.all([
+      fetch(`${GLANCES_API}/fs`).then(r => r.json()).catch(() => null),
+      fetch(`${GLANCES_API}/diskio`).then(r => r.json()).catch(() => null),
+    ]).then(([fs, diskio]) => setData(prev => ({ ...prev, fs: fs || [], diskio: diskio || [] })))
+      .catch(() => {});
+
+    // cpu + percpu are the slow pair (~11s) — fire last, resolve independently
+    Promise.all([
+      fetch(`${GLANCES_API}/cpu`).then(r => r.json()).catch(() => null),
+      fetch(`${GLANCES_API}/percpu`).then(r => r.json()).catch(() => null),
+    ]).then(([cpu, percpu]) => setData(prev => ({ ...prev, cpu: {
+      total: cpu?.total || 0,
+      cores: Array.isArray(percpu) ? percpu.map(c => c.total) : [],
+      model: cpu?.cpucore ? `${cpu.cpucore} cores` : "",
+      freq: cpu?.cpufreq_current || 0,
+    } })))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetchData();
-    const id = setInterval(fetchData, POLL_INTERVAL);
+    fetchAll();
+    const id = setInterval(fetchAll, POLL_INTERVAL);
     return () => clearInterval(id);
-  }, [fetchData]);
+  }, [fetchAll]);
 
   useEffect(() => {
     const id = setInterval(() => setTime(new Date()), 1000);
@@ -2172,29 +2243,41 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
   }, []);
 
   useEffect(() => {
-    if (!data) return;
-    setHistory((h) => ({
-      cpu: [...h.cpu.slice(-59), data.cpu.total],
-      rx:  [...h.rx.slice(-59),  data.network.rx],
-      tx:  [...h.tx.slice(-59),  data.network.tx],
+    if (!data.cpu) return;
+    setHistory(h => ({ ...h, cpu: [...h.cpu.slice(-59), data.cpu.total] }));
+  }, [data.cpu]);
+
+  useEffect(() => {
+    if (!data.network) return;
+    setHistory(h => ({
+      ...h,
+      lan: data.network.lan ? { rx: [...h.lan.rx.slice(-59), data.network.lan.rx], tx: [...h.lan.tx.slice(-59), data.network.lan.tx] } : h.lan,
+      ts:  data.network.ts  ? { rx: [...h.ts.rx.slice(-59),  data.network.ts.rx],  tx: [...h.ts.tx.slice(-59),  data.network.ts.tx]  } : h.ts,
     }));
-  }, [data]);
+  }, [data.network]);
+
+  useEffect(() => {
+    if (!data.diskio) return;
+    const DISK_RE = /^nvme\d+n\d+$|^sd[a-z]$/;
+    setDiskioHistory(h => {
+      const next = { ...h };
+      data.diskio.filter(d => DISK_RE.test(d.disk_name)).forEach(d => {
+        const prev = next[d.disk_name] || { rx: [], tx: [] };
+        next[d.disk_name] = {
+          rx: [...prev.rx.slice(-59), d.read_bytes],
+          tx: [...prev.tx.slice(-59), d.write_bytes],
+        };
+      });
+      return next;
+    });
+  }, [data.diskio]);
 
   useEffect(() => {
     localStorage.setItem("2ez-card-sizes", JSON.stringify(cardSizes));
   }, [cardSizes]);
 
-  if (!data) {
-    return (
-      <div className="loading">
-        <Logo size={48} />
-        <div style={{ marginTop: 16, opacity: 0.5 }}>Connecting…</div>
-      </div>
-    );
-  }
-
-  const runningCount = data.docker.filter((d) => d.status === "running").length;
-  const sortedDocker = [...data.docker].sort((a, b) => b.cpu - a.cpu);
+  const runningCount = data.docker ? data.docker.filter(d => d.status === "running").length : 0;
+  const sortedDocker = data.docker ? [...data.docker].sort((a, b) => b.cpu - a.cpu) : [];
 
   return (
     <div className="shell">
@@ -2204,19 +2287,17 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
             <HamburgerIcon />
           </button>
           <Logo size={38} />
-          <div>
-            <div className="header-title">2EZ</div>
-            <div className="header-url">2ez.dinosaur-banana.ts.net</div>
-          </div>
-          <InfoButton />
         </div>
         <div className="header-right">
-          <div className="uptime-strip">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            {data.uptime}
-          </div>
+          {data.uptime && (
+            <div className="uptime-strip">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              {data.uptime}
+            </div>
+          )}
           <span className="header-clock">{time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
           {bellProps && <NotificationBell {...bellProps} />}
+          <InfoButton />
           <div className="live-badge">
             <div className="live-dot" style={{ background: connected ? "var(--accent)" : "var(--crit)" }} />
             {connected ? "LIVE" : "OFFLINE"}
@@ -2239,19 +2320,20 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
           const pos = cardPositions[id] || DEFAULT_POSITIONS[id];
           const size = RESIZABLE.has(id) ? (cardSizes[id] || "medium") : COMPACT_ONLY.has(id) ? "compact" : "medium";
           const { cols, rows } = CARD_SIZE_SPANS[size];
+          const renderSize = isMobile ? (size === "large" ? "medium" : size) : size;
           const SM_ONLY = new Set(["mem","temps","storage","memswap"]);
           const ctrl = RESIZABLE.has(id)
-            ? <SizeCtrl size={size} onChange={s => setSize(id, s)} sizes={SM_ONLY.has(id) ? SM_SIZES : ALL_SIZES} />
+            ? <SizeCtrl size={renderSize} onChange={s => setSize(id, s)} sizes={(isMobile || SM_ONLY.has(id)) ? SM_SIZES : ALL_SIZES} />
             : null;
           const isContainerFull = id === "containers" && containerView;
           const gridCol = isContainerFull ? "1 / -1" : `${pos.col} / span ${cols}`;
-          const gridRow = `${pos.row} / span ${rows}`;
+          const gridRow = isMobile ? `span ${CARD_SIZE_SPANS[renderSize].rows}` : `${pos.row} / span ${rows}`;
 
                 let node;
             switch (id) {
               case "cpu": node = (
                 <Card title="Processor" controls={ctrl}>
-                  {size === "compact" ? (
+                  {!data.cpu ? <Skeleton /> : renderSize === "compact" ? (
                     <>
                       <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
                         <div className="big-num" style={{ color: statusColor(data.cpu.total) }}><AnimNum value={data.cpu.total} /></div>
@@ -2267,21 +2349,21 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                           <div className="label-sm" style={{ marginTop: 4 }}>{data.cpu.model}</div>
                           {data.cpu.freq > 0 && <div className="label-xs" style={{ marginTop: 2 }}>{fmt.freq(data.cpu.freq)}</div>}
                         </div>
-                        <div style={{ width: size === "large" ? 180 : 120, flexShrink: 0 }}>
-                          <Spark data={history.cpu} color={statusColor(data.cpu.total)} height={size === "large" ? 72 : 40} width={size === "large" ? 180 : 120} />
+                        <div style={{ width: renderSize === "large" ? 180 : 120, flexShrink: 0 }}>
+                          <Spark data={history.cpu} color={statusColor(data.cpu.total)} height={renderSize === "large" ? 72 : 40} width={renderSize === "large" ? 180 : 120} />
                         </div>
                       </div>
                       <div className="cores-grid">
                         {data.cpu.cores.map((c, i) => (
                           <div key={i} className="core-bar-wrap">
-                            <div className="core-bar-outer" style={size === "large" ? { height: 56 } : {}}>
+                            <div className="core-bar-outer" style={renderSize === "large" ? { height: 56 } : {}}>
                               <div className="core-bar-inner" style={{ height: `${Math.max(2, c)}%`, background: statusColor(c), opacity: 0.8 }} />
                             </div>
                             <span className="core-label">{i}</span>
                           </div>
                         ))}
                       </div>
-                      {size === "large" && data.cpu.cores.length > 0 && (
+                      {renderSize === "large" && data.cpu.cores.length > 0 && (
                         <div style={{ display: "flex", gap: 12, marginTop: 10, borderTop: "1px solid var(--card-border)", paddingTop: 10, flexWrap: "wrap" }}>
                           <div className="stat-row" style={{ flex: 1 }}>
                             <span className="label-sm">Peak core</span>
@@ -2300,7 +2382,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
 
               case "mem": node = (
                 <Card title="Memory" controls={ctrl}>
-                  {size === "compact" ? (
+                  {!data.mem ? <Skeleton /> : renderSize === "compact" ? (
                     <>
                       <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
                         <div className="big-num" style={{ color: statusColor(data.mem.percent) }}>{data.mem.percent.toFixed(0)}</div>
@@ -2315,7 +2397,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                   ) : (
                     <>
                       <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-                        <Ring value={data.mem.percent} size={size === "large" ? 150 : 110} label="Used" />
+                        <Ring value={data.mem.percent} size={renderSize === "large" ? 150 : 110} label="Used" />
                       </div>
                       <div className="stat-row">
                         <span className="label-sm">Used</span>
@@ -2325,7 +2407,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                         <span className="label-sm">Total</span>
                         <span className="mono label-sm">{fmt.bytes(data.mem.total)}</span>
                       </div>
-                      {size === "large" && (
+                      {renderSize === "large" && (
                         <div className="stat-row">
                           <span className="label-sm">Free</span>
                           <span className="mono label-sm">{fmt.bytes(data.mem.total - data.mem.used)}</span>
@@ -2338,7 +2420,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
 
               case "memswap": node = (
                 <Card title="Swap" controls={ctrl}>
-                  {size === "compact" ? (
+                  {!data.memswap ? <Skeleton /> : renderSize === "compact" ? (
                     <>
                       <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
                         <div className="big-num" style={{ color: statusColor(data.memswap.percent) }}>{data.memswap.percent.toFixed(0)}</div>
@@ -2378,7 +2460,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
 
               case "temps": node = (
                 <Card title="Temperatures" controls={ctrl}>
-                  {size === "compact" ? (
+                  {!data.sensors ? <Skeleton /> : renderSize === "compact" ? (
                     data.sensors.length > 0 ? (
                       <>
                         <div className="big-num" style={{ color: tempColor(Math.max(...data.sensors.map(s => s.value))), marginBottom: 4 }}>
@@ -2390,7 +2472,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                   ) : (
                     <div className="temp-grid">
                       {data.sensors.map((s, i) => (
-                        <Ring key={i} value={s.value} size={size === "large" ? 96 : 72} stroke={5} color={tempColor(s.value)} label={s.label} format="temp" />
+                        <Ring key={i} value={s.value} size={renderSize === "large" ? 96 : 72} stroke={5} color={tempColor(s.value)} label={s.label} format="temp" />
                       ))}
                     </div>
                   )}
@@ -2399,7 +2481,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
 
               case "storage": node = (
                 <Card title="Storage" controls={ctrl}>
-                  {data.fs
+                  {!data.fs ? <Skeleton /> : data.fs
                     .filter(d =>
                       d.mnt_point.includes("ironwolf") ||
                       d.mnt_point === "/host"
@@ -2413,22 +2495,28 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                       return (
                         <Bar key={d.mnt_point} value={d.percent} label={label}
                           detail={`${fmt.bytes(d.used)} / ${fmt.bytes(d.size)}`}
-                          height={size === "large" ? 12 : 8} delay={i * 80} />
+                          height={renderSize === "large" ? 12 : 8} delay={i * 80} />
                       );
                     })
                   }
-                  {size !== "compact" && data.diskio.length > 0 && (
+                  {renderSize !== "compact" && data.diskio && data.diskio.length > 0 && (
                     <div style={{ marginTop: 12, borderTop: "1px solid var(--card-border)", paddingTop: 10 }}>
                       <div className="label-xs" style={{ marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>I/O Rates</div>
-                      {data.diskio.filter(d => /^nvme\d+n\d+$/.test(d.disk_name) || /^sd[a-z]$/.test(d.disk_name)).map((d, i, arr) => (
-                        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: i < arr.length - 1 ? 4 : 0, marginBottom: i < arr.length - 1 ? 4 : 0, borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
-                          <span className="mono label-sm">{d.disk_name}</span>
-                          <span className="label-sm" style={{ display: "flex", gap: 8 }}>
-                            <span style={{ color: "var(--accent)" }}>↓ {fmt.speed(d.read_bytes)}</span>
-                            <span style={{ color: "var(--warn)" }}>↑ {fmt.speed(d.write_bytes)}</span>
-                          </span>
-                        </div>
-                      ))}
+                      {data.diskio.filter(d => /^nvme\d+n\d+$/.test(d.disk_name) || /^sd[a-z]$/.test(d.disk_name)).map((d, i, arr) => {
+                        const hist = diskioHistory[d.disk_name] || { rx: [], tx: [] };
+                        return (
+                          <div key={d.disk_name} style={{ paddingBottom: i < arr.length - 1 ? 10 : 0, marginBottom: i < arr.length - 1 ? 10 : 0, borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                              <span className="mono label-sm">{d.disk_name}</span>
+                              <span className="label-sm" style={{ display: "flex", gap: 8 }}>
+                                <span style={{ color: "var(--accent)" }}>↓ {fmt.speed(d.read_bytes)}</span>
+                                <span style={{ color: "var(--warn)" }}>↑ {fmt.speed(d.write_bytes)}</span>
+                              </span>
+                            </div>
+                            <DualSpark id={`disk-${d.disk_name}`} rxData={hist.rx} txData={hist.tx} height={28} width={180} />
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </Card>
@@ -2436,41 +2524,36 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
 
               case "network": node = (
                 <Card title="Network" controls={ctrl}>
-                  <div className="net-row">
-                    <span className="net-arrow" style={{ color: "var(--accent)" }}>↓</span>
-                    <span className="net-val" style={{ color: "var(--accent)" }}><AnimNum value={Math.abs(data.network.rx)} format="speed" /></span>
-                  </div>
-                  {size !== "compact" && (
-                    <div style={{ marginBottom: 8 }}>
-                      <Spark data={history.rx} color="var(--accent)" height={size === "large" ? 52 : 28} width={180} />
-                    </div>
-                  )}
-                  <div className="net-row">
-                    <span className="net-arrow" style={{ color: "var(--warn)" }}>↑</span>
-                    <span className="net-val" style={{ color: "var(--warn)" }}><AnimNum value={Math.abs(data.network.tx)} format="speed" /></span>
-                  </div>
-                  {size !== "compact" && (
-                    <div>
-                      <Spark data={history.tx} color="var(--warn)" height={size === "large" ? 52 : 28} width={180} />
-                    </div>
-                  )}
-                  {size === "large" && history.rx.length > 0 && (
-                    <div style={{ marginTop: 10, borderTop: "1px solid var(--card-border)", paddingTop: 10 }}>
-                      <div className="stat-row">
-                        <span className="label-sm">Peak ↓</span>
-                        <span className="mono label-sm" style={{ color: "var(--accent)" }}>{fmt.speed(Math.max(...history.rx))}</span>
+                  {!data.network ? <Skeleton /> : <>
+                    {[
+                      { key: "lan", label: "LAN",       iface: data.network.lan, hist: history.lan },
+                      { key: "ts",  label: "Tailscale", iface: data.network.ts,  hist: history.ts  },
+                    ].map(({ key, label, iface, hist }, i) => (
+                      <div key={key} style={i > 0 ? { marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--card-border)" } : {}}>
+                        <div className="label-xs" style={{ marginBottom: 5, textTransform: "uppercase", letterSpacing: 1, opacity: 0.5 }}>{label}</div>
+                        <div style={{ display: "flex", gap: 16, marginBottom: renderSize !== "compact" ? 6 : 0 }}>
+                          <div className="net-row">
+                            <span className="net-arrow" style={{ color: "var(--accent)" }}>↓</span>
+                            <span className="net-val" style={{ color: "var(--accent)" }}><AnimNum value={iface ? Math.abs(iface.rx) : 0} format="speed" /></span>
+                          </div>
+                          <div className="net-row">
+                            <span className="net-arrow" style={{ color: "var(--warn)" }}>↑</span>
+                            <span className="net-val" style={{ color: "var(--warn)" }}><AnimNum value={iface ? Math.abs(iface.tx) : 0} format="speed" /></span>
+                          </div>
+                        </div>
+                        {renderSize !== "compact" && (
+                          <DualSpark id={`net-${key}`} rxData={hist.rx} txData={hist.tx} height={renderSize === "large" ? 44 : 32} width={180} />
+                        )}
                       </div>
-                      <div className="stat-row">
-                        <span className="label-sm">Peak ↑</span>
-                        <span className="mono label-sm" style={{ color: "var(--warn)" }}>{fmt.speed(Math.max(...history.tx))}</span>
-                      </div>
-                    </div>
-                  )}
+                    ))}
+                  </>}
                 </Card>
               ); break;
 
               case "containers":
-                if (size === "compact") {
+                if (!data.docker) {
+                  node = <Card title="Containers" controls={ctrl}><Skeleton /></Card>;
+                } else if (renderSize === "compact") {
                   node = (
                     <Card title="Containers" controls={ctrl}>
                       <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
@@ -2479,7 +2562,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                       </div>
                     </Card>
                   );
-                } else if (size === "large" || containerView) {
+                } else if (renderSize === "large" || containerView) {
                   node = (
                     <div className="card fade-in">
                       <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
@@ -2489,7 +2572,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                               <div className="card-title" style={{ margin: 0 }}>Containers</div>
                               {ctrl}
                             </div>
-                            {containerView && size !== "large" && (
+                            {containerView && renderSize !== "large" && (
                               <button className="close-btn" onClick={() => setContainerView(false)}>
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                                   <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -2547,7 +2630,8 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                 break;
 
               case "processes": {
-                const sorted = [...(data.processes || [])].sort((a, b) => (b.cpu_percent || 0) - (a.cpu_percent || 0));
+                if (!data.processes) { node = <Card title="Processes"><Skeleton /></Card>; break; }
+                const sorted = [...data.processes].sort((a, b) => (b.cpu_percent || 0) - (a.cpu_percent || 0));
                 const topProc = sorted[0];
                 node = (
                   <>
@@ -2616,7 +2700,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
               <div
                 key={id}
                 className={`drag-item${draggingId === id ? " dragging" : ""}`}
-                style={{ gridColumn: gridCol, gridRow }}
+                style={{ gridColumn: gridCol, gridRow, "--card-rows": CARD_SIZE_SPANS[renderSize].rows }}
                 draggable
                 onDragStart={(e) => { setDraggingId(id); e.dataTransfer.effectAllowed = "move"; }}
                 onDragEnd={() => { setDraggingId(null); setDropTarget(null); }}
@@ -2632,6 +2716,14 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
 
 // ─── PAGE HEADER (non-main pages) ────────────────────────────────
 function PageHeader({ title, onMenuToggle, onNavigate, bellProps }) {
+  const [time, setTime] = useState(new Date());
+  const { data: uptime } = usePolling(() => fetch(`${GLANCES_API}/uptime`).then(r => r.json()), 30000);
+
+  useEffect(() => {
+    const id = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <header className="header fade-in">
       <div className="header-left">
@@ -2640,11 +2732,17 @@ function PageHeader({ title, onMenuToggle, onNavigate, bellProps }) {
         </button>
         <Logo size={38} onClick={() => onNavigate("main")} />
         <div>
-          <div className="header-title">2EZ</div>
           <div className="header-sub" style={{ color: "var(--accent)", fontWeight: 500 }}>{title}</div>
         </div>
       </div>
       <div className="header-right">
+        {typeof uptime === "string" && (
+          <div className="uptime-strip">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            {uptime}
+          </div>
+        )}
+        <span className="header-clock">{time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
         {bellProps && <NotificationBell {...bellProps} />}
       </div>
     </header>
