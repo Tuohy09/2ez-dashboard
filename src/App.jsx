@@ -247,7 +247,7 @@ const GLOBAL_CSS = `
   /* ── Grid (main dashboard) ── */
   .grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: var(--row-h, 150px); gap: 18px; align-items: stretch; position: relative; }
   @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); } .grid > * { grid-column: auto !important; grid-row: auto !important; } }
-  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; } .grid > * { grid-column: auto !important; grid-row: span var(--card-rows, 1) !important; } .shell { padding: 16px 12px 32px; } .header { gap: 8px; } .header-left { gap: 8px; flex: 1; min-width: 0; overflow: hidden; } .header-right { gap: 8px; flex-shrink: 0; } .header-url { display: none; } .header-clock { display: none; } .uptime-strip { display: none; } }
+  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; grid-template-rows: unset !important; grid-auto-rows: auto; } .grid > * { grid-column: auto !important; grid-row: span var(--card-rows, 1) !important; } .grid.half-mobile { grid-template-columns: repeat(2, 1fr); } .live-svc-card { height: auto; } .shell { padding: 16px 12px 32px; } .header { gap: 8px; } .header-left { gap: 8px; flex: 1; min-width: 0; overflow: hidden; } .header-right { gap: 8px; flex-shrink: 0; } .header-url { display: none; } .header-clock { display: none; } .uptime-strip { display: none; } }
 
   /* ── Card ── */
   .card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); height: 100%; box-sizing: border-box; overflow: hidden; }
@@ -324,6 +324,17 @@ const GLOBAL_CSS = `
   .hamburger-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 8px; border-radius: 10px; display: flex; align-items: center; justify-content: center; transition: background 0.2s, color 0.2s; flex-shrink: 0; }
   .hamburger-btn:hover { background: var(--card-hover); color: var(--text); }
 
+  /* ── Bottom tab bar (mobile only) ── */
+  .bottom-tab-bar { display: none; }
+  .tab-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: none; border: none; cursor: pointer; padding: 6px 4px; color: var(--text-dim); font-family: var(--font); transition: color 0.15s; -webkit-tap-highlight-color: transparent; }
+  .tab-item.active { color: var(--accent); }
+  .tab-item-label { font-size: 9px; font-weight: 500; letter-spacing: 0.3px; white-space: nowrap; }
+  @media (max-width: 767px) {
+    .hamburger-btn { display: none; }
+    .bottom-tab-bar { display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: calc(60px + max(env(safe-area-inset-bottom, 0px), 12px)); padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px); background: rgba(8,12,18,0.88); backdrop-filter: blur(20px) saturate(150%); -webkit-backdrop-filter: blur(20px) saturate(150%); border-top: 1px solid rgba(255,255,255,0.10); z-index: 900; align-items: stretch; }
+    .shell { padding-bottom: calc(80px + max(env(safe-area-inset-bottom, 0px), 12px)); }
+  }
+
   /* ── Nav sidebar ── */
   .nav-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 999; backdrop-filter: blur(6px); }
   .nav-sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 256px; background: rgba(8,12,18,0.65); backdrop-filter: blur(32px) saturate(160%); -webkit-backdrop-filter: blur(32px) saturate(160%); border-right: 1px solid rgba(255,255,255,0.16); box-shadow: 4px 0 40px rgba(0,0,0,0.5); z-index: 1000; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; overflow-y: auto; }
@@ -342,14 +353,14 @@ const GLOBAL_CSS = `
   @media (max-width: 600px) { .svc-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); } }
 
   /* ── Service card ── */
-  .svc-card { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s, border-color 0.28s, box-shadow 0.28s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); cursor: pointer; height: 100%; box-sizing: border-box; }
+  .svc-card { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s, border-color 0.28s, box-shadow 0.28s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); cursor: pointer; height: 100%; box-sizing: border-box; overflow: hidden; }
   .svc-card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.22); box-shadow: var(--card-shadow-hover); transform: translateY(-5px); }
   .svc-icon { width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 700; font-size: 12px; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
   .svc-name { font-size: 14px; font-weight: 600; line-height: 1.2; }
   .svc-desc { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
 
   /* ── Live service card ── */
-  .live-svc-card { display: flex; flex-direction: column; gap: 12px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s, border-color 0.28s, box-shadow 0.28s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); cursor: pointer; height: 100%; box-sizing: border-box; }
+  .live-svc-card { display: flex; flex-direction: column; gap: 12px; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s, border-color 0.28s, box-shadow 0.28s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); cursor: pointer; height: 100%; box-sizing: border-box; overflow: hidden; }
   .live-svc-card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.22); box-shadow: var(--card-shadow-hover); transform: translateY(-5px); }
   .live-svc-top { display: flex; align-items: center; gap: 12px; }
   .live-svc-name { font-size: 14px; font-weight: 600; }
@@ -417,14 +428,41 @@ const GLOBAL_CSS = `
   .reset-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
 
   /* ── Drag-and-drop ── */
-  .drag-item { cursor: grab; position: relative; }
+  .drag-item { cursor: grab; position: relative; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
   .drag-item:active { cursor: grabbing; }
   .drag-item.dragging { opacity: 0.3; pointer-events: none; }
+  .drag-item.touch-pending { outline: 2px solid var(--accent); outline-offset: 3px; transition: outline 0.1s; }
   /* drop ghost: shows target position while dragging */
   .drop-ghost { border-radius: var(--radius); border: 2px dashed var(--accent); background: rgba(34,211,167,0.08); pointer-events: none; z-index: 5; transition: background 0.12s, border-color 0.12s; }
   /* sub-page SortableGrid indicators */
   .drag-item.drop-before::before { content: ''; position: absolute; top: 0; bottom: 0; left: -10px; width: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; pointer-events: none; }
   .drag-item.drop-after::after { content: ''; position: absolute; top: 0; bottom: 0; right: -10px; width: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; pointer-events: none; }
+  /* ── Drag handle (desktop only — hidden on mobile) ── */
+  .drag-handle { position: absolute; top: 8px; left: 8px; width: 20px; height: 28px; display: flex; align-items: center; justify-content: center; color: transparent; opacity: 0; cursor: grab; z-index: 11; touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; border-radius: 4px; }
+  @media (max-width: 767px) { .drag-item { -webkit-touch-callout: unset; cursor: default; } .drag-handle { display: none; } }
+
+  /* ── Edit Layout button (mobile only) ── */
+  .edit-layout-btn { display: none; background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 6px; border-radius: 8px; transition: background 0.2s, color 0.2s; align-items: center; justify-content: center; flex-shrink: 0; }
+  .edit-layout-btn:hover { background: var(--card-hover); color: var(--text); }
+  @media (max-width: 767px) { .edit-layout-btn { display: flex; } }
+
+  /* ── Layout edit modal ── */
+  .layout-modal-backdrop { position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); display: flex; align-items: flex-end; }
+  .layout-modal { width: 100%; max-height: 88vh; background: rgba(12,17,24,0.98); backdrop-filter: blur(32px) saturate(160%); -webkit-backdrop-filter: blur(32px) saturate(160%); border-radius: 20px 20px 0 0; border-top: 1px solid rgba(255,255,255,0.12); display: flex; flex-direction: column; padding-bottom: max(env(safe-area-inset-bottom,0px),8px); animation: slide-up 0.25s cubic-bezier(0.22,1,0.36,1) both; }
+  .layout-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 14px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
+  .layout-modal-title { font-size: 16px; font-weight: 700; }
+  .layout-modal-list { overflow-y: auto; flex: 1; }
+  .layout-modal-row { display: flex; align-items: center; justify-content: space-between; padding: 13px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .layout-modal-row-label { font-size: 14px; font-weight: 500; }
+  .layout-modal-arrows { display: flex; gap: 8px; }
+  .layout-modal-arrow { width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); color: var(--text-dim); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s, color 0.15s; }
+  .layout-modal-arrow:not(:disabled):active { background: rgba(255,255,255,0.12); color: var(--text); }
+  .layout-modal-arrow:disabled { opacity: 0.2; cursor: default; }
+  .layout-modal-footer { padding: 14px 20px 6px; border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; display: flex; gap: 10px; }
+  .layout-modal-save { flex: 1; background: var(--accent); color: #0a0e15; border: none; border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: var(--font); transition: opacity 0.15s; }
+  .layout-modal-save:hover { opacity: 0.88; }
+  .layout-modal-cancel { flex: 1; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); color: var(--text-dim); border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: var(--font); transition: background 0.15s, color 0.15s; }
+  .layout-modal-cancel:hover { background: rgba(255,255,255,0.11); color: var(--text); }
 
   /* ── Size overlay for sub-page draggable grid ── */
   .size-overlay { position: absolute; top: 8px; right: 8px; z-index: 10; opacity: 0; transition: opacity 0.18s; pointer-events: none; }
@@ -559,6 +597,28 @@ const HamburgerIcon = () => (
     <line x1="3" y1="6"  x2="21" y2="6"  />
     <line x1="3" y1="12" x2="21" y2="12" />
     <line x1="3" y1="18" x2="21" y2="18" />
+  </svg>
+);
+
+// ─── DRAG HANDLE ─────────────────────────────────────────────────
+// Rendered inside every draggable card. The touch hook ONLY starts a
+// drag when the touch lands on this element, so the rest of the card
+// remains fully scrollable / tappable.
+const DragHandle = () => (
+  <div className="drag-handle" data-drag-handle>
+    <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true">
+      <circle cx="2.5" cy="2"  r="1.5"/><circle cx="7.5" cy="2"  r="1.5"/>
+      <circle cx="2.5" cy="8"  r="1.5"/><circle cx="7.5" cy="8"  r="1.5"/>
+      <circle cx="2.5" cy="14" r="1.5"/><circle cx="7.5" cy="14" r="1.5"/>
+    </svg>
+  </div>
+);
+
+// ─── PENCIL ICON (edit layout button) ────────────────────────────
+const PencilIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
   </svg>
 );
 
@@ -1576,8 +1636,162 @@ function AlertsPanel({ alerts, onClose }) {
   );
 }
 
+// ─── MOBILE ORDER ────────────────────────────────────────────────
+function useMobileOrder(pageKey, defaultIds) {
+  const [order, setOrder] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`2ez-mobile-order-${pageKey}`) || "null");
+      if (Array.isArray(saved) && saved.length > 0) {
+        // merge: keep saved order, append any new ids, drop removed ones
+        const valid = saved.filter(id => defaultIds.includes(id));
+        const added = defaultIds.filter(id => !valid.includes(id));
+        return [...valid, ...added];
+      }
+    } catch {}
+    return [...defaultIds];
+  });
+  useEffect(() => {
+    localStorage.setItem(`2ez-mobile-order-${pageKey}`, JSON.stringify(order));
+  }, [order, pageKey]);
+  return [order, setOrder];
+}
+
+// ─── LAYOUT EDIT MODAL ───────────────────────────────────────────
+function LayoutEditModal({ items, order, onSave, onCancel }) {
+  const [local, setLocal] = useState([...order]);
+
+  const move = (idx, dir) => setLocal(prev => {
+    const next = [...prev];
+    const to = idx + dir;
+    if (to < 0 || to >= next.length) return prev;
+    [next[idx], next[to]] = [next[to], next[idx]];
+    return next;
+  });
+
+  return createPortal(
+    <div className="layout-modal-backdrop" onClick={onCancel}>
+      <div className="layout-modal" onClick={e => e.stopPropagation()}>
+        <div className="layout-modal-head">
+          <span className="layout-modal-title">Edit Layout</span>
+          <button className="close-btn" onClick={onCancel}>Cancel</button>
+        </div>
+        <div className="layout-modal-list">
+          {local.map((id, idx) => {
+            const item = items.find(i => i.id === id);
+            return (
+              <div key={id} className="layout-modal-row">
+                <span className="layout-modal-row-label">{item?.label ?? id}</span>
+                <div className="layout-modal-arrows">
+                  <button className="layout-modal-arrow" onClick={() => move(idx, -1)} disabled={idx === 0} aria-label="Move up">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="18 15 12 9 6 15"/></svg>
+                  </button>
+                  <button className="layout-modal-arrow" onClick={() => move(idx, 1)} disabled={idx === local.length - 1} aria-label="Move down">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="layout-modal-footer">
+          <button className="layout-modal-cancel" onClick={onCancel}>Cancel</button>
+          <button className="layout-modal-save" onClick={() => onSave(local)}>Save</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── LONG-PRESS TOUCH DRAG ───────────────────────────────────────
+// Attaches passive-false touchmove to containerRef so we can preventDefault
+// (blocking scroll) only once the long-press fires. callbacks.onStart/onMove/onEnd
+// are read via a ref so the effect never needs to re-register.
+function useLongPressTouch(containerRef, callbacks, longPressMs = 400, enabled = true) {
+  const cb = useRef(callbacks);
+  useEffect(() => { cb.current = callbacks; }); // keep fresh each render
+
+  useEffect(() => {
+    if (!enabled) return; // no-op on mobile — Edit Layout modal handles reorder instead
+    const el = containerRef?.current;
+    if (!el) return;
+
+    let timer = null;
+    let active = false;
+    let pendingEl = null;
+    let startX = 0, startY = 0;
+
+    const onTouchStart = (e) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+
+      // Only react when the touch lands directly on the designated drag handle.
+      // This leaves normal taps, links, and vertical scroll untouched everywhere
+      // else on the card.
+      if (!t.target?.closest?.("[data-drag-handle]")) return;
+
+      // Prevent iOS from showing the 3D-Touch preview / long-press context menu
+      // on the handle. Safe here because the handle has touch-action:none and is
+      // not a scroll-initiation point.
+      e.preventDefault();
+
+      startX = t.clientX; startY = t.clientY;
+      pendingEl = t.target?.closest?.("[data-drag-id],[data-sort-id]");
+      if (pendingEl) pendingEl.classList.add("touch-pending");
+      timer = setTimeout(() => {
+        if (pendingEl) pendingEl.classList.remove("touch-pending");
+        active = true;
+        navigator.vibrate?.(40); // haptic cue on Android
+        cb.current.onStart?.(t.clientX, t.clientY);
+      }, longPressMs);
+    };
+
+    const onTouchMove = (e) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      if (!active) {
+        // Cancel long-press if the finger moves before it fires
+        if (Math.hypot(t.clientX - startX, t.clientY - startY) > 8) {
+          clearTimeout(timer); timer = null;
+          if (pendingEl) { pendingEl.classList.remove("touch-pending"); pendingEl = null; }
+        }
+        return;
+      }
+      e.preventDefault(); // block page scroll while dragging
+      cb.current.onMove?.(t.clientX, t.clientY);
+    };
+
+    const onTouchEnd = (e) => {
+      clearTimeout(timer); timer = null;
+      if (pendingEl) { pendingEl.classList.remove("touch-pending"); pendingEl = null; }
+      if (!active) return;
+      active = false;
+      const t = e.changedTouches[0];
+      cb.current.onEnd?.(t.clientX, t.clientY);
+    };
+
+    // touchstart must be non-passive so e.preventDefault() can block the iOS
+    // context-menu / 3D-Touch preview when the finger is on the drag handle.
+    // For all other touches (not on the handle) we return early without calling
+    // preventDefault, so the browser's passive-scroll optimisation is not lost.
+    el.addEventListener("touchstart",  onTouchStart, { passive: false });
+    el.addEventListener("touchmove",   onTouchMove,  { passive: false }); // must be non-passive for scroll-block during drag
+    el.addEventListener("touchend",    onTouchEnd,   { passive: true  });
+    el.addEventListener("touchcancel", onTouchEnd,   { passive: true  });
+
+    return () => {
+      clearTimeout(timer);
+      if (pendingEl) pendingEl.classList.remove("touch-pending");
+      el.removeEventListener("touchstart",  onTouchStart);
+      el.removeEventListener("touchmove",   onTouchMove);
+      el.removeEventListener("touchend",    onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [enabled]); // eslint-disable-line react-hooks/exhaustive-deps — containerRef is stable; enabled is constant per session
+}
+
 // ─── DRAG SORT ───────────────────────────────────────────────────
-function useSortable(pageKey, defaultOrder) {
+function useSortable(pageKey, defaultOrder, containerRef) {
   const [order, setOrder] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(`2ez-order-${pageKey}`) || "null");
@@ -1593,6 +1807,7 @@ function useSortable(pageKey, defaultOrder) {
   }, [order, pageKey]);
 
   const ref = useRef({ from: null, overEl: null, before: true });
+  const touchFromId = useRef(null);
 
   const clearIndicator = () => {
     if (ref.current.overEl) {
@@ -1600,6 +1815,55 @@ function useSortable(pageKey, defaultOrder) {
       ref.current.overEl = null;
     }
   };
+
+  const commitReorder = (fromId, toId, before) => {
+    if (!fromId || !toId || fromId === toId) return;
+    setOrder(prev => {
+      const next = prev.filter(x => x !== fromId);
+      let ti = next.indexOf(toId);
+      if (!before) ti++;
+      next.splice(ti, 0, fromId);
+      return next;
+    });
+  };
+
+  // ── Touch drag (long-press) ──
+  useLongPressTouch(containerRef, {
+    onStart: (x, y) => {
+      const el = document.elementFromPoint(x, y);
+      const item = el?.closest?.("[data-sort-id]");
+      const id = item?.dataset?.sortId;
+      if (!id) return;
+      touchFromId.current = id;
+      ref.current.from = id;
+      item.classList.add("dragging");
+    },
+    onMove: (x, y) => {
+      if (!touchFromId.current) return;
+      const el = document.elementFromPoint(x, y);
+      const item = el?.closest?.("[data-sort-id]");
+      clearIndicator();
+      if (item && item.dataset.sortId !== touchFromId.current) {
+        const rect = item.getBoundingClientRect();
+        const before = x < rect.left + rect.width / 2;
+        item.classList.add(before ? "drop-before" : "drop-after");
+        ref.current.overEl = item;
+        ref.current.before = before;
+      }
+    },
+    onEnd: (x, y) => {
+      const fromId = touchFromId.current;
+      if (!fromId) return;
+      touchFromId.current = null;
+      clearIndicator();
+      document.querySelectorAll("[data-sort-id].dragging").forEach(el => el.classList.remove("dragging"));
+      const el = document.elementFromPoint(x, y);
+      const item = el?.closest?.("[data-sort-id]");
+      const toId = item?.dataset?.sortId;
+      commitReorder(fromId, toId, ref.current.before);
+      ref.current = { from: null, overEl: null, before: true };
+    },
+  });
 
   const getHandlers = (id) => ({
     draggable: true,
@@ -1631,15 +1895,7 @@ function useSortable(pageKey, defaultOrder) {
       clearIndicator();
       const from = ref.current.from;
       const before = ref.current.before;
-      if (from && from !== id) {
-        setOrder(prev => {
-          const next = prev.filter(x => x !== from);
-          let ti = next.indexOf(id);
-          if (!before) ti++;
-          next.splice(ti, 0, from);
-          return next;
-        });
-      }
+      commitReorder(from, id, before);
       ref.current = { from: null, overEl: null, before: true };
     },
     onDragEnd: (e) => {
@@ -1653,14 +1909,16 @@ function useSortable(pageKey, defaultOrder) {
 }
 
 function SortableGrid({ pageKey, items }) {
-  const [order, getHandlers] = useSortable(pageKey, items.map(i => i.id));
+  const containerRef = useRef(null);
+  const [order, getHandlers] = useSortable(pageKey, items.map(i => i.id), containerRef);
   return (
-    <div className="svc-grid">
+    <div className="svc-grid" ref={containerRef}>
       {order.map(id => {
         const item = items.find(i => i.id === id);
         if (!item) return null;
         return (
-          <div key={id} className="drag-item" {...getHandlers(id)}>
+          <div key={id} className="drag-item" data-sort-id={id} {...getHandlers(id)}>
+            <DragHandle />
             {item.node}
           </div>
         );
@@ -1752,6 +2010,39 @@ function useDraggableGrid(pageKey, ids, defaultSizes, defaultPositions) {
     setDropTarget(null);
   }, [draggingId, dropTarget, sizes, checkConflict]);
 
+  // ── Touch drag (desktop only — mobile uses Edit Layout modal) ──
+  const touchDragId = useRef(null);
+  const touchEnabled = typeof window !== "undefined" && !window.matchMedia("(max-width: 767px)").matches;
+  useLongPressTouch(gridRef, {
+    onStart: (x, y) => {
+      const el = document.elementFromPoint(x, y);
+      const item = el?.closest?.("[data-drag-id]");
+      const id = item?.dataset?.dragId;
+      if (!id) return;
+      touchDragId.current = id;
+      setDraggingId(id);
+    },
+    onMove: (x, y) => {
+      if (!touchDragId.current) return;
+      const cell = getCellFromMouse(x, y);
+      if (cell) setDropTarget(cell);
+    },
+    onEnd: () => {
+      const id = touchDragId.current;
+      if (!id) return;
+      touchDragId.current = null;
+      setDropTarget(prev => {
+        if (prev) {
+          const spans = CARD_SIZE_SPANS[sizes[id] || "medium"];
+          if (!checkConflict(id, prev, spans))
+            setPositions(p => ({ ...p, [id]: prev }));
+        }
+        return null;
+      });
+      setDraggingId(null);
+    },
+  }, 400, touchEnabled);
+
   return {
     gridRef, positions, sizes, setSize,
     draggingId, setDraggingId, dropTarget, setDropTarget,
@@ -1759,12 +2050,19 @@ function useDraggableGrid(pageKey, ids, defaultSizes, defaultPositions) {
   };
 }
 
-function DraggableGrid({ pageKey, items, resizable, defaultSizes, defaultPositions }) {
+function DraggableGrid({ pageKey, items, resizable, defaultSizes, defaultPositions, mobileOrder, className }) {
   const {
     gridRef, positions, sizes, setSize,
     draggingId, setDraggingId, dropTarget, setDropTarget,
     handleGridDragOver, handleGridDrop, checkConflict,
   } = useDraggableGrid(pageKey, items.map(i => i.id), defaultSizes, defaultPositions);
+
+  // On mobile the CSS collapses the grid to a single column using DOM order,
+  // so we sort items by mobileOrder when it's provided. Desktop layout is driven
+  // by explicit col/row positions, so the sort order doesn't affect it there.
+  const orderedItems = mobileOrder
+    ? [...items].sort((a, b) => mobileOrder.indexOf(a.id) - mobileOrder.indexOf(b.id))
+    : items;
 
   const maxRow = items.reduce((max, { id }) => {
     const pos = positions[id] || { col: 1, row: 1 };
@@ -1774,7 +2072,7 @@ function DraggableGrid({ pageKey, items, resizable, defaultSizes, defaultPositio
 
   return (
     <div
-      className="grid"
+      className={className ? `grid ${className}` : "grid"}
       ref={gridRef}
       style={{ gridTemplateRows: `repeat(${maxRow + 2}, var(--row-h, 150px))` }}
       onDragOver={handleGridDragOver}
@@ -1802,7 +2100,7 @@ function DraggableGrid({ pageKey, items, resizable, defaultSizes, defaultPositio
           />
         );
       })()}
-      {items.map(({ id, node }) => {
+      {orderedItems.map(({ id, node }) => {
         const pos = positions[id] || { col: 1, row: 1 };
         const size = sizes[id] || "medium";
         const { cols, rows } = CARD_SIZE_SPANS[size];
@@ -1811,10 +2109,12 @@ function DraggableGrid({ pageKey, items, resizable, defaultSizes, defaultPositio
             key={id}
             className={`drag-item${draggingId === id ? " dragging" : ""}`}
             style={{ gridColumn: `${pos.col} / span ${cols}`, gridRow: `${pos.row} / span ${rows}` }}
+            data-drag-id={id}
             draggable
             onDragStart={(e) => { setDraggingId(id); e.dataTransfer.effectAllowed = "move"; }}
             onDragEnd={() => { setDraggingId(null); setDropTarget(null); }}
           >
+            <DragHandle />
             {resizable.has(id) && (
               <div className="size-overlay">
                 <SizeCtrl size={size} onChange={s => setSize(id, s)} sizes={ALL_SIZES} />
@@ -1922,12 +2222,18 @@ function InfoButton() {
 
 // ─── NAV SIDEBAR ─────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { id: "main",       label: "Main",                  abbr: "HM", col: "#22D3A7" },
-  { id: "media-auto", label: "Media Automation",       abbr: "MA", col: "#A855F7" },
-  { id: "media-srv",  label: "Media Server",           abbr: "MS", col: "#00A4DC" },
-  { id: "mgmt",       label: "Management",             abbr: "MG", col: "#EF4444" },
-  { id: "downloads",  label: "Downloads & Transcodes", abbr: "DL", col: "#2979FF" },
-  { id: "quick-look", label: "Quick Look",             abbr: "QL", col: "#22D3A7" },
+  { id: "main",       label: "Main",                  shortLabel: "Home",      abbr: "HM", col: "#22D3A7",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
+  { id: "media-auto", label: "Media Automation",       shortLabel: "Automate",  abbr: "MA", col: "#A855F7",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="8" width="20" height="14" rx="2"/><path d="M2 13h20"/><path d="M4 8V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/><path d="M7 6l2 2M13 5l2 3"/></svg> },
+  { id: "media-srv",  label: "Media Server",           shortLabel: "Media",     abbr: "MS", col: "#00A4DC",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg> },
+  { id: "mgmt",       label: "Management",             shortLabel: "Manage",    abbr: "MG", col: "#EF4444",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> },
+  { id: "downloads",  label: "Downloads & Transcodes", shortLabel: "Downloads", abbr: "DL", col: "#2979FF",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> },
+  { id: "quick-look", label: "Quick Look",             shortLabel: "Quick",     abbr: "QL", col: "#22D3A7",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15.65" y2="15.65"/></svg> },
 ];
 
 function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onThemeChange, alerts, onResetLayout }) {
@@ -2011,6 +2317,43 @@ function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onTh
   );
 }
 
+// ─── BOTTOM TAB BAR ──────────────────────────────────────────────
+const SettingsCogIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+  </svg>
+);
+
+function BottomTabBar({ activePage, onNavigate, settingsOpen, onSettingsToggle }) {
+  const tabs = NAV_ITEMS.filter(item => item.id !== "quick-look");
+  return (
+    <nav className="bottom-tab-bar">
+      {tabs.map((item) => (
+        <button
+          key={item.id}
+          className={`tab-item${activePage === item.id ? " active" : ""}`}
+          onClick={() => onNavigate(item.id)}
+          aria-label={item.label}
+          style={activePage === item.id ? { color: item.col } : {}}
+        >
+          {item.icon}
+          <span className="tab-item-label">{item.shortLabel}</span>
+        </button>
+      ))}
+      <button
+        className={`tab-item${settingsOpen ? " active" : ""}`}
+        onClick={onSettingsToggle}
+        aria-label="Settings"
+        style={settingsOpen ? { color: "var(--text)" } : {}}
+      >
+        <SettingsCogIcon />
+        <span className="tab-item-label">Settings</span>
+      </button>
+    </nav>
+  );
+}
+
 // ─── GRID LAYOUT CONSTANTS ────────────────────────────────────────
 // Small=1×1, Medium=1×2, Large=2×3. M+S=L, 3S=L.
 const CARD_SIZE_SPANS = {
@@ -2028,6 +2371,10 @@ const DEFAULT_POSITIONS = {
   network:    { col: 2, row: 3 },
   containers: { col: 3, row: 3 },
   processes:  { col: 4, row: 3 },
+};
+const MAIN_CARD_LABELS = {
+  cpu: "Processor", mem: "Memory", memswap: "Swap", temps: "Temps",
+  storage: "Disk", network: "Network", containers: "Containers", processes: "Processes",
 };
 
 // Reset layout: all Small, alphabetical A-Z left-to-right
@@ -2065,6 +2412,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
   const [connected, setConnected] = useState(true);
   const [containerView, setContainerView] = useState(false);
   const [processView,   setProcessView]   = useState(false);
+  const [editLayoutOpen, setEditLayoutOpen] = useState(false);
 
   const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width: 600px)").matches);
   useEffect(() => {
@@ -2073,6 +2421,10 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
+
+  const mainDefaultIds = Object.keys(DEFAULT_POSITIONS);
+  const [mobileOrder, setMobileOrder] = useMobileOrder("main", mainDefaultIds);
+  const mainModalItems = mainDefaultIds.map(id => ({ id, label: MAIN_CARD_LABELS[id] ?? id }));
 
   const [cardPositions, setCardPositions] = useState(() => {
     try {
@@ -2166,6 +2518,39 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
     setDraggingId(null);
     setDropTarget(null);
   }, [draggingId, dropTarget, cardSizes, checkConflict]);
+
+  // ── Touch drag (desktop only — mobile uses Edit Layout modal) ──
+  const mainTouchDragId = useRef(null);
+  const mainTouchEnabled = typeof window !== "undefined" && !window.matchMedia("(max-width: 767px)").matches;
+  useLongPressTouch(gridRef, {
+    onStart: (x, y) => {
+      const el = document.elementFromPoint(x, y);
+      const item = el?.closest?.("[data-drag-id]");
+      const id = item?.dataset?.dragId;
+      if (!id) return;
+      mainTouchDragId.current = id;
+      setDraggingId(id);
+    },
+    onMove: (x, y) => {
+      if (!mainTouchDragId.current) return;
+      const cell = getCellFromMouse(x, y);
+      if (cell) setDropTarget(cell);
+    },
+    onEnd: () => {
+      const id = mainTouchDragId.current;
+      if (!id) return;
+      mainTouchDragId.current = null;
+      setDropTarget(prev => {
+        if (prev) {
+          const spans = CARD_SIZE_SPANS[cardSizes[id] || "medium"];
+          if (!checkConflict(id, prev, spans))
+            setCardPositions(p => ({ ...p, [id]: prev }));
+        }
+        return null;
+      });
+      setDraggingId(null);
+    },
+  }, 400, mainTouchEnabled);
 
   const fetchAll = useCallback(() => {
     if (!GLANCES_API) {
@@ -2303,6 +2688,9 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
             </div>
           )}
           <span className="header-clock">{time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+          <button className="edit-layout-btn" onClick={() => setEditLayoutOpen(true)} aria-label="Edit layout">
+            <PencilIcon />
+          </button>
           {bellProps && <NotificationBell {...bellProps} />}
           <InfoButton />
           <div className="live-badge">
@@ -2321,7 +2709,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
             <div className="drop-ghost" style={{ gridColumn: `${dropTarget.col} / span ${sp.cols}`, gridRow: `${dropTarget.row} / span ${sp.rows}`, borderColor: conflict ? "var(--crit)" : "var(--accent)", background: conflict ? "rgba(255,80,80,0.08)" : "rgba(34,211,167,0.08)" }} />
           );
         })()}
-        {Object.keys(DEFAULT_POSITIONS).map((id) => {
+        {(isMobile ? mobileOrder : Object.keys(DEFAULT_POSITIONS)).map((id) => {
           const RESIZABLE = new Set(["cpu","mem","memswap","temps","storage","network","containers"]);
           const COMPACT_ONLY = new Set(["processes"]);
           const pos = cardPositions[id] || DEFAULT_POSITIONS[id];
@@ -2708,21 +3096,31 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                 key={id}
                 className={`drag-item${draggingId === id ? " dragging" : ""}`}
                 style={{ gridColumn: gridCol, gridRow, "--card-rows": CARD_SIZE_SPANS[renderSize].rows }}
+                data-drag-id={id}
                 draggable
                 onDragStart={(e) => { setDraggingId(id); e.dataTransfer.effectAllowed = "move"; }}
                 onDragEnd={() => { setDraggingId(null); setDropTarget(null); }}
               >
+                <DragHandle />
                 {node}
               </div>
             );
           })}
       </div>
+      {editLayoutOpen && (
+        <LayoutEditModal
+          items={mainModalItems}
+          order={mobileOrder}
+          onSave={o => { setMobileOrder(o); setEditLayoutOpen(false); }}
+          onCancel={() => setEditLayoutOpen(false)}
+        />
+      )}
     </div>
   );
 }
 
 // ─── PAGE HEADER (non-main pages) ────────────────────────────────
-function PageHeader({ title, onMenuToggle, onNavigate, bellProps }) {
+function PageHeader({ title, onMenuToggle, onNavigate, bellProps, onEditLayout }) {
   const [time, setTime] = useState(new Date());
   const { data: uptime } = usePolling(() => fetch(`${GLANCES_API}/uptime`).then(r => r.json()), 30000);
 
@@ -2750,6 +3148,11 @@ function PageHeader({ title, onMenuToggle, onNavigate, bellProps }) {
           </div>
         )}
         <span className="header-clock">{time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+        {onEditLayout && (
+          <button className="edit-layout-btn" onClick={onEditLayout} aria-label="Edit layout">
+            <PencilIcon />
+          </button>
+        )}
         {bellProps && <NotificationBell {...bellProps} />}
       </div>
     </header>
@@ -2758,24 +3161,31 @@ function PageHeader({ title, onMenuToggle, onNavigate, bellProps }) {
 
 // ─── MEDIA AUTOMATION PAGE ───────────────────────────────────────
 function MediaAutomationPage({ onMenuToggle, onNavigate, bellProps }) {
-  const items = ["sonarr", "radarr", "lidarr", "prowlarr", "bazarr", "beetsflask", "slskd", "lrcget"]
-    .map(id => ({ id, node: <SvcCard id={id} /> }));
-  const defaultSizes = Object.fromEntries(items.map(i => [i.id, "compact"]));
+  const defaultIds = ["sonarr", "radarr", "lidarr", "prowlarr", "bazarr", "beetsflask", "slskd", "lrcget"];
+  const [mobileOrder, setMobileOrder] = useMobileOrder("media-auto", defaultIds);
+  const [editOpen, setEditOpen] = useState(false);
+  const items = defaultIds.map(id => ({ id, node: <SvcCard id={id} /> }));
+  const modalItems = defaultIds.map(id => ({ id, label: SVC[id]?.name ?? id }));
+  const defaultSizes = Object.fromEntries(defaultIds.map(id => [id, "compact"]));
   const defaultPositions = {
     sonarr: {col:1,row:1}, radarr: {col:2,row:1}, lidarr: {col:3,row:1}, prowlarr: {col:4,row:1},
     bazarr: {col:1,row:2}, beetsflask: {col:2,row:2}, slskd: {col:3,row:2}, lrcget: {col:4,row:2},
   };
   return (
     <div className="shell">
-      <PageHeader title="Media Automation" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
+      <PageHeader title="Media Automation" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} onEditLayout={() => setEditOpen(true)} />
       <p className="page-section">Arr Apps &amp; Tools</p>
-      <DraggableGrid pageKey="media-auto" items={items} resizable={new Set()} defaultSizes={defaultSizes} defaultPositions={defaultPositions} />
+      <DraggableGrid pageKey="media-auto" items={items} resizable={new Set()} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} className="half-mobile" />
+      {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
     </div>
   );
 }
 
 // ─── MEDIA SERVER PAGE ───────────────────────────────────────────
 function MediaServerPage({ onMenuToggle, onNavigate, bellProps }) {
+  const defaultIds = ["jellyfin", "navidrome", "seerr", "immich", "nextcloud"];
+  const [mobileOrder, setMobileOrder] = useMobileOrder("media-srv", defaultIds);
+  const [editOpen, setEditOpen] = useState(false);
   const items = [
     { id: "jellyfin",  node: <JellyfinWidget /> },
     { id: "navidrome", node: <NavidromeWidget /> },
@@ -2783,6 +3193,7 @@ function MediaServerPage({ onMenuToggle, onNavigate, bellProps }) {
     { id: "immich",    node: <SvcCard id="immich" /> },
     { id: "nextcloud", node: <SvcCard id="nextcloud" /> },
   ];
+  const modalItems = defaultIds.map(id => ({ id, label: SVC[id]?.name ?? id }));
   const defaultSizes = { jellyfin: "medium", navidrome: "medium", seerr: "compact", immich: "compact", nextcloud: "compact" };
   const defaultPositions = {
     jellyfin: {col:1,row:1}, navidrome: {col:2,row:1},
@@ -2790,47 +3201,58 @@ function MediaServerPage({ onMenuToggle, onNavigate, bellProps }) {
   };
   return (
     <div className="shell">
-      <PageHeader title="Media Server" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
+      <PageHeader title="Media Server" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} onEditLayout={() => setEditOpen(true)} />
       <p className="page-section">Streaming &amp; Libraries</p>
-      <DraggableGrid pageKey="media-srv" items={items} resizable={new Set(["jellyfin","navidrome"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} />
+      <DraggableGrid pageKey="media-srv" items={items} resizable={new Set(["jellyfin","navidrome"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} />
+      {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
     </div>
   );
 }
 
 // ─── MANAGEMENT PAGE ─────────────────────────────────────────────
 function ManagementPage({ onMenuToggle, onNavigate, bellProps }) {
+  const defaultIds = ["cockpit", "speedtest", "filebrowser", "uptimekuma"];
+  const [mobileOrder, setMobileOrder] = useMobileOrder("mgmt", defaultIds);
+  const [editOpen, setEditOpen] = useState(false);
   const items = [
     { id: "cockpit",     node: <SvcCard id="cockpit" /> },
     { id: "speedtest",   node: <SpeedtestWidget /> },
     { id: "filebrowser", node: <SvcCard id="filebrowser" /> },
     { id: "uptimekuma",  node: <SvcCard id="uptimekuma" /> },
   ];
+  const modalItems = defaultIds.map(id => ({ id, label: SVC[id]?.name ?? id }));
   const defaultSizes = { cockpit: "compact", speedtest: "medium", filebrowser: "compact", uptimekuma: "compact" };
   const defaultPositions = {
     cockpit: {col:1,row:1}, speedtest: {col:2,row:1}, filebrowser: {col:3,row:1}, uptimekuma: {col:4,row:1},
   };
   return (
     <div className="shell">
-      <PageHeader title="Management" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
+      <PageHeader title="Management" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} onEditLayout={() => setEditOpen(true)} />
       <p className="page-section">System &amp; Infrastructure</p>
-      <DraggableGrid pageKey="mgmt" items={items} resizable={new Set(["speedtest"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} />
+      <DraggableGrid pageKey="mgmt" items={items} resizable={new Set(["speedtest"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} />
+      {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
     </div>
   );
 }
 
 // ─── DOWNLOADS & TRANSCODES PAGE ─────────────────────────────────
 function DownloadsPage({ onMenuToggle, onNavigate, bellProps }) {
+  const defaultIds = ["qbittorrent", "unmanic"];
+  const [mobileOrder, setMobileOrder] = useMobileOrder("downloads", defaultIds);
+  const [editOpen, setEditOpen] = useState(false);
   const items = [
     { id: "qbittorrent", node: <QBittorrentWidget /> },
     { id: "unmanic",     node: <UnmanicWidget /> },
   ];
+  const modalItems = defaultIds.map(id => ({ id, label: SVC[id]?.name ?? id }));
   const defaultSizes = { qbittorrent: "medium", unmanic: "medium" };
   const defaultPositions = { qbittorrent: {col:1,row:1}, unmanic: {col:2,row:1} };
   return (
     <div className="shell">
-      <PageHeader title="Downloads &amp; Transcodes" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
+      <PageHeader title="Downloads &amp; Transcodes" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} onEditLayout={() => setEditOpen(true)} />
       <p className="page-section">Active transfers &amp; encoding queue</p>
-      <DraggableGrid pageKey="downloads" items={items} resizable={new Set(["qbittorrent","unmanic"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} />
+      <DraggableGrid pageKey="downloads" items={items} resizable={new Set(["qbittorrent","unmanic"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} />
+      {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
     </div>
   );
 }
@@ -2993,9 +3415,12 @@ export default function App() {
   }, [alerts, addNotification]);
 
   // ── Navigation ────────────────────────────────────────────────
+  const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
+
   const navigate = useCallback((page) => {
     setActivePage(page);
     setMenuOpen(false);
+    setMobileSettingsOpen(false);
   }, []);
 
   const toggleMenu = useCallback(() => setMenuOpen(o => !o), []);
@@ -3027,6 +3452,22 @@ export default function App() {
       {activePage === "mgmt"       && <ManagementPage      onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "downloads"  && <DownloadsPage        onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "quick-look" && <QuickLookPage        onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
+
+      <BottomTabBar
+        activePage={activePage}
+        onNavigate={navigate}
+        settingsOpen={mobileSettingsOpen}
+        onSettingsToggle={() => setMobileSettingsOpen(o => !o)}
+      />
+
+      {mobileSettingsOpen && (
+        <SettingsPanel
+          colors={themeColors}
+          onChange={setThemeColors}
+          onClose={() => setMobileSettingsOpen(false)}
+          onResetLayout={resetLayout}
+        />
+      )}
     </>
   );
 }
