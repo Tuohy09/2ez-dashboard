@@ -1766,10 +1766,17 @@ function DraggableGrid({ pageKey, items, resizable, defaultSizes, defaultPositio
     handleGridDragOver, handleGridDrop, checkConflict,
   } = useDraggableGrid(pageKey, items.map(i => i.id), defaultSizes, defaultPositions);
 
+  const maxRow = items.reduce((max, { id }) => {
+    const pos = positions[id] || { col: 1, row: 1 };
+    const { rows } = CARD_SIZE_SPANS[sizes[id] || "medium"];
+    return Math.max(max, pos.row + rows - 1);
+  }, 1);
+
   return (
     <div
       className="grid"
       ref={gridRef}
+      style={{ gridTemplateRows: `repeat(${maxRow + 2}, var(--row-h, 150px))` }}
       onDragOver={handleGridDragOver}
       onDrop={handleGridDrop}
       onDragLeave={(e) => {
@@ -2384,12 +2391,12 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                 <Card title="Memory" controls={ctrl}>
                   {!data.mem ? <Skeleton /> : renderSize === "compact" ? (
                     <>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
                         <div className="big-num" style={{ color: statusColor(data.mem.percent) }}>{data.mem.percent.toFixed(0)}</div>
                         <span className="label-sm">%</span>
                       </div>
                       <Bar value={data.mem.percent} height={6} />
-                      <div className="stat-row" style={{ marginTop: 6 }}>
+                      <div className="stat-row" style={{ marginTop: 4 }}>
                         <span className="label-sm">{fmt.bytes(data.mem.used)}</span>
                         <span className="label-sm" style={{ opacity: 0.5 }}>/ {fmt.bytes(data.mem.total)}</span>
                       </div>
@@ -2422,12 +2429,12 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                 <Card title="Swap" controls={ctrl}>
                   {!data.memswap ? <Skeleton /> : renderSize === "compact" ? (
                     <>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
                         <div className="big-num" style={{ color: statusColor(data.memswap.percent) }}>{data.memswap.percent.toFixed(0)}</div>
                         <span className="label-sm">%</span>
                       </div>
                       <Bar value={data.memswap.percent} height={6} />
-                      <div className="stat-row" style={{ marginTop: 6 }}>
+                      <div className="stat-row" style={{ marginTop: 4 }}>
                         <span className="label-sm">{fmt.bytes(data.memswap.used)}</span>
                         <span className="label-sm" style={{ opacity: 0.5 }}>/ {fmt.bytes(data.memswap.total)}</span>
                       </div>
@@ -2463,7 +2470,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                   {!data.sensors ? <Skeleton /> : renderSize === "compact" ? (
                     data.sensors.length > 0 ? (
                       <>
-                        <div className="big-num" style={{ color: tempColor(Math.max(...data.sensors.map(s => s.value))), marginBottom: 4 }}>
+                        <div className="big-num" style={{ color: tempColor(Math.max(...data.sensors.map(s => s.value))), marginBottom: 6 }}>
                           {Math.max(...data.sensors.map(s => s.value)).toFixed(0)}°
                         </div>
                         <div className="label-xs" style={{ opacity: 0.5 }}>°C · peak sensor</div>
@@ -2500,8 +2507,8 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                     })
                   }
                   {renderSize !== "compact" && data.diskio && data.diskio.length > 0 && (
-                    <div style={{ marginTop: 12, borderTop: "1px solid var(--card-border)", paddingTop: 10 }}>
-                      <div className="label-xs" style={{ marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>I/O Rates</div>
+                    <div style={{ marginTop: 10, borderTop: "1px solid var(--card-border)", paddingTop: 10 }}>
+                      <div className="label-xs" style={{ marginBottom: 5, textTransform: "uppercase", letterSpacing: 1 }}>I/O Rates</div>
                       {data.diskio.filter(d => /^nvme\d+n\d+$/.test(d.disk_name) || /^sd[a-z]$/.test(d.disk_name)).map((d, i, arr) => {
                         const hist = diskioHistory[d.disk_name] || { rx: [], tx: [] };
                         return (
@@ -2529,16 +2536,16 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                       { key: "lan", label: "LAN",       iface: data.network.lan, hist: history.lan },
                       { key: "ts",  label: "Tailscale", iface: data.network.ts,  hist: history.ts  },
                     ].map(({ key, label, iface, hist }, i) => (
-                      <div key={key} style={i > 0 ? { marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--card-border)" } : {}}>
-                        <div className="label-xs" style={{ marginBottom: 5, textTransform: "uppercase", letterSpacing: 1, opacity: 0.5 }}>{label}</div>
+                      <div key={key} style={i > 0 ? { marginTop: renderSize === "compact" ? 6 : 10, paddingTop: renderSize === "compact" ? 6 : 10, borderTop: "1px solid var(--card-border)" } : {}}>
+                        <div className="label-xs" style={{ marginBottom: renderSize === "compact" ? 2 : 5, textTransform: "uppercase", letterSpacing: 1, opacity: 0.5 }}>{label}</div>
                         <div style={{ display: "flex", gap: 16, marginBottom: renderSize !== "compact" ? 6 : 0 }}>
-                          <div className="net-row">
+                          <div className="net-row" style={renderSize === "compact" ? { marginBottom: 0 } : {}}>
                             <span className="net-arrow" style={{ color: "var(--accent)" }}>↓</span>
-                            <span className="net-val" style={{ color: "var(--accent)" }}><AnimNum value={iface ? Math.abs(iface.rx) : 0} format="speed" /></span>
+                            <span className="net-val" style={{ color: "var(--accent)", fontSize: renderSize === "compact" ? 13 : undefined }}><AnimNum value={iface ? Math.abs(iface.rx) : 0} format="speed" /></span>
                           </div>
-                          <div className="net-row">
+                          <div className="net-row" style={renderSize === "compact" ? { marginBottom: 0 } : {}}>
                             <span className="net-arrow" style={{ color: "var(--warn)" }}>↑</span>
-                            <span className="net-val" style={{ color: "var(--warn)" }}><AnimNum value={iface ? Math.abs(iface.tx) : 0} format="speed" /></span>
+                            <span className="net-val" style={{ color: "var(--warn)", fontSize: renderSize === "compact" ? 13 : undefined }}><AnimNum value={iface ? Math.abs(iface.tx) : 0} format="speed" /></span>
                           </div>
                         </div>
                         {renderSize !== "compact" && (
@@ -2580,11 +2587,11 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                               </button>
                             )}
                           </div>
-                          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 2 }}>
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
                             <span className="big-num" style={{ color: "var(--accent)" }}>{runningCount}</span>
                             <span className="label-sm">/ {data.docker.length} running</span>
                           </div>
-                          <div style={{ marginTop: 12 }}>
+                          <div style={{ marginTop: 10 }}>
                             <Bar value={(runningCount / data.docker.length) * 100} color="var(--accent)" height={4} />
                           </div>
                           <div className="stat-row" style={{ marginTop: 4 }}>
@@ -2609,11 +2616,11 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                 } else {
                   node = (
                     <Card title="Containers" controls={ctrl} onClick={() => setContainerView(true)}>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 2 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
                         <span className="big-num" style={{ color: "var(--accent)" }}>{runningCount}</span>
                         <span className="label-sm">/ {data.docker.length} running</span>
                       </div>
-                      <div style={{ marginTop: 12 }}>
+                      <div style={{ marginTop: 10 }}>
                         <Bar value={(runningCount / data.docker.length) * 100} color="var(--accent)" height={4} />
                       </div>
                       <div className="stat-row" style={{ marginTop: 4 }}>
