@@ -12,7 +12,6 @@ const ST_TOKEN      = "FEXsBlewacEQZtiCoU3DQVSyJ49iVDlbZjPXqRDQ86093df3";
 const SVC = {
   sonarr:      { id: "sonarr",      name: "Sonarr",         url: "https://2ez.dinosaur-banana.ts.net/sonarr",    abbr: "SN", col: "#3B82F6", desc: "TV show management"   },
   radarr:      { id: "radarr",      name: "Radarr",         url: "https://2ez.dinosaur-banana.ts.net/radarr",    abbr: "RD", col: "#EF4444", desc: "Movie management"       },
-  lidarr:      { id: "lidarr",      name: "Lidarr",         url: "https://2ez.dinosaur-banana.ts.net/lidarr",    abbr: "LD", col: "#A855F7", desc: "Music management"       },
   prowlarr:    { id: "prowlarr",    name: "Prowlarr",       url: "https://2ez.dinosaur-banana.ts.net/prowlarr",  abbr: "PW", col: "#F97316", desc: "Indexer manager"        },
   bazarr:      { id: "bazarr",      name: "Bazarr",         url: "https://2ez.dinosaur-banana.ts.net/bazarr",    abbr: "BZ", col: "#14B8A6", desc: "Subtitle management"    },
   seerr:       { id: "seerr",       name: "Seerr",          url: "https://2ez.dinosaur-banana.ts.net:5056",      abbr: "SE", col: "#6366F1", desc: "Media requests"         },
@@ -38,8 +37,6 @@ const ICON_PATHS = {
   sonarr: <><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M12 7V3"/><path d="M9 3l3 4 3-3"/><path d="M7 17h10"/></>,
   // Film clapperboard — Radarr
   radarr: <><rect x="2" y="8" width="20" height="14" rx="2"/><path d="M2 13h20"/><path d="M4 8V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/><path d="M7 6l2 2M13 5l2 3"/></>,
-  // Vinyl record — Lidarr
-  lidarr: <><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></>,
   // Magnifying glass with inner arc — Prowlarr
   prowlarr: <><circle cx="10" cy="10" r="7"/><path d="M21 21l-4.35-4.35"/><path d="M7 10a3 3 0 0 1 3-3"/></>,
   // Chat bubble with subtitle lines — Bazarr
@@ -93,7 +90,6 @@ const MOCK_CONTAINERS = [
   { name: "navidrome",     cpu: 0.3,  mem: 128e6,  net_rx: 0.1e6,  net_tx: 0.05e6, uptime: "14d 3h" },
   { name: "sonarr",        cpu: 0.8,  mem: 256e6,  net_rx: 0.4e6,  net_tx: 0.2e6,  uptime: "14d 3h" },
   { name: "radarr",        cpu: 0.6,  mem: 245e6,  net_rx: 0.3e6,  net_tx: 0.15e6, uptime: "14d 3h" },
-  { name: "lidarr",        cpu: 0.2,  mem: 198e6,  net_rx: 0.1e6,  net_tx: 0.05e6, uptime: "14d 3h" },
   { name: "prowlarr",      cpu: 0.4,  mem: 167e6,  net_rx: 0.2e6,  net_tx: 0.1e6,  uptime: "14d 3h" },
   { name: "bazarr",        cpu: 0.1,  mem: 89e6,   net_rx: 0.05e6, net_tx: 0.02e6, uptime: "14d 3h" },
   { name: "qbittorrent",   cpu: 1.4,  mem: 312e6,  net_rx: 8.5e6,  net_tx: 5.2e6,  uptime: "14d 3h" },
@@ -246,7 +242,7 @@ const GLOBAL_CSS = `
 
   /* ── Grid (main dashboard) ── */
   .grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: var(--row-h, 150px); gap: 18px; align-items: stretch; position: relative; }
-  @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); } .grid > * { grid-column: auto !important; grid-row: auto !important; } }
+  @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: unset !important; grid-auto-rows: auto; align-items: start; } .grid > * { grid-column: auto !important; grid-row: auto !important; } .card { height: auto; } .live-svc-card { height: auto; } .svc-card { height: auto; } }
   @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; grid-template-rows: unset !important; grid-auto-rows: auto; } .grid > * { grid-column: auto !important; grid-row: span var(--card-rows, 1) !important; } .grid.half-mobile { grid-template-columns: repeat(2, 1fr); } .live-svc-card { height: auto; } .shell { padding: 16px 12px 32px; } .header { gap: 8px; } .header-left { gap: 8px; flex: 1; min-width: 0; overflow: hidden; } .header-right { gap: 8px; flex-shrink: 0; } .header-url { display: none; } .header-clock { display: none; } .uptime-strip { display: none; } }
 
   /* ── Card ── */
@@ -1928,7 +1924,7 @@ function SortableGrid({ pageKey, items }) {
 }
 
 // ─── DRAGGABLE GRID (sub-pages) ──────────────────────────────────
-function useDraggableGrid(pageKey, ids, defaultSizes, defaultPositions) {
+function useDraggableGrid(pageKey, ids, defaultSizes, defaultPositions, onAutoReorder) {
   const [positions, setPositions] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(`2ez-positions-${pageKey}`) || "null");
@@ -1954,24 +1950,37 @@ function useDraggableGrid(pageKey, ids, defaultSizes, defaultPositions) {
   const gridRef = useRef(null);
   const [draggingId, setDraggingId] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
+  const autoDropRef = useRef({ overEl: null, before: true });
+  const [isAutoLayout, setIsAutoLayout] = useState(() => window.matchMedia("(max-width: 1100px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1100px)");
+    const handler = (e) => setIsAutoLayout(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   const getCellFromMouse = useCallback((clientX, clientY) => {
     if (!gridRef.current) return null;
     const el = gridRef.current;
     const rect = el.getBoundingClientRect();
-    const rowH = parseInt(getComputedStyle(el).gridAutoRows) || 150;
-    const gap = 18;
+    const style = getComputedStyle(el);
+    const numCols = style.gridTemplateColumns.split(' ').filter(Boolean).length || 4;
+    const gapPx = parseFloat(style.columnGap || style.gap) || 18;
+    const rowH = parseFloat(style.gridAutoRows) || 150;
     const x = clientX - rect.left;
     const y = clientY - rect.top;
-    const cellW = (rect.width - gap * 3) / 4;
-    const col = Math.max(1, Math.min(4, Math.floor(x / (cellW + gap)) + 1));
-    const row = Math.max(1, Math.floor(y / (rowH + gap)) + 1);
+    const cellW = (rect.width - gapPx * (numCols - 1)) / numCols;
+    const col = Math.max(1, Math.min(numCols, Math.floor(x / (cellW + gapPx)) + 1));
+    const row = Math.max(1, Math.floor(y / (rowH + gapPx)) + 1);
     return { col, row };
   }, []);
 
   const checkConflict = useCallback((cardId, pos, spans) => {
     const { cols, rows } = spans;
-    if (pos.col + cols - 1 > 4) return true;
+    const numCols = gridRef.current
+      ? (getComputedStyle(gridRef.current).gridTemplateColumns.split(' ').filter(Boolean).length || 4)
+      : 4;
+    if (pos.col + cols - 1 > numCols) return true;
     for (const [otherId, otherPos] of Object.entries(positions)) {
       if (otherId === cardId) continue;
       const { cols: oc, rows: or } = CARD_SIZE_SPANS[sizes[otherId] || "medium"];
@@ -2024,21 +2033,44 @@ function useDraggableGrid(pageKey, ids, defaultSizes, defaultPositions) {
     },
     onMove: (x, y) => {
       if (!touchDragId.current) return;
-      const cell = getCellFromMouse(x, y);
-      if (cell) setDropTarget(cell);
+      if (isAutoLayout) {
+        const el = document.elementFromPoint(x, y);
+        const item = el?.closest?.("[data-drag-id]");
+        if (autoDropRef.current.overEl && autoDropRef.current.overEl !== item) {
+          autoDropRef.current.overEl.classList.remove("drop-before", "drop-after");
+        }
+        if (item && item.dataset.dragId !== touchDragId.current) {
+          const rect = item.getBoundingClientRect();
+          const before = x < rect.left + rect.width / 2;
+          item.classList.add(before ? "drop-before" : "drop-after");
+          autoDropRef.current = { overEl: item, before };
+        }
+      } else {
+        const cell = getCellFromMouse(x, y);
+        if (cell) setDropTarget(cell);
+      }
     },
     onEnd: () => {
       const id = touchDragId.current;
       if (!id) return;
       touchDragId.current = null;
-      setDropTarget(prev => {
-        if (prev) {
-          const spans = CARD_SIZE_SPANS[sizes[id] || "medium"];
-          if (!checkConflict(id, prev, spans))
-            setPositions(p => ({ ...p, [id]: prev }));
+      if (isAutoLayout) {
+        const { overEl, before } = autoDropRef.current;
+        if (overEl) {
+          overEl.classList.remove("drop-before", "drop-after");
+          onAutoReorder?.(id, overEl.dataset.dragId, before);
         }
-        return null;
-      });
+        autoDropRef.current = { overEl: null, before: true };
+      } else {
+        setDropTarget(prev => {
+          if (prev) {
+            const spans = CARD_SIZE_SPANS[sizes[id] || "medium"];
+            if (!checkConflict(id, prev, spans))
+              setPositions(p => ({ ...p, [id]: prev }));
+          }
+          return null;
+        });
+      }
       setDraggingId(null);
     },
   }, 400, touchEnabled);
@@ -2047,19 +2079,30 @@ function useDraggableGrid(pageKey, ids, defaultSizes, defaultPositions) {
     gridRef, positions, sizes, setSize,
     draggingId, setDraggingId, dropTarget, setDropTarget,
     handleGridDragOver, handleGridDrop, checkConflict,
+    isAutoLayout, autoDropRef,
   };
 }
 
-function DraggableGrid({ pageKey, items, resizable, defaultSizes, defaultPositions, mobileOrder, className }) {
+function DraggableGrid({ pageKey, items, resizable, defaultSizes, defaultPositions, mobileOrder, className, onReorder }) {
+  const commitReorder = useCallback((fromId, toId, before) => {
+    if (!fromId || !toId || fromId === toId || !onReorder) return;
+    const base = mobileOrder || items.map(i => i.id);
+    const next = base.filter(x => x !== fromId);
+    const ti = next.indexOf(toId);
+    if (ti === -1) return;
+    next.splice(before ? ti : ti + 1, 0, fromId);
+    onReorder(next);
+  }, [mobileOrder, items, onReorder]);
+
   const {
     gridRef, positions, sizes, setSize,
     draggingId, setDraggingId, dropTarget, setDropTarget,
     handleGridDragOver, handleGridDrop, checkConflict,
-  } = useDraggableGrid(pageKey, items.map(i => i.id), defaultSizes, defaultPositions);
+    isAutoLayout, autoDropRef,
+  } = useDraggableGrid(pageKey, items.map(i => i.id), defaultSizes, defaultPositions, commitReorder);
 
-  // On mobile the CSS collapses the grid to a single column using DOM order,
-  // so we sort items by mobileOrder when it's provided. Desktop layout is driven
-  // by explicit col/row positions, so the sort order doesn't affect it there.
+  // On mobile/auto-layout the CSS collapses the grid to auto positions using DOM order,
+  // so we sort items by mobileOrder when it's provided.
   const orderedItems = mobileOrder
     ? [...items].sort((a, b) => mobileOrder.indexOf(a.id) - mobileOrder.indexOf(b.id))
     : items;
@@ -2070,21 +2113,32 @@ function DraggableGrid({ pageKey, items, resizable, defaultSizes, defaultPositio
     return Math.max(max, pos.row + rows - 1);
   }, 1);
 
+  const gridDragHandlers = isAutoLayout ? {
+    onDragOver: (e) => e.preventDefault(),
+    onDrop: (e) => e.preventDefault(),
+    onDragLeave: (e) => {
+      if (!e.currentTarget.contains(e.relatedTarget)) {
+        if (autoDropRef.current.overEl) {
+          autoDropRef.current.overEl.classList.remove("drop-before", "drop-after");
+          autoDropRef.current.overEl = null;
+        }
+        setDraggingId(null);
+      }
+    },
+  } : {
+    onDragOver: handleGridDragOver,
+    onDrop: handleGridDrop,
+    onDragLeave: (e) => { if (!e.currentTarget.contains(e.relatedTarget)) { setDraggingId(null); setDropTarget(null); } },
+  };
+
   return (
     <div
       className={className ? `grid ${className}` : "grid"}
       ref={gridRef}
       style={{ gridTemplateRows: `repeat(${maxRow + 2}, var(--row-h, 150px))` }}
-      onDragOver={handleGridDragOver}
-      onDrop={handleGridDrop}
-      onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) {
-          setDraggingId(null);
-          setDropTarget(null);
-        }
-      }}
+      {...gridDragHandlers}
     >
-      {dropTarget && draggingId && (() => {
+      {!isAutoLayout && dropTarget && draggingId && (() => {
         const sz = sizes[draggingId] || "medium";
         const sp = CARD_SIZE_SPANS[sz];
         const conflict = checkConflict(draggingId, dropTarget, sp);
@@ -2104,6 +2158,34 @@ function DraggableGrid({ pageKey, items, resizable, defaultSizes, defaultPositio
         const pos = positions[id] || { col: 1, row: 1 };
         const size = sizes[id] || "medium";
         const { cols, rows } = CARD_SIZE_SPANS[size];
+        const autoHandlers = isAutoLayout ? {
+          onDragOver: (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const el = e.currentTarget;
+            if (autoDropRef.current.overEl && autoDropRef.current.overEl !== el)
+              autoDropRef.current.overEl.classList.remove("drop-before", "drop-after");
+            const before = e.clientX < el.getBoundingClientRect().left + el.getBoundingClientRect().width / 2;
+            el.classList.remove("drop-before", "drop-after");
+            el.classList.add(before ? "drop-before" : "drop-after");
+            autoDropRef.current = { overEl: el, before };
+          },
+          onDragLeave: (e) => {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+              e.currentTarget.classList.remove("drop-before", "drop-after");
+              if (autoDropRef.current.overEl === e.currentTarget) autoDropRef.current.overEl = null;
+            }
+          },
+          onDrop: (e) => {
+            e.preventDefault();
+            const fromId = draggingId;
+            const { before } = autoDropRef.current;
+            e.currentTarget.classList.remove("drop-before", "drop-after");
+            autoDropRef.current = { overEl: null, before: true };
+            commitReorder(fromId, id, before);
+            setDraggingId(null);
+          },
+        } : {};
         return (
           <div
             key={id}
@@ -2112,7 +2194,15 @@ function DraggableGrid({ pageKey, items, resizable, defaultSizes, defaultPositio
             data-drag-id={id}
             draggable
             onDragStart={(e) => { setDraggingId(id); e.dataTransfer.effectAllowed = "move"; }}
-            onDragEnd={() => { setDraggingId(null); setDropTarget(null); }}
+            onDragEnd={() => {
+              if (autoDropRef.current.overEl) {
+                autoDropRef.current.overEl.classList.remove("drop-before", "drop-after");
+                autoDropRef.current = { overEl: null, before: true };
+              }
+              setDraggingId(null);
+              setDropTarget(null);
+            }}
+            {...autoHandlers}
           >
             <DragHandle />
             {resizable.has(id) && (
@@ -2153,7 +2243,11 @@ function InfoButton() {
   useEffect(() => {
     if (!open) return;
     const rect = wrapRef.current?.getBoundingClientRect();
-    if (rect) setPos({ top: rect.bottom + 10, left: rect.left });
+    if (rect) {
+      const popW = 270 + 8; // min-width + right padding
+      const left = Math.min(rect.left, window.innerWidth - popW);
+      setPos({ top: rect.bottom + 10, left: Math.max(8, left) });
+    }
   }, [open]);
 
   useEffect(() => {
@@ -2422,6 +2516,14 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
+  const [isAutoLayout, setIsAutoLayout] = useState(() => window.matchMedia("(max-width: 1100px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1100px)");
+    const handler = (e) => setIsAutoLayout(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   const mainDefaultIds = Object.keys(DEFAULT_POSITIONS);
   const [mobileOrder, setMobileOrder] = useMobileOrder("main", mainDefaultIds);
   const mainModalItems = mainDefaultIds.map(id => ({ id, label: MAIN_CARD_LABELS[id] ?? id }));
@@ -2443,6 +2545,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
   const gridRef = useRef(null);
   const [draggingId, setDraggingId] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
+  const autoDropRef = useRef({ overEl: null, before: true });
 
   const DEFAULT_CARD_SIZES = { cpu: "medium", mem: "medium", memswap: "medium", temps: "medium", storage: "medium", network: "medium", containers: "medium", processes: "compact" };
   const [cardSizes, setCardSizes] = useState(() => {
@@ -2472,20 +2575,24 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
     if (!gridRef.current) return null;
     const el = gridRef.current;
     const rect = el.getBoundingClientRect();
-    const rowH = parseInt(getComputedStyle(el).gridAutoRows) || 150;
-    const gap = 18;
-    const numCols = 4;
+    const style = getComputedStyle(el);
+    const numCols = style.gridTemplateColumns.split(' ').filter(Boolean).length || 4;
+    const gapPx = parseFloat(style.columnGap || style.gap) || 18;
+    const rowH = parseFloat(style.gridAutoRows) || 150;
     const x = clientX - rect.left;
     const y = clientY - rect.top;
-    const cellW = (rect.width - gap * (numCols - 1)) / numCols;
-    const col = Math.max(1, Math.min(numCols, Math.floor(x / (cellW + gap)) + 1));
-    const row = Math.max(1, Math.floor(y / (rowH + gap)) + 1);
+    const cellW = (rect.width - gapPx * (numCols - 1)) / numCols;
+    const col = Math.max(1, Math.min(numCols, Math.floor(x / (cellW + gapPx)) + 1));
+    const row = Math.max(1, Math.floor(y / (rowH + gapPx)) + 1);
     return { col, row };
   }, []);
 
   const checkConflict = useCallback((cardId, pos, spans) => {
     const { cols, rows } = spans;
-    if (pos.col + cols - 1 > 4) return true;
+    const numCols = gridRef.current
+      ? (getComputedStyle(gridRef.current).gridTemplateColumns.split(' ').filter(Boolean).length || 4)
+      : 4;
+    if (pos.col + cols - 1 > numCols) return true;
     for (const [otherId, otherPos] of Object.entries(cardPositions)) {
       if (otherId === cardId) continue;
       const otherSize = cardSizes[otherId] || "medium";
@@ -2533,21 +2640,52 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
     },
     onMove: (x, y) => {
       if (!mainTouchDragId.current) return;
-      const cell = getCellFromMouse(x, y);
-      if (cell) setDropTarget(cell);
+      if (isAutoLayout) {
+        const el = document.elementFromPoint(x, y);
+        const item = el?.closest?.("[data-drag-id]");
+        if (autoDropRef.current.overEl && autoDropRef.current.overEl !== item)
+          autoDropRef.current.overEl.classList.remove("drop-before", "drop-after");
+        if (item && item.dataset.dragId !== mainTouchDragId.current) {
+          const rect = item.getBoundingClientRect();
+          const before = x < rect.left + rect.width / 2;
+          item.classList.add(before ? "drop-before" : "drop-after");
+          autoDropRef.current = { overEl: item, before };
+        }
+      } else {
+        const cell = getCellFromMouse(x, y);
+        if (cell) setDropTarget(cell);
+      }
     },
     onEnd: () => {
       const id = mainTouchDragId.current;
       if (!id) return;
       mainTouchDragId.current = null;
-      setDropTarget(prev => {
-        if (prev) {
-          const spans = CARD_SIZE_SPANS[cardSizes[id] || "medium"];
-          if (!checkConflict(id, prev, spans))
-            setCardPositions(p => ({ ...p, [id]: prev }));
+      if (isAutoLayout) {
+        const { overEl, before } = autoDropRef.current;
+        if (overEl) {
+          overEl.classList.remove("drop-before", "drop-after");
+          const toId = overEl.dataset.dragId;
+          if (toId && toId !== id) {
+            setMobileOrder(prev => {
+              const next = prev.filter(x => x !== id);
+              const ti = next.indexOf(toId);
+              if (ti === -1) return prev;
+              next.splice(before ? ti : ti + 1, 0, id);
+              return next;
+            });
+          }
         }
-        return null;
-      });
+        autoDropRef.current = { overEl: null, before: true };
+      } else {
+        setDropTarget(prev => {
+          if (prev) {
+            const spans = CARD_SIZE_SPANS[cardSizes[id] || "medium"];
+            if (!checkConflict(id, prev, spans))
+              setCardPositions(p => ({ ...p, [id]: prev }));
+          }
+          return null;
+        });
+      }
       setDraggingId(null);
     },
   }, 400, mainTouchEnabled);
@@ -2700,8 +2838,21 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
         </div>
       </header>
 
-      <div className="grid" ref={gridRef} onDragOver={handleGridDragOver} onDrop={handleGridDrop} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) { setDraggingId(null); setDropTarget(null); } }}>
-        {dropTarget && draggingId && (() => {
+      <div className="grid" ref={gridRef}
+        onDragOver={isAutoLayout ? (e) => e.preventDefault() : handleGridDragOver}
+        onDrop={isAutoLayout ? (e) => e.preventDefault() : handleGridDrop}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) {
+            if (isAutoLayout && autoDropRef.current.overEl) {
+              autoDropRef.current.overEl.classList.remove("drop-before", "drop-after");
+              autoDropRef.current.overEl = null;
+            }
+            setDraggingId(null);
+            setDropTarget(null);
+          }
+        }}
+      >
+        {!isAutoLayout && dropTarget && draggingId && (() => {
           const sz = cardSizes[draggingId] || "medium";
           const sp = CARD_SIZE_SPANS[sz];
           const conflict = checkConflict(draggingId, dropTarget, sp);
@@ -2709,7 +2860,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
             <div className="drop-ghost" style={{ gridColumn: `${dropTarget.col} / span ${sp.cols}`, gridRow: `${dropTarget.row} / span ${sp.rows}`, borderColor: conflict ? "var(--crit)" : "var(--accent)", background: conflict ? "rgba(255,80,80,0.08)" : "rgba(34,211,167,0.08)" }} />
           );
         })()}
-        {(isMobile ? mobileOrder : Object.keys(DEFAULT_POSITIONS)).map((id) => {
+        {((isMobile || isAutoLayout) ? mobileOrder : Object.keys(DEFAULT_POSITIONS)).map((id) => {
           const RESIZABLE = new Set(["cpu","mem","memswap","temps","storage","network","containers"]);
           const COMPACT_ONLY = new Set(["processes"]);
           const pos = cardPositions[id] || DEFAULT_POSITIONS[id];
@@ -3091,6 +3242,43 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
               default: return null;
             }
 
+            const mainAutoHandlers = isAutoLayout ? {
+              onDragOver: (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const el = e.currentTarget;
+                if (autoDropRef.current.overEl && autoDropRef.current.overEl !== el)
+                  autoDropRef.current.overEl.classList.remove("drop-before", "drop-after");
+                const rect = el.getBoundingClientRect();
+                const before = e.clientX < rect.left + rect.width / 2;
+                el.classList.remove("drop-before", "drop-after");
+                el.classList.add(before ? "drop-before" : "drop-after");
+                autoDropRef.current = { overEl: el, before };
+              },
+              onDragLeave: (e) => {
+                if (!e.currentTarget.contains(e.relatedTarget)) {
+                  e.currentTarget.classList.remove("drop-before", "drop-after");
+                  if (autoDropRef.current.overEl === e.currentTarget) autoDropRef.current.overEl = null;
+                }
+              },
+              onDrop: (e) => {
+                e.preventDefault();
+                const fromId = draggingId;
+                const { before } = autoDropRef.current;
+                e.currentTarget.classList.remove("drop-before", "drop-after");
+                autoDropRef.current = { overEl: null, before: true };
+                if (!fromId || fromId === id) { setDraggingId(null); return; }
+                setMobileOrder(prev => {
+                  const next = prev.filter(x => x !== fromId);
+                  const ti = next.indexOf(id);
+                  if (ti === -1) return prev;
+                  next.splice(before ? ti : ti + 1, 0, fromId);
+                  return next;
+                });
+                setDraggingId(null);
+              },
+            } : {};
+
             return (
               <div
                 key={id}
@@ -3099,7 +3287,15 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                 data-drag-id={id}
                 draggable
                 onDragStart={(e) => { setDraggingId(id); e.dataTransfer.effectAllowed = "move"; }}
-                onDragEnd={() => { setDraggingId(null); setDropTarget(null); }}
+                onDragEnd={() => {
+                  if (autoDropRef.current.overEl) {
+                    autoDropRef.current.overEl.classList.remove("drop-before", "drop-after");
+                    autoDropRef.current = { overEl: null, before: true };
+                  }
+                  setDraggingId(null);
+                  setDropTarget(null);
+                }}
+                {...mainAutoHandlers}
               >
                 <DragHandle />
                 {node}
@@ -3161,21 +3357,21 @@ function PageHeader({ title, onMenuToggle, onNavigate, bellProps, onEditLayout }
 
 // ─── MEDIA AUTOMATION PAGE ───────────────────────────────────────
 function MediaAutomationPage({ onMenuToggle, onNavigate, bellProps }) {
-  const defaultIds = ["sonarr", "radarr", "lidarr", "prowlarr", "bazarr", "beetsflask", "slskd", "lrcget"];
+  const defaultIds = ["sonarr", "radarr", "prowlarr", "bazarr", "beetsflask", "slskd", "lrcget"];
   const [mobileOrder, setMobileOrder] = useMobileOrder("media-auto", defaultIds);
   const [editOpen, setEditOpen] = useState(false);
   const items = defaultIds.map(id => ({ id, node: <SvcCard id={id} /> }));
   const modalItems = defaultIds.map(id => ({ id, label: SVC[id]?.name ?? id }));
   const defaultSizes = Object.fromEntries(defaultIds.map(id => [id, "compact"]));
   const defaultPositions = {
-    sonarr: {col:1,row:1}, radarr: {col:2,row:1}, lidarr: {col:3,row:1}, prowlarr: {col:4,row:1},
-    bazarr: {col:1,row:2}, beetsflask: {col:2,row:2}, slskd: {col:3,row:2}, lrcget: {col:4,row:2},
+    sonarr: {col:1,row:1}, radarr: {col:2,row:1}, prowlarr: {col:3,row:1}, bazarr: {col:4,row:1},
+    beetsflask: {col:1,row:2}, slskd: {col:2,row:2}, lrcget: {col:3,row:2},
   };
   return (
     <div className="shell">
       <PageHeader title="Media Automation" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} onEditLayout={() => setEditOpen(true)} />
       <p className="page-section">Arr Apps &amp; Tools</p>
-      <DraggableGrid pageKey="media-auto" items={items} resizable={new Set()} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} className="half-mobile" />
+      <DraggableGrid pageKey="media-auto" items={items} resizable={new Set()} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} className="half-mobile" onReorder={setMobileOrder} />
       {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
     </div>
   );
@@ -3203,7 +3399,7 @@ function MediaServerPage({ onMenuToggle, onNavigate, bellProps }) {
     <div className="shell">
       <PageHeader title="Media Server" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} onEditLayout={() => setEditOpen(true)} />
       <p className="page-section">Streaming &amp; Libraries</p>
-      <DraggableGrid pageKey="media-srv" items={items} resizable={new Set(["jellyfin","navidrome"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} />
+      <DraggableGrid pageKey="media-srv" items={items} resizable={new Set(["jellyfin","navidrome"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} onReorder={setMobileOrder} />
       {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
     </div>
   );
@@ -3229,7 +3425,7 @@ function ManagementPage({ onMenuToggle, onNavigate, bellProps }) {
     <div className="shell">
       <PageHeader title="Management" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} onEditLayout={() => setEditOpen(true)} />
       <p className="page-section">System &amp; Infrastructure</p>
-      <DraggableGrid pageKey="mgmt" items={items} resizable={new Set(["speedtest"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} />
+      <DraggableGrid pageKey="mgmt" items={items} resizable={new Set(["speedtest"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} onReorder={setMobileOrder} />
       {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
     </div>
   );
@@ -3251,7 +3447,7 @@ function DownloadsPage({ onMenuToggle, onNavigate, bellProps }) {
     <div className="shell">
       <PageHeader title="Downloads &amp; Transcodes" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} onEditLayout={() => setEditOpen(true)} />
       <p className="page-section">Active transfers &amp; encoding queue</p>
-      <DraggableGrid pageKey="downloads" items={items} resizable={new Set(["qbittorrent","unmanic"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} />
+      <DraggableGrid pageKey="downloads" items={items} resizable={new Set(["qbittorrent","unmanic"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} onReorder={setMobileOrder} />
       {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
     </div>
   );
