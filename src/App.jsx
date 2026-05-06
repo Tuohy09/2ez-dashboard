@@ -18,7 +18,7 @@ const SVC = {
   nextcloud:   { id: "nextcloud",   name: "Nextcloud",      url: "https://2ez.dinosaur-banana.ts.net:8444",      abbr: "NC", col: "#0082C9", desc: "File sync & share"      },
   immich:      { id: "immich",      name: "Immich",         url: "https://2ez.dinosaur-banana.ts.net:2284",      abbr: "IC", col: "#F59E0B", desc: "Photo management"       },
   cockpit:     { id: "cockpit",     name: "Cockpit",        url: "https://2ez.dinosaur-banana.ts.net:9091",      abbr: "CP", col: "#EF4444", desc: "System management"      },
-  dockge:      { id: "dockge",      name: "Dockge",         url: "https://2ez.dinosaur-banana.ts.net:5002",      abbr: "DK", col: "#22D3A7", desc: "Container stacks"       },
+  dockge:      { id: "dockge",      name: "Dockge",         url: "https://2ez.dinosaur-banana.ts.net:5002",      abbr: "DK", col: "#22D3A7", desc: "Container management"   },
   filebrowser: { id: "filebrowser", name: "File Browser",   url: "https://2ez.dinosaur-banana.ts.net:8084",      abbr: "FB", col: "#8B5CF6", desc: "Web file manager"       },
   slskd:       { id: "slskd",       name: "SLSKD",          url: "https://2ez.dinosaur-banana.ts.net:5031",      abbr: "SL", col: "#EC4899", desc: "Soulseek daemon"        },
   beetsflask:  { id: "beetsflask",  name: "Beets-Flask",    url: "https://2ez.dinosaur-banana.ts.net:5086",      abbr: "BT", col: "#10B981", desc: "Music tagger"           },
@@ -3463,19 +3463,20 @@ function MediaServerPage({ onMenuToggle, onNavigate, bellProps }) {
 
 // ─── MANAGEMENT PAGE ─────────────────────────────────────────────
 function ManagementPage({ onMenuToggle, onNavigate, bellProps }) {
-  const defaultIds = ["cockpit", "speedtest", "filebrowser", "uptimekuma"];
+  const defaultIds = ["cockpit", "dockge", "speedtest", "filebrowser", "uptimekuma"];
   const [mobileOrder, setMobileOrder] = useMobileOrder("mgmt", defaultIds);
   const [editOpen, setEditOpen] = useState(false);
   const items = [
     { id: "cockpit",     node: <SvcCard id="cockpit" /> },
+    { id: "dockge",      node: <SvcCard id="dockge" /> },
     { id: "speedtest",   node: <SpeedtestWidget /> },
     { id: "filebrowser", node: <SvcCard id="filebrowser" /> },
     { id: "uptimekuma",  node: <SvcCard id="uptimekuma" /> },
   ];
   const modalItems = defaultIds.map(id => ({ id, label: SVC[id]?.name ?? id }));
-  const defaultSizes = { cockpit: "compact", speedtest: "medium", filebrowser: "compact", uptimekuma: "compact" };
+  const defaultSizes = { cockpit: "compact", dockge: "compact", speedtest: "medium", filebrowser: "compact", uptimekuma: "compact" };
   const defaultPositions = {
-    cockpit: {col:1,row:1}, speedtest: {col:2,row:1}, filebrowser: {col:3,row:1}, uptimekuma: {col:4,row:1},
+    cockpit: {col:1,row:1}, dockge: {col:1,row:2}, speedtest: {col:2,row:1}, filebrowser: {col:3,row:1}, uptimekuma: {col:4,row:1},
   };
   return (
     <div className="shell">
