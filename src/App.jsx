@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, forwardRef } from "react";
+import { useState, useEffect, useRef, useCallback, forwardRef, createContext, useContext } from "react";
 import { createPortal } from "react-dom";
 
 // ─── CONFIG ──────────────────────────────────────────────────────
@@ -223,7 +223,7 @@ const GLOBAL_CSS = `
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body, html, #root { background: var(--bg); background-image: radial-gradient(ellipse at 15% 0%, rgba(34,211,167,0.14) 0%, transparent 55%), radial-gradient(ellipse at 85% 100%, rgba(99,102,241,0.12) 0%, transparent 55%); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; min-height: 100vh; overflow-x: clip; }
+  body, html, #root { background: var(--bg); background-image: radial-gradient(ellipse at 15% 0%, rgba(34,211,167,0.14) 0%, transparent 55%), radial-gradient(ellipse at 85% 100%, rgba(99,102,241,0.12) 0%, transparent 55%); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; min-height: 100vh; overflow-x: hidden; max-width: 100vw; }
 
   /* ── Shell ── */
   .shell { max-width: 1320px; margin: 0 auto; padding: 28px 24px 48px; }
@@ -243,7 +243,7 @@ const GLOBAL_CSS = `
   /* ── Grid (main dashboard) ── */
   .grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: var(--row-h, 150px); gap: 18px; align-items: stretch; position: relative; }
   @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: unset !important; grid-auto-rows: auto; align-items: start; } .grid > * { grid-column: auto !important; grid-row: auto !important; } .card { height: auto; } .live-svc-card { height: auto; } .svc-card { height: auto; } }
-  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; grid-template-rows: unset !important; grid-auto-rows: auto; } .grid > * { grid-column: auto !important; grid-row: span var(--card-rows, 1) !important; } .grid.half-mobile { grid-template-columns: repeat(2, 1fr); } .live-svc-card { height: auto; } .shell { padding: 16px 12px 32px; } .header { gap: 8px; } .header-left { gap: 8px; flex: 1; min-width: 0; overflow: hidden; } .header-right { gap: 8px; flex-shrink: 0; } .header-url { display: none; } .header-clock { display: none; } .uptime-strip { display: none; } }
+  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; grid-template-rows: unset !important; grid-auto-rows: auto; width: 100%; max-width: 100%; overflow: hidden; } .grid > * { grid-column: auto !important; grid-row: span var(--card-rows, 1) !important; max-width: 100%; } .grid.half-mobile { grid-template-columns: repeat(2, 1fr); } .live-svc-card { height: auto; max-width: 100%; overflow: hidden; } .shell { padding: 16px 12px 32px; max-width: 100vw; overflow-x: hidden; box-sizing: border-box; } .header { gap: 8px; } .header-left { gap: 8px; flex: 1; min-width: 0; overflow: hidden; } .header-right { gap: 8px; flex-shrink: 0; } .header-url { display: none; } .header-clock { display: none; } .uptime-strip { display: none; } .live-stat { padding: 6px 8px; min-width: 0; } .live-stat-val { font-size: 13px; } .now-playing-row { overflow: hidden; min-width: 0; } .now-playing-row .label-xs { min-width: 0; } }
 
   /* ── Card ── */
   .card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); height: 100%; box-sizing: border-box; overflow: hidden; }
@@ -927,6 +927,209 @@ function usePolling(fetcher, ms = 30000) {
   return state;
 }
 
+// ─── DATA CONTEXT ────────────────────────────────────────────────
+const DataContext = createContext(null);
+const useData = () => useContext(DataContext);
+
+function DataProvider({ children }) {
+  // ── Glances ────────────────────────────────────────────────────
+  const [glances, setGlances] = useState({
+    cpu: null, mem: null, memswap: null, sensors: [],
+    uptime: null, network: null, docker: null,
+    processes: null, fs: null, diskio: null,
+    quicklook: null, alert: [],
+  });
+  const [connected, setConnected] = useState(true);
+  const [glHistory, setGlHistory]     = useState({ cpu: [], lan: { rx: [], tx: [] }, ts: { rx: [], tx: [] } });
+  const [diskHistory, setDiskHistory] = useState({});
+
+  // ── qBittorrent ────────────────────────────────────────────────
+  const [qbt, setQbt] = useState({ transfer: null, torrents: null });
+
+  // ── Unmanic ────────────────────────────────────────────────────
+  const [unmanic, setUnmanic] = useState({ pending: null, workers: null });
+
+  // ── Jellyfin ───────────────────────────────────────────────────
+  const [jellyfin, setJellyfin] = useState({ sessions: null, counts: null });
+
+  // ── Navidrome ──────────────────────────────────────────────────
+  const [navidrome, setNavidrome] = useState({ nowPlaying: null, artistCount: null, recentAlbums: null });
+
+  // ── Speedtest ──────────────────────────────────────────────────
+  const [speedtest, setSpeedtest] = useState({ result: null });
+
+  // ── Glances main endpoints (2s) ────────────────────────────────
+  useEffect(() => {
+    function run() {
+      if (!GLANCES_API) {
+        setGlances(prev => generateMockData(prev));
+        setConnected(true);
+        return;
+      }
+      fetch(`${GLANCES_API}/mem`).then(r => r.json())
+        .then(mem => { setGlances(prev => ({ ...prev, mem: { percent: mem?.percent || 0, used: mem?.used || 0, total: mem?.total || 0 } })); setConnected(true); })
+        .catch(() => setConnected(false));
+      fetch(`${GLANCES_API}/memswap`).then(r => r.json())
+        .then(memswap => setGlances(prev => ({ ...prev, memswap: { percent: memswap?.percent || 0, used: memswap?.used || 0, total: memswap?.total || 0, sin: memswap?.sin || 0, sout: memswap?.sout || 0 } })))
+        .catch(() => {});
+      fetch(`${GLANCES_API}/sensors`).then(r => r.json())
+        .then(sensors => setGlances(prev => ({ ...prev, sensors: (sensors || []).filter(s => s.type === "temperature_core").slice(0, 5).map(s => ({ label: s.label, value: s.value, unit: "C" })) })))
+        .catch(() => {});
+      fetch(`${GLANCES_API}/uptime`).then(r => r.json())
+        .then(uptime => setGlances(prev => ({ ...prev, uptime: typeof uptime === "string" ? uptime : "—" })))
+        .catch(() => {});
+      fetch(`${GLANCES_API}/network`).then(r => r.json())
+        .then(raw => {
+          const ifaces = Array.isArray(raw) ? raw : [];
+          const pick = (name) => { const n = ifaces.find(i => i.interface_name === name); return n ? { rx: n.bytes_recv_rate_per_sec || 0, tx: n.bytes_sent_rate_per_sec || 0 } : null; };
+          setGlances(prev => ({ ...prev, network: { lan: pick("enp3s0"), ts: pick("tailscale0") } }));
+        }).catch(() => {});
+      fetch(`${GLANCES_API}/containers`).then(r => r.json())
+        .then(docker => setGlances(prev => ({ ...prev, docker: (Array.isArray(docker) ? docker : []).map(c => ({ name: c.name || "unknown", status: c.status || "stopped", cpu: c.cpu_percent || c.cpu?.total || 0, mem: c.memory_usage || c.memory?.usage || 0, net_rx: c.network_rx || c.network?.rx || 0, net_tx: c.network_tx || c.network?.tx || 0, uptime: c.uptime || "—" })) })))
+        .catch(() => {});
+      fetch(`${GLANCES_API}/processlist`).then(r => r.json())
+        .then(processlist => setGlances(prev => ({ ...prev, processes: Array.isArray(processlist) ? processlist : [] })))
+        .catch(() => {});
+      Promise.all([fetch(`${GLANCES_API}/fs`).then(r => r.json()).catch(() => null), fetch(`${GLANCES_API}/diskio`).then(r => r.json()).catch(() => null)])
+        .then(([fs, diskio]) => setGlances(prev => ({ ...prev, fs: fs || [], diskio: diskio || [] }))).catch(() => {});
+      Promise.all([fetch(`${GLANCES_API}/cpu`).then(r => r.json()).catch(() => null), fetch(`${GLANCES_API}/percpu`).then(r => r.json()).catch(() => null)])
+        .then(([cpu, percpu]) => setGlances(prev => ({ ...prev, cpu: { total: cpu?.total || 0, cores: Array.isArray(percpu) ? percpu.map(c => c.total) : [], model: cpu?.cpucore ? `${cpu.cpucore} cores` : "", freq: cpu?.cpufreq_current || 0 } }))).catch(() => {});
+    }
+    run();
+    const id = setInterval(run, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, []);
+
+  // ── Glances quicklook (5s) ─────────────────────────────────────
+  useEffect(() => {
+    function run() {
+      fetch(`${GLANCES_API}/quicklook`).then(r => r.json())
+        .then(quicklook => setGlances(prev => ({ ...prev, quicklook }))).catch(() => {});
+    }
+    run();
+    const id = setInterval(run, 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  // ── Glances alerts (10s) ───────────────────────────────────────
+  useEffect(() => {
+    function run() {
+      fetch(`${GLANCES_API}/alert`).then(r => r.json())
+        .then(alert => setGlances(prev => ({ ...prev, alert: Array.isArray(alert) ? alert : [] }))).catch(() => {});
+    }
+    run();
+    const id = setInterval(run, 10000);
+    return () => clearInterval(id);
+  }, []);
+
+  // ── Chart history (driven by glances state changes) ────────────
+  useEffect(() => {
+    if (!glances.cpu) return;
+    setGlHistory(h => ({ ...h, cpu: [...h.cpu.slice(-59), glances.cpu.total] }));
+  }, [glances.cpu]);
+
+  useEffect(() => {
+    if (!glances.network) return;
+    setGlHistory(h => ({
+      ...h,
+      lan: glances.network.lan ? { rx: [...h.lan.rx.slice(-59), glances.network.lan.rx], tx: [...h.lan.tx.slice(-59), glances.network.lan.tx] } : h.lan,
+      ts:  glances.network.ts  ? { rx: [...h.ts.rx.slice(-59),  glances.network.ts.rx],  tx: [...h.ts.tx.slice(-59),  glances.network.ts.tx]  } : h.ts,
+    }));
+  }, [glances.network]);
+
+  useEffect(() => {
+    if (!glances.diskio) return;
+    const DISK_RE = /^nvme\d+n\d+$|^sd[a-z]$/;
+    setDiskHistory(h => {
+      const next = { ...h };
+      glances.diskio.filter(d => DISK_RE.test(d.disk_name)).forEach(d => {
+        const prev = next[d.disk_name] || { rx: [], tx: [] };
+        next[d.disk_name] = { rx: [...prev.rx.slice(-59), d.read_bytes], tx: [...prev.tx.slice(-59), d.write_bytes] };
+      });
+      return next;
+    });
+  }, [glances.diskio]);
+
+  // ── qBittorrent (2s) ──────────────────────────────────────────
+  useEffect(() => {
+    let alive = true;
+    async function run() {
+      try {
+        const [tr, to] = await Promise.all([fetch("/qbt/api/v2/transfer/info"), fetch("/qbt/api/v2/torrents/info?filter=active")]);
+        const [transfer, torrents] = await Promise.all([tr.json(), to.json()]);
+        if (alive) setQbt({ transfer, torrents });
+      } catch {}
+    }
+    run();
+    const id = setInterval(run, POLL_INTERVAL);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+
+  // ── Unmanic (2s) ──────────────────────────────────────────────
+  useEffect(() => {
+    async function run() {
+      try {
+        const [pending, workers] = await Promise.all([
+          fetch("/unmanic/api/v2/pending/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start: 0, length: 1 }) }).then(r => r.json()),
+          fetch("/unmanic/api/v2/workers/status").then(r => r.json()),
+        ]);
+        setUnmanic({ pending, workers });
+      } catch {}
+    }
+    run();
+    const id = setInterval(run, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, []);
+
+  // ── Jellyfin sessions (15s) + counts (60s) ────────────────────
+  useEffect(() => {
+    function run() { fetch(`/jellyfin/Sessions?api_key=${JF_KEY}`).then(r => r.json()).then(sessions => setJellyfin(prev => ({ ...prev, sessions }))).catch(() => {}); }
+    run(); const id = setInterval(run, 15000); return () => clearInterval(id);
+  }, []);
+  useEffect(() => {
+    function run() { fetch(`/jellyfin/Items/Counts?api_key=${JF_KEY}`).then(r => r.json()).then(counts => setJellyfin(prev => ({ ...prev, counts }))).catch(() => {}); }
+    run(); const id = setInterval(run, 60000); return () => clearInterval(id);
+  }, []);
+
+  // ── Navidrome now-playing (10s) · artists (120s) · albums (60s)
+  useEffect(() => {
+    function run() {
+      fetch(`/navidrome/rest/getNowPlaying.view?${NAV_PARAMS}`).then(r => r.json())
+        .then(d => { const entry = d["subsonic-response"]?.nowPlaying?.entry || []; setNavidrome(prev => ({ ...prev, nowPlaying: Array.isArray(entry) ? entry : [entry].filter(Boolean) })); }).catch(() => {});
+    }
+    run(); const id = setInterval(run, 10000); return () => clearInterval(id);
+  }, []);
+  useEffect(() => {
+    function run() {
+      fetch(`/navidrome/rest/getArtists.view?${NAV_PARAMS}`).then(r => r.json())
+        .then(d => { const idx = d["subsonic-response"]?.artists?.index || []; setNavidrome(prev => ({ ...prev, artistCount: idx.reduce((n, i) => n + (i.artist?.length || 0), 0) })); }).catch(() => {});
+    }
+    run(); const id = setInterval(run, 120000); return () => clearInterval(id);
+  }, []);
+  useEffect(() => {
+    function run() {
+      fetch(`/navidrome/rest/getAlbumList2.view?type=newest&size=3&${NAV_PARAMS}`).then(r => r.json())
+        .then(d => { setNavidrome(prev => ({ ...prev, recentAlbums: d["subsonic-response"]?.albumList2?.album || [] })); }).catch(() => {});
+    }
+    run(); const id = setInterval(run, 60000); return () => clearInterval(id);
+  }, []);
+
+  // ── Speedtest (5 min) ─────────────────────────────────────────
+  useEffect(() => {
+    function run() {
+      fetch("/speedtest/api/v1/results/latest", { headers: { Authorization: `Bearer ${ST_TOKEN}` } }).then(r => r.json())
+        .then(d => setSpeedtest({ result: d?.data ?? null })).catch(() => {});
+    }
+    run(); const id = setInterval(run, 300000); return () => clearInterval(id);
+  }, []);
+
+  return (
+    <DataContext.Provider value={{ glances, connected, glHistory, diskHistory, qbt, unmanic, jellyfin, navidrome, speedtest }}>
+      {children}
+    </DataContext.Provider>
+  );
+}
+
 // ─── SERVICE CARD ────────────────────────────────────────────────
 function SvcCard({ id }) {
   const s = SVC[id];
@@ -953,14 +1156,7 @@ const LiveChip = () => (
 // ─── JELLYFIN WIDGET ─────────────────────────────────────────────
 function JellyfinWidget() {
   const s = SVC.jellyfin;
-  const { data: sessions } = usePolling(
-    () => fetch(`/jellyfin/Sessions?api_key=${JF_KEY}`).then(r => r.json()),
-    15000
-  );
-  const { data: counts } = usePolling(
-    () => fetch(`/jellyfin/Items/Counts?api_key=${JF_KEY}`).then(r => r.json()),
-    60000
-  );
+  const { jellyfin: { sessions, counts } } = useData();
 
   const activeStreams = sessions ? sessions.filter(s => s.NowPlayingItem).length : null;
   const nowPlaying   = sessions ? sessions.filter(s => s.NowPlayingItem) : [];
@@ -1017,31 +1213,7 @@ function JellyfinWidget() {
 // ─── QBITTORRENT WIDGET ──────────────────────────────────────────
 function QBittorrentWidget() {
   const s = SVC.qbt;
-  const [qbt, setQbt] = useState({ transfer: null, torrents: null, loading: true, err: null });
-
-  useEffect(() => {
-    let alive = true;
-    async function poll() {
-      try {
-        await fetch("/qbt/api/v2/auth/login", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: "username=tuohy&password=Angcoops",
-        });
-        const [transfer, torrents] = await Promise.all([
-          fetch("/qbt/api/v2/transfer/info",              { credentials: "include" }).then(r => r.json()),
-          fetch("/qbt/api/v2/torrents/info?filter=active", { credentials: "include" }).then(r => r.json()),
-        ]);
-        if (alive) setQbt({ transfer, torrents, loading: false, err: null });
-      } catch (e) {
-        if (alive) setQbt(st => ({ ...st, loading: false, err: e.message }));
-      }
-    }
-    poll();
-    const id = setInterval(poll, 4000);
-    return () => { alive = false; clearInterval(id); };
-  }, []);
+  const { qbt } = useData();
 
   const { transfer, torrents } = qbt;
   const activeTorrents = Array.isArray(torrents) ? torrents : [];
@@ -1091,6 +1263,7 @@ function QBittorrentWidget() {
           ))}
         </div>
       )}
+
     </a>
   );
 }
@@ -1099,27 +1272,7 @@ function QBittorrentWidget() {
 function NavidromeWidget() {
   const s = SVC.navidrome;
 
-  const { data: nowPlaying } = usePolling(
-    () => fetch(`/navidrome/rest/getNowPlaying.view?${NAV_PARAMS}`)
-      .then(r => r.json())
-      .then(d => d["subsonic-response"]?.nowPlaying?.entry || []),
-    10000
-  );
-  const { data: artistCount } = usePolling(
-    () => fetch(`/navidrome/rest/getArtists.view?${NAV_PARAMS}`)
-      .then(r => r.json())
-      .then(d => {
-        const idx = d["subsonic-response"]?.artists?.index || [];
-        return idx.reduce((n, i) => n + (i.artist?.length || 0), 0);
-      }),
-    120000
-  );
-  const { data: recentAlbums } = usePolling(
-    () => fetch(`/navidrome/rest/getAlbumList2.view?type=newest&size=3&${NAV_PARAMS}`)
-      .then(r => r.json())
-      .then(d => d["subsonic-response"]?.albumList2?.album || []),
-    60000
-  );
+  const { navidrome: { nowPlaying, artistCount, recentAlbums } } = useData();
 
   const playing = Array.isArray(nowPlaying) ? nowPlaying : [];
   const recent  = Array.isArray(recentAlbums) ? recentAlbums : [];
@@ -1177,37 +1330,23 @@ function NavidromeWidget() {
 }
 
 // ─── UNMANIC WIDGET ──────────────────────────────────────────────
+function parseEncSpeed(logTail) {
+  if (!logTail) return null;
+  const m = String(logTail).match(/speed=\s*([\d.]+x)/);
+  return m ? m[1] : null;
+}
+
 function UnmanicWidget() {
   const s = SVC.unmanic;
 
-  const { data: pending } = usePolling(
-    () => fetch("/unmanic/api/v2/pending/list", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ start: 0, length: 5 }),
-    }).then(r => r.json()),
-    10000
-  );
-  const { data: workers } = usePolling(
-    () => fetch("/unmanic/api/v2/workers/status").then(r => r.json()),
-    5000
-  );
-  const { data: history } = usePolling(
-    () => fetch("/unmanic/api/v2/history/list", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ start: 0, length: 50 }),
-    }).then(r => r.json()),
-    60000
-  );
+  const { unmanic: { pending, workers } } = useData();
 
-  const pendingCount  = pending?.total_count ?? pending?.results?.length ?? null;
-  const workerList    = workers?.workers || workers?.data || [];
-  const activeWorkers = workerList.filter(w => w.status === "in_task" || w.current_task).length;
-  const spaceSaved    = history?.results?.reduce((acc, h) => {
-    const diff = (h.source_data?.file_size || 0) - (h.destination_data?.file_size || 0);
-    return acc + (diff > 0 ? diff : 0);
-  }, 0) ?? null;
+  const pendingCount  = pending?.total_count ?? null;
+  const workerList    = Array.isArray(workers?.workers_status) ? workers.workers_status : [];
+  const activeWorker  = workerList.find(w => !w.idle) ?? null;
+  const progress      = activeWorker?.subprocess?.percent ?? null;
+  const currentFile   = activeWorker?.current_file ?? null;
+  const encSpeed      = parseEncSpeed(activeWorker?.worker_log_tail);
 
   return (
     <a href={s.url} target="_blank" rel="noopener noreferrer" className="live-svc-card fade-in">
@@ -1228,16 +1367,29 @@ function UnmanicWidget() {
           <span className="live-stat-lbl">queued</span>
         </div>
         <div className="live-stat">
-          <span className="live-stat-val">{workers ? activeWorkers : "—"}</span>
-          <span className="live-stat-lbl">working</span>
+          <span className="live-stat-val">
+            {workers ? (progress != null ? Math.round(progress) + "%" : activeWorker ? "—" : "idle") : "—"}
+          </span>
+          <span className="live-stat-lbl">progress</span>
         </div>
         <div className="live-stat">
           <span className="live-stat-val" style={{ color: "var(--accent)" }}>
-            {spaceSaved != null && spaceSaved > 0 ? fmt.bytes(spaceSaved) : "—"}
+            {encSpeed ?? "—"}
           </span>
-          <span className="live-stat-lbl">saved</span>
+          <span className="live-stat-lbl">speed</span>
         </div>
       </div>
+
+      {currentFile && (
+        <div className="live-now-playing">
+          <div className="now-playing-row">
+            <span className="np-dot" style={{ background: s.col }} />
+            <span className="label-xs" style={{ color: "var(--text)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {currentFile.split("/").pop() || currentFile}
+            </span>
+          </div>
+        </div>
+      )}
     </a>
   );
 }
@@ -1246,14 +1398,7 @@ function UnmanicWidget() {
 function SpeedtestWidget() {
   const s = SVC.speedtest;
 
-  const { data } = usePolling(
-    () => fetch("/speedtest/api/v2/speedtest/latest", {
-      headers: { Authorization: `Bearer ${ST_TOKEN}` },
-    }).then(r => r.json()),
-    60000
-  );
-
-  const result = data?.data;
+  const { speedtest: { result } } = useData();
 
   return (
     <a href={s.url} target="_blank" rel="noopener noreferrer" className="live-svc-card fade-in">
@@ -1271,15 +1416,15 @@ function SpeedtestWidget() {
       <div className="live-stats-row">
         <div className="live-stat">
           <span className="live-stat-val" style={{ color: "var(--accent)" }}>
-            {result ? parseFloat(result.download).toFixed(0) : "—"}
+            {result?.download_bits_human ?? "—"}
           </span>
-          <span className="live-stat-lbl">↓ Mbps</span>
+          <span className="live-stat-lbl">↓ down</span>
         </div>
         <div className="live-stat">
           <span className="live-stat-val" style={{ color: "var(--warn)" }}>
-            {result ? parseFloat(result.upload).toFixed(0) : "—"}
+            {result?.upload_bits_human ?? "—"}
           </span>
-          <span className="live-stat-lbl">↑ Mbps</span>
+          <span className="live-stat-lbl">↑ up</span>
         </div>
         <div className="live-stat">
           <span className="live-stat-val">
@@ -1289,8 +1434,19 @@ function SpeedtestWidget() {
         </div>
       </div>
 
+      {result?.server_name && (
+        <div className="live-now-playing">
+          <div className="now-playing-row">
+            <span className="np-dot" style={{ background: s.col }} />
+            <span className="label-xs" style={{ color: "var(--text-dim)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {result.server_name}
+            </span>
+          </div>
+        </div>
+      )}
+
       {result?.created_at && (
-        <div style={{ textAlign: "right" }}>
+        <div style={{ textAlign: "right", marginTop: 4 }}>
           <span className="label-xs" style={{ opacity: 0.35 }}>
             Last run: {new Date(result.created_at).toLocaleString()}
           </span>
@@ -1520,7 +1676,12 @@ function NotificationBell({ notifications, onDismiss, onClearAll, onNavigate }) 
   useEffect(() => {
     if (!open || !btnRef.current) return;
     const r = btnRef.current.getBoundingClientRect();
-    setDrawerStyle({ top: r.bottom + 10, right: window.innerWidth - r.right });
+    if (window.innerWidth <= 600) {
+      const headerBottom = document.querySelector('.header')?.getBoundingClientRect().bottom ?? r.bottom;
+      setDrawerStyle({ top: headerBottom + 8, left: 8, right: 8, width: 'auto' });
+    } else {
+      setDrawerStyle({ top: r.bottom + 10, right: window.innerWidth - r.right });
+    }
   }, [open]);
 
   useEffect(() => {
@@ -2190,7 +2351,7 @@ function DraggableGrid({ pageKey, items, resizable, defaultSizes, defaultPositio
           <div
             key={id}
             className={`drag-item${draggingId === id ? " dragging" : ""}`}
-            style={{ gridColumn: `${pos.col} / span ${cols}`, gridRow: `${pos.row} / span ${rows}` }}
+            style={isAutoLayout ? undefined : { gridColumn: `${pos.col} / span ${cols}`, gridRow: `${pos.row} / span ${rows}` }}
             data-drag-id={id}
             draggable
             onDragStart={(e) => { setDraggingId(id); e.dataTransfer.effectAllowed = "move"; }}
@@ -2244,9 +2405,14 @@ function InfoButton() {
     if (!open) return;
     const rect = wrapRef.current?.getBoundingClientRect();
     if (rect) {
-      const popW = 270 + 8; // min-width + right padding
-      const left = Math.min(rect.left, window.innerWidth - popW);
-      setPos({ top: rect.bottom + 10, left: Math.max(8, left) });
+      if (window.innerWidth <= 600) {
+        const headerBottom = document.querySelector('.header')?.getBoundingClientRect().bottom ?? rect.bottom;
+        setPos({ top: headerBottom + 8, left: 8, right: 8, width: 'auto' });
+      } else {
+        const popW = 270 + 8; // min-width + right padding
+        const left = Math.min(rect.left, window.innerWidth - popW);
+        setPos({ top: rect.bottom + 10, left: Math.max(8, left) });
+      }
     }
   }, [open]);
 
@@ -2282,7 +2448,7 @@ function InfoButton() {
         i
       </button>
       {open && createPortal(
-        <div className="sysinfo-popover fade-in" style={{ top: pos.top, left: pos.left }}>
+        <div className="sysinfo-popover fade-in" style={pos}>
           {fetching ? (
             <div className="sysinfo-loading">Loading…</div>
           ) : (
@@ -2499,11 +2665,8 @@ function Skeleton() {
 
 // ─── MAIN PAGE (system dashboard) ────────────────────────────────
 function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
-  const [data, setData] = useState({ cpu: null, mem: null, memswap: null, sensors: null, uptime: null, fs: null, diskio: null, network: null, docker: null, processes: null });
-  const [history, setHistory] = useState({ cpu: [], lan: { rx: [], tx: [] }, ts: { rx: [], tx: [] } });
-  const [diskioHistory, setDiskioHistory] = useState({});
+  const { glances: data, connected, glHistory: history, diskHistory: diskioHistory } = useData();
   const [time, setTime] = useState(new Date());
-  const [connected, setConnected] = useState(true);
   const [containerView, setContainerView] = useState(false);
   const [processView,   setProcessView]   = useState(false);
   const [editLayoutOpen, setEditLayoutOpen] = useState(false);
@@ -2690,117 +2853,10 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
     },
   }, 400, mainTouchEnabled);
 
-  const fetchAll = useCallback(() => {
-    if (!GLANCES_API) {
-      setData(prev => generateMockData(prev));
-      setConnected(true);
-      return;
-    }
-
-    // mem — fast, used as connectivity probe
-    fetch(`${GLANCES_API}/mem`).then(r => r.json())
-      .then(mem => {
-        setData(prev => ({ ...prev, mem: { percent: mem?.percent || 0, used: mem?.used || 0, total: mem?.total || 0 } }));
-        setConnected(true);
-      })
-      .catch(() => setConnected(false));
-
-    fetch(`${GLANCES_API}/memswap`).then(r => r.json())
-      .then(memswap => setData(prev => ({ ...prev, memswap: { percent: memswap?.percent || 0, used: memswap?.used || 0, total: memswap?.total || 0, sin: memswap?.sin || 0, sout: memswap?.sout || 0 } })))
-      .catch(() => {});
-
-    fetch(`${GLANCES_API}/sensors`).then(r => r.json())
-      .then(sensors => setData(prev => ({ ...prev, sensors: (sensors || []).filter(s => s.type === "temperature_core").slice(0, 5).map(s => ({ label: s.label, value: s.value, unit: "C" })) })))
-      .catch(() => {});
-
-    fetch(`${GLANCES_API}/uptime`).then(r => r.json())
-      .then(uptime => setData(prev => ({ ...prev, uptime: typeof uptime === "string" ? uptime : "—" })))
-      .catch(() => {});
-
-    fetch(`${GLANCES_API}/network`).then(r => r.json())
-      .then(raw => {
-        const ifaces = Array.isArray(raw) ? raw : [];
-        const pick = (name) => {
-          const n = ifaces.find(i => i.interface_name === name);
-          return n ? { rx: n.bytes_recv_rate_per_sec || 0, tx: n.bytes_sent_rate_per_sec || 0 } : null;
-        };
-        setData(prev => ({ ...prev, network: { lan: pick("enp3s0"), ts: pick("tailscale0") } }));
-      })
-      .catch(() => {});
-
-    fetch(`${GLANCES_API}/containers`).then(r => r.json())
-      .then(docker => setData(prev => ({ ...prev, docker: (Array.isArray(docker) ? docker : []).map(c => ({
-        name: c.name || "unknown", status: c.status || "stopped",
-        cpu: c.cpu_percent || c.cpu?.total || 0, mem: c.memory_usage || c.memory?.usage || 0,
-        net_rx: c.network_rx || c.network?.rx || 0, net_tx: c.network_tx || c.network?.tx || 0,
-        uptime: c.uptime || "—",
-      })) })))
-      .catch(() => {});
-
-    fetch(`${GLANCES_API}/processlist`).then(r => r.json())
-      .then(processlist => setData(prev => ({ ...prev, processes: Array.isArray(processlist) ? processlist : [] })))
-      .catch(() => {});
-
-    // fs + diskio are related, fetch together
-    Promise.all([
-      fetch(`${GLANCES_API}/fs`).then(r => r.json()).catch(() => null),
-      fetch(`${GLANCES_API}/diskio`).then(r => r.json()).catch(() => null),
-    ]).then(([fs, diskio]) => setData(prev => ({ ...prev, fs: fs || [], diskio: diskio || [] })))
-      .catch(() => {});
-
-    // cpu + percpu are the slow pair (~11s) — fire last, resolve independently
-    Promise.all([
-      fetch(`${GLANCES_API}/cpu`).then(r => r.json()).catch(() => null),
-      fetch(`${GLANCES_API}/percpu`).then(r => r.json()).catch(() => null),
-    ]).then(([cpu, percpu]) => setData(prev => ({ ...prev, cpu: {
-      total: cpu?.total || 0,
-      cores: Array.isArray(percpu) ? percpu.map(c => c.total) : [],
-      model: cpu?.cpucore ? `${cpu.cpucore} cores` : "",
-      freq: cpu?.cpufreq_current || 0,
-    } })))
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    fetchAll();
-    const id = setInterval(fetchAll, POLL_INTERVAL);
-    return () => clearInterval(id);
-  }, [fetchAll]);
-
   useEffect(() => {
     const id = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
-
-  useEffect(() => {
-    if (!data.cpu) return;
-    setHistory(h => ({ ...h, cpu: [...h.cpu.slice(-59), data.cpu.total] }));
-  }, [data.cpu]);
-
-  useEffect(() => {
-    if (!data.network) return;
-    setHistory(h => ({
-      ...h,
-      lan: data.network.lan ? { rx: [...h.lan.rx.slice(-59), data.network.lan.rx], tx: [...h.lan.tx.slice(-59), data.network.lan.tx] } : h.lan,
-      ts:  data.network.ts  ? { rx: [...h.ts.rx.slice(-59),  data.network.ts.rx],  tx: [...h.ts.tx.slice(-59),  data.network.ts.tx]  } : h.ts,
-    }));
-  }, [data.network]);
-
-  useEffect(() => {
-    if (!data.diskio) return;
-    const DISK_RE = /^nvme\d+n\d+$|^sd[a-z]$/;
-    setDiskioHistory(h => {
-      const next = { ...h };
-      data.diskio.filter(d => DISK_RE.test(d.disk_name)).forEach(d => {
-        const prev = next[d.disk_name] || { rx: [], tx: [] };
-        next[d.disk_name] = {
-          rx: [...prev.rx.slice(-59), d.read_bytes],
-          tx: [...prev.tx.slice(-59), d.write_bytes],
-        };
-      });
-      return next;
-    });
-  }, [data.diskio]);
 
   useEffect(() => {
     localStorage.setItem("2ez-card-sizes", JSON.stringify(cardSizes));
@@ -3318,7 +3374,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
 // ─── PAGE HEADER (non-main pages) ────────────────────────────────
 function PageHeader({ title, onMenuToggle, onNavigate, bellProps, onEditLayout }) {
   const [time, setTime] = useState(new Date());
-  const { data: uptime } = usePolling(() => fetch(`${GLANCES_API}/uptime`).then(r => r.json()), 30000);
+  const { glances: { uptime } } = useData();
 
   useEffect(() => {
     const id = setInterval(() => setTime(new Date()), 1000);
@@ -3455,12 +3511,10 @@ function DownloadsPage({ onMenuToggle, onNavigate, bellProps }) {
 
 // ─── QUICK LOOK PAGE ─────────────────────────────────────────────
 function QuickLookPage({ onMenuToggle, onNavigate, bellProps }) {
-  const { data, loading } = usePolling(
-    () => fetch(`${GLANCES_API}/quicklook`).then(r => r.json()),
-    5000
-  );
+  const { glances: { quicklook: data } } = useData();
+  const loading = data === null;
 
-  if (loading && !data) {
+  if (loading) {
     return (
       <div className="shell">
         <PageHeader title="Quick Look" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
@@ -3542,6 +3596,10 @@ function QuickLookPage({ onMenuToggle, onNavigate, bellProps }) {
 
 // ─── APP ROOT ────────────────────────────────────────────────────
 export default function App() {
+  return <DataProvider><AppInner /></DataProvider>;
+}
+
+function AppInner() {
   const [activePage, setActivePage] = useState("main");
   const [menuOpen, setMenuOpen]     = useState(false);
 
@@ -3578,11 +3636,8 @@ export default function App() {
   const dismissNotif      = useCallback((id) => setNotifications(p => p.filter(n => n.id !== id)), []);
   const clearAllNotifs    = useCallback(() => setNotifications([]), []);
 
-  // ── Alert polling + bridge ─────────────────────────────────────
-  const { data: alerts } = usePolling(
-    () => fetch(`${GLANCES_API}/alert`).then(r => r.json()).catch(() => []),
-    10000
-  );
+  // ── Alert bridge (data comes from DataProvider) ───────────────
+  const { glances: { alert: alerts } } = useData();
 
   const seenAlertIds = useRef(new Set(
     JSON.parse(localStorage.getItem("2ez-seen-alerts") || "[]")
