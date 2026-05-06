@@ -5,7 +5,10 @@
       "Bash(curl -s http://localhost:5174)",
       "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5176/)",
-      "Bash(curl -s http://localhost:5176/)"
+      "Bash(curl -s http://localhost:5176/)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

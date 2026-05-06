@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback, forwardRef, createContext, useContext } from "react";
 import { createPortal } from "react-dom";
 
+// ─── ANIMATION GATE ──────────────────────────────────────────────
+let appMounted = false;
+
 // ─── CONFIG ──────────────────────────────────────────────────────
 const GLANCES_API   = "/api/4";
 const POLL_INTERVAL = 2000;
@@ -235,15 +238,25 @@ const GLOBAL_CSS = `
   .header-sub { font-size: 13px; color: var(--text-dim); font-weight: 400; }
   .header-url { font-size: 13px; color: var(--text-dim); font-weight: 400; }
   .header-right { display: flex; align-items: center; gap: 18px; font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
+  .search-bar { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 0 10px; transition: border-color 0.2s, background 0.2s; }
+  .search-bar:focus-within { border-color: var(--accent); background: rgba(34,211,167,0.06); }
+  .search-bar-icon { color: var(--text-dim); display: flex; align-items: center; flex-shrink: 0; transition: color 0.2s; }
+  .search-bar:focus-within .search-bar-icon { color: var(--accent); }
+  .search-bar-input { background: transparent; border: none; outline: none; color: var(--text); font-family: var(--font); font-size: 13px; width: 180px; height: 32px; }
+  .search-bar-input::placeholder { color: var(--text-dim); }
+  .search-bar-input::-webkit-search-cancel-button { display: none; }
+  .search-icon-btn { display: none; background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 6px; border-radius: 8px; align-items: center; justify-content: center; transition: color 0.15s, background 0.15s; flex-shrink: 0; }
+  .search-icon-btn:hover { color: var(--text); background: rgba(255,255,255,0.07); }
+  .search-mobile-overlay { display: none; }
 
   /* ── Live badge ── */
   .live-badge { display: flex; align-items: center; gap: 6px; background: var(--accent-dim); color: var(--accent); padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; font-family: var(--mono); flex-shrink: 0; border: 1px solid rgba(34,211,167,0.22); box-shadow: 0 0 16px rgba(34,211,167,0.12); }
   .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse-dot 2s ease-in-out infinite; }
 
   /* ── Grid (main dashboard) ── */
-  .grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: var(--row-h, 150px); gap: 18px; align-items: stretch; position: relative; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: var(--row-h, 150px); gap: 18px; align-items: stretch; position: relative; outline: none; border: none; }
   @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: unset !important; grid-auto-rows: auto; align-items: start; } .grid > * { grid-column: auto !important; grid-row: auto !important; } .card { height: auto; } .live-svc-card { height: auto; } .svc-card { height: auto; } }
-  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; grid-template-rows: unset !important; grid-auto-rows: auto; width: 100%; max-width: 100%; overflow: hidden; } .grid > * { grid-column: auto !important; grid-row: span var(--card-rows, 1) !important; max-width: 100%; } .grid.half-mobile { grid-template-columns: repeat(2, 1fr); } .live-svc-card { height: auto; max-width: 100%; overflow: hidden; } .shell { padding: 16px 12px 32px; max-width: 100vw; overflow-x: hidden; box-sizing: border-box; } .header { gap: 8px; } .header-left { gap: 8px; flex: 1; min-width: 0; overflow: hidden; } .header-right { gap: 8px; flex-shrink: 0; } .header-url { display: none; } .header-clock { display: none; } .uptime-strip { display: none; } .live-stat { padding: 6px 8px; min-width: 0; } .live-stat-val { font-size: 13px; } .now-playing-row { overflow: hidden; min-width: 0; } .now-playing-row .label-xs { min-width: 0; } }
+  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; grid-template-rows: unset !important; grid-auto-rows: auto; width: 100%; max-width: 100%; overflow: hidden; } .grid > * { grid-column: auto !important; grid-row: span var(--card-rows, 1) !important; max-width: 100%; } .grid.half-mobile { grid-template-columns: repeat(2, 1fr); } .live-svc-card { height: auto; max-width: 100%; overflow: hidden; } .shell { padding: var(--header-h, 82px) 12px 32px; max-width: 100vw; overflow-x: hidden; box-sizing: border-box; } .header { position: fixed; top: 0; left: 0; right: 0; gap: 8px; z-index: 800; background: transparent; backdrop-filter: blur(12px) saturate(120%); -webkit-backdrop-filter: blur(12px) saturate(120%); border-bottom: 1px solid rgba(255,255,255,0.08); padding: 14px 12px; margin: 0; } .header-left { gap: 8px; flex: 1; min-width: 0; overflow: hidden; } .header-right { gap: 8px; flex-shrink: 0; } .header-url { display: none; } .header-sub { display: none; } .header-clock { display: none; } .uptime-strip { display: none; } .live-stat { padding: 6px 8px; min-width: 0; } .live-stat-val { font-size: 13px; } .now-playing-row { overflow: hidden; min-width: 0; } .now-playing-row .label-xs { min-width: 0; } .search-bar { display: none; } .search-icon-btn { display: flex; padding: 4px; } .edit-layout-btn { padding: 4px; } .bell-btn { padding: 4px; } .header-right { gap: 6px; } .live-badge { padding: 4px 6px; gap: 0; } .live-label { display: none; } .search-mobile-overlay { position: fixed; top: 0; left: 0; right: 0; z-index: 810; display: flex; align-items: center; gap: 10px; padding: 10px 12px; backdrop-filter: blur(12px) saturate(120%); -webkit-backdrop-filter: blur(12px) saturate(120%); border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(8,12,18,0.7); } .search-mobile-wrap { flex: 1; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); border-radius: 10px; padding: 0 12px; transition: border-color 0.2s; } .search-mobile-wrap:focus-within { border-color: var(--accent); } .search-mobile-wrap .search-bar-input { width: 100%; height: 40px; font-size: 15px; } .search-cancel-btn { background: none; border: none; cursor: pointer; color: var(--text-dim); font-family: var(--font); font-size: 14px; padding: 6px 2px; white-space: nowrap; flex-shrink: 0; } }
 
   /* ── Card ── */
   .card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); height: 100%; box-sizing: border-box; overflow: hidden; }
@@ -381,6 +394,8 @@ const GLOBAL_CSS = `
   /* ── Animations ── */
   @keyframes fade-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
   .fade-in { animation: fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  @keyframes page-fade { from { opacity: 0; } to { opacity: 1; } }
+  .page-content { animation: page-fade 0.25s ease-out both; }
   @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
   @keyframes pulse-crit { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
   @keyframes shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
@@ -618,6 +633,56 @@ const PencilIcon = () => (
   </svg>
 );
 
+const SearchIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+  </svg>
+);
+
+function SearchBar() {
+  const [query, setQuery] = useState("");
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (mobileOpen && inputRef.current) inputRef.current.focus();
+  }, [mobileOpen]);
+
+  const doSearch = (q) => {
+    const trimmed = q.trim();
+    if (!trimmed) return;
+    window.open("https://www.google.com.au/search?q=" + encodeURIComponent(trimmed), "_blank");
+    setQuery("");
+    setMobileOpen(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") doSearch(query);
+    if (e.key === "Escape") { setMobileOpen(false); setQuery(""); }
+  };
+
+  return (
+    <>
+      <div className="search-bar">
+        <span className="search-bar-icon"><SearchIcon /></span>
+        <input className="search-bar-input" type="search" placeholder="Search Google…" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKeyDown} />
+      </div>
+      <button className="search-icon-btn" onClick={() => setMobileOpen(true)} aria-label="Search">
+        <SearchIcon />
+      </button>
+      {mobileOpen && (
+        <div className="search-mobile-overlay">
+          <div className="search-mobile-wrap">
+            <span className="search-bar-icon"><SearchIcon /></span>
+            <input ref={inputRef} className="search-bar-input" type="search" placeholder="Search Google…" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKeyDown} />
+          </div>
+          <button className="search-cancel-btn" onClick={() => { setMobileOpen(false); setQuery(""); }}>Cancel</button>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── ANIMATED NUMBER ─────────────────────────────────────────────
 const AnimNum = ({ value, format = "pct", className = "" }) => {
   const ref = useRef(null);
@@ -723,8 +788,8 @@ const DualSpark = ({ rxData, txData, height = 40, width = 180, id = "ds" }) => {
 // ─── CARD ────────────────────────────────────────────────────────
 const Card = ({ title, children, delay = 0, onClick, controls }) => (
   <div
-    className={`card fade-in${onClick ? " card-clickable" : ""}`}
-    style={{ animationDelay: `${delay}ms` }}
+    className={`card${appMounted ? "" : " fade-in"}${onClick ? " card-clickable" : ""}`}
+    style={appMounted ? undefined : { animationDelay: `${delay}ms` }}
     onClick={onClick}
   >
     {title && (
@@ -1134,7 +1199,7 @@ function DataProvider({ children }) {
 function SvcCard({ id }) {
   const s = SVC[id];
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" className="svc-card fade-in">
+    <a href={s.url} target="_blank" rel="noopener noreferrer" className={`svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
         <SvcIcon id={s.id} color={s.col} />
       </div>
@@ -1162,7 +1227,7 @@ function JellyfinWidget() {
   const nowPlaying   = sessions ? sessions.filter(s => s.NowPlayingItem) : [];
 
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" className="live-svc-card fade-in">
+    <a href={s.url} target="_blank" rel="noopener noreferrer" className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1219,7 +1284,7 @@ function QBittorrentWidget() {
   const activeTorrents = Array.isArray(torrents) ? torrents : [];
 
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" className="live-svc-card fade-in">
+    <a href={s.url} target="_blank" rel="noopener noreferrer" className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1278,7 +1343,7 @@ function NavidromeWidget() {
   const recent  = Array.isArray(recentAlbums) ? recentAlbums : [];
 
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" className="live-svc-card fade-in">
+    <a href={s.url} target="_blank" rel="noopener noreferrer" className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1349,7 +1414,7 @@ function UnmanicWidget() {
   const encSpeed      = parseEncSpeed(activeWorker?.worker_log_tail);
 
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" className="live-svc-card fade-in">
+    <a href={s.url} target="_blank" rel="noopener noreferrer" className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1401,7 +1466,7 @@ function SpeedtestWidget() {
   const { speedtest: { result } } = useData();
 
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" className="live-svc-card fade-in">
+    <a href={s.url} target="_blank" rel="noopener noreferrer" className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -2296,7 +2361,7 @@ function DraggableGrid({ pageKey, items, resizable, defaultSizes, defaultPositio
     <div
       className={className ? `grid ${className}` : "grid"}
       ref={gridRef}
-      style={{ gridTemplateRows: `repeat(${maxRow + 2}, var(--row-h, 150px))` }}
+      style={{ gridTemplateRows: `repeat(${draggingId ? maxRow + 2 : maxRow}, var(--row-h, 150px))` }}
       {...gridDragHandlers}
     >
       {!isAutoLayout && dropTarget && draggingId && (() => {
@@ -2867,7 +2932,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
 
   return (
     <div className="shell">
-      <header className="header fade-in">
+      <header className="header">
         <div className="header-left">
           <button className="hamburger-btn" onClick={onMenuToggle} aria-label="Open menu">
             <HamburgerIcon />
@@ -2875,6 +2940,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
           <Logo size={38} />
         </div>
         <div className="header-right">
+          <SearchBar />
           {data.uptime && (
             <div className="uptime-strip">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -2889,11 +2955,12 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
           <InfoButton />
           <div className="live-badge">
             <div className="live-dot" style={{ background: connected ? "var(--accent)" : "var(--crit)" }} />
-            {connected ? "LIVE" : "OFFLINE"}
+            <span className="live-label">{connected ? "LIVE" : "OFFLINE"}</span>
           </div>
         </div>
       </header>
 
+      <div className="page-content">
       <div className="grid" ref={gridRef}
         onDragOver={isAutoLayout ? (e) => e.preventDefault() : handleGridDragOver}
         onDrop={isAutoLayout ? (e) => e.preventDefault() : handleGridDrop}
@@ -3166,7 +3233,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
                   );
                 } else if (renderSize === "large" || containerView) {
                   node = (
-                    <div className="card fade-in">
+                    <div className={`card${appMounted ? "" : " fade-in"}`}>
                       <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
                         <div style={{ minWidth: 180, flexShrink: 0 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -3359,6 +3426,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
             );
           })}
       </div>
+      </div>
       {editLayoutOpen && (
         <LayoutEditModal
           items={mainModalItems}
@@ -3382,7 +3450,7 @@ function PageHeader({ title, onMenuToggle, onNavigate, bellProps, onEditLayout }
   }, []);
 
   return (
-    <header className="header fade-in">
+    <header className="header">
       <div className="header-left">
         <button className="hamburger-btn" onClick={onMenuToggle} aria-label="Open menu">
           <HamburgerIcon />
@@ -3393,6 +3461,7 @@ function PageHeader({ title, onMenuToggle, onNavigate, bellProps, onEditLayout }
         </div>
       </div>
       <div className="header-right">
+        <SearchBar />
         {typeof uptime === "string" && (
           <div className="uptime-strip">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -3426,8 +3495,10 @@ function MediaAutomationPage({ onMenuToggle, onNavigate, bellProps }) {
   return (
     <div className="shell">
       <PageHeader title="Media Automation" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} onEditLayout={() => setEditOpen(true)} />
-      <p className="page-section">Arr Apps &amp; Tools</p>
-      <DraggableGrid pageKey="media-auto" items={items} resizable={new Set()} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} className="half-mobile" onReorder={setMobileOrder} />
+      <div className="page-content">
+        <p className="page-section">Arr Apps &amp; Tools</p>
+        <DraggableGrid pageKey="media-auto" items={items} resizable={new Set()} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} className="half-mobile" onReorder={setMobileOrder} />
+      </div>
       {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
     </div>
   );
@@ -3454,8 +3525,10 @@ function MediaServerPage({ onMenuToggle, onNavigate, bellProps }) {
   return (
     <div className="shell">
       <PageHeader title="Media Server" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} onEditLayout={() => setEditOpen(true)} />
-      <p className="page-section">Streaming &amp; Libraries</p>
-      <DraggableGrid pageKey="media-srv" items={items} resizable={new Set(["jellyfin","navidrome"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} onReorder={setMobileOrder} />
+      <div className="page-content">
+        <p className="page-section">Streaming &amp; Libraries</p>
+        <DraggableGrid pageKey="media-srv" items={items} resizable={new Set(["jellyfin","navidrome"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} onReorder={setMobileOrder} />
+      </div>
       {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
     </div>
   );
@@ -3481,8 +3554,10 @@ function ManagementPage({ onMenuToggle, onNavigate, bellProps }) {
   return (
     <div className="shell">
       <PageHeader title="Management" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} onEditLayout={() => setEditOpen(true)} />
-      <p className="page-section">System &amp; Infrastructure</p>
-      <DraggableGrid pageKey="mgmt" items={items} resizable={new Set(["speedtest"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} onReorder={setMobileOrder} />
+      <div className="page-content">
+        <p className="page-section">System &amp; Infrastructure</p>
+        <DraggableGrid pageKey="mgmt" items={items} resizable={new Set(["speedtest"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} onReorder={setMobileOrder} />
+      </div>
       {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
     </div>
   );
@@ -3503,8 +3578,10 @@ function DownloadsPage({ onMenuToggle, onNavigate, bellProps }) {
   return (
     <div className="shell">
       <PageHeader title="Downloads &amp; Transcodes" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} onEditLayout={() => setEditOpen(true)} />
-      <p className="page-section">Active transfers &amp; encoding queue</p>
-      <DraggableGrid pageKey="downloads" items={items} resizable={new Set(["qbittorrent","unmanic"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} onReorder={setMobileOrder} />
+      <div className="page-content">
+        <p className="page-section">Active transfers &amp; encoding queue</p>
+        <DraggableGrid pageKey="downloads" items={items} resizable={new Set(["qbittorrent","unmanic"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} onReorder={setMobileOrder} />
+      </div>
       {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
     </div>
   );
@@ -3519,9 +3596,11 @@ function QuickLookPage({ onMenuToggle, onNavigate, bellProps }) {
     return (
       <div className="shell">
         <PageHeader title="Quick Look" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
-        <div className="loading" style={{ paddingTop: 60 }}>
-          <Logo size={36} />
-          <div style={{ marginTop: 12, opacity: 0.5, fontSize: 13 }}>Loading…</div>
+        <div className="page-content">
+          <div className="loading" style={{ paddingTop: 60 }}>
+            <Logo size={36} />
+            <div style={{ marginTop: 12, opacity: 0.5, fontSize: 13 }}>Loading…</div>
+          </div>
         </div>
       </div>
     );
@@ -3540,6 +3619,7 @@ function QuickLookPage({ onMenuToggle, onNavigate, bellProps }) {
   return (
     <div className="shell">
       <PageHeader title="Quick Look" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
+      <div className="page-content">
       <div className="ql-wrap">
 
         <div className="ql-section">
@@ -3590,6 +3670,7 @@ function QuickLookPage({ onMenuToggle, onNavigate, bellProps }) {
           </div>
         </div>
 
+      </div>
       </div>
     </div>
   );
@@ -3677,8 +3758,27 @@ function AppInner() {
 
   const toggleMenu = useCallback(() => setMenuOpen(o => !o), []);
 
+  useEffect(() => {
+    if (!window.matchMedia("(max-width: 600px)").matches) return;
+    const el = document.querySelector(".header");
+    if (!el) return;
+    const update = () => {
+      const h = el.getBoundingClientRect().height;
+      document.documentElement.style.setProperty("--header-h", `${Math.ceil(h) + 14}px`);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [activePage]);
+
   const [layoutResetKey, setLayoutResetKey] = useState(0);
   const resetLayout = useCallback(() => setLayoutResetKey(k => k + 1), []);
+
+  useEffect(() => {
+    const t = setTimeout(() => { appMounted = true; }, 800);
+    return () => clearTimeout(t);
+  }, []);
 
   const bellProps = { notifications, onDismiss: dismissNotif, onClearAll: clearAllNotifs, onNavigate: navigate };
 
