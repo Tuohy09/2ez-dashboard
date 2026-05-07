@@ -34,6 +34,15 @@ const SVC = {
   uptimekuma:  { id: "uptimekuma",  name: "Uptime Kuma",    url: "http://192.168.0.170:3001",                    abbr: "UK", col: "#5CDD8B", desc: "Service monitoring"     },
 };
 
+// ─── SERVICE SEARCH INDEX ────────────────────────────────────────
+const SERVICE_INDEX = [
+  ...["sonarr","radarr","prowlarr","bazarr","beetsflask","slskd","lrcget"].map(id => ({ svcId: id, page: "media-auto", pageLabel: "Media Automation" })),
+  ...["jellyfin","navidrome","seerr","immich","nextcloud"].map(id => ({ svcId: id, page: "media-srv", pageLabel: "Media Server" })),
+  ...["cockpit","dockge","speedtest","filebrowser","uptimekuma"].map(id => ({ svcId: id, page: "mgmt", pageLabel: "Management" })),
+  { svcId: "qbt",     page: "downloads", pageLabel: "Downloads" },
+  { svcId: "unmanic", page: "downloads", pageLabel: "Downloads" },
+].map(e => ({ ...e, name: SVC[e.svcId].name, desc: SVC[e.svcId].desc }));
+
 // ─── SERVICE ICONS ────────────────────────────────────────────────
 const ICON_PATHS = {
   // TV monitor + antenna — Sonarr
@@ -254,9 +263,9 @@ const GLOBAL_CSS = `
   .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse-dot 2s ease-in-out infinite; }
 
   /* ── Grid (main dashboard) ── */
-  .grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: var(--row-h, 150px); gap: 18px; align-items: stretch; position: relative; outline: none; border: none; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: var(--row-h, 150px); gap: 18px; align-items: stretch; position: relative; outline: none; border: none; background: none; box-shadow: none; }
   @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: unset !important; grid-auto-rows: auto; align-items: start; } .grid > * { grid-column: auto !important; grid-row: auto !important; } .card { height: auto; } .live-svc-card { height: auto; } .svc-card { height: auto; } }
-  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; grid-template-rows: unset !important; grid-auto-rows: auto; width: 100%; max-width: 100%; overflow: hidden; } .grid > * { grid-column: auto !important; grid-row: span var(--card-rows, 1) !important; max-width: 100%; } .grid.half-mobile { grid-template-columns: repeat(2, 1fr); } .live-svc-card { height: auto; max-width: 100%; overflow: hidden; } .shell { padding: var(--header-h, 82px) 12px 32px; max-width: 100vw; overflow-x: hidden; box-sizing: border-box; } .header { position: fixed; top: 0; left: 0; right: 0; gap: 8px; z-index: 800; background: transparent; backdrop-filter: blur(12px) saturate(120%); -webkit-backdrop-filter: blur(12px) saturate(120%); border-bottom: 1px solid rgba(255,255,255,0.08); padding: 14px 12px; margin: 0; } .header-left { gap: 8px; flex: 1; min-width: 0; overflow: hidden; } .header-right { gap: 8px; flex-shrink: 0; } .header-url { display: none; } .header-sub { display: none; } .header-clock { display: none; } .uptime-strip { display: none; } .live-stat { padding: 6px 8px; min-width: 0; } .live-stat-val { font-size: 13px; } .now-playing-row { overflow: hidden; min-width: 0; } .now-playing-row .label-xs { min-width: 0; } .search-bar { display: none; } .search-icon-btn { display: flex; padding: 4px; } .edit-layout-btn { padding: 4px; } .bell-btn { padding: 4px; } .header-right { gap: 6px; } .live-badge { padding: 4px 6px; gap: 0; } .live-label { display: none; } .search-mobile-overlay { position: fixed; top: 0; left: 0; right: 0; z-index: 810; display: flex; align-items: center; gap: 10px; padding: 10px 12px; backdrop-filter: blur(12px) saturate(120%); -webkit-backdrop-filter: blur(12px) saturate(120%); border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(8,12,18,0.7); } .search-mobile-wrap { flex: 1; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); border-radius: 10px; padding: 0 12px; transition: border-color 0.2s; } .search-mobile-wrap:focus-within { border-color: var(--accent); } .search-mobile-wrap .search-bar-input { width: 100%; height: 40px; font-size: 15px; } .search-cancel-btn { background: none; border: none; cursor: pointer; color: var(--text-dim); font-family: var(--font); font-size: 14px; padding: 6px 2px; white-space: nowrap; flex-shrink: 0; } }
+  @media (max-width: 600px)  { .grid { grid-template-columns: 1fr; grid-template-rows: unset !important; grid-auto-rows: auto; width: 100%; max-width: 100%; overflow: hidden; } .grid > * { grid-column: auto !important; grid-row: span var(--card-rows, 1) !important; max-width: 100%; } .grid.half-mobile { grid-template-columns: repeat(2, 1fr); } .live-svc-card { height: auto; max-width: 100%; overflow: hidden; } .shell { padding: var(--header-h, 82px) 12px 32px; max-width: 100vw; overflow-x: hidden; box-sizing: border-box; } .header { position: fixed; top: 0; left: 0; right: 0; gap: 8px; z-index: 800; background: transparent; backdrop-filter: blur(12px) saturate(120%); -webkit-backdrop-filter: blur(12px) saturate(120%); border-bottom: 1px solid rgba(255,255,255,0.08); padding: 14px 12px; margin: 0; } .header-left { gap: 8px; flex: 1; min-width: 0; overflow: hidden; } .header-right { gap: 8px; flex-shrink: 0; } .header-url { display: none; } .header-sub { display: none; } .header-clock { display: none; } .uptime-strip { display: none; } .live-stat { padding: 6px 8px; min-width: 0; } .live-stat-val { font-size: 13px; } .now-playing-row { overflow: hidden; min-width: 0; } .now-playing-row .label-xs { min-width: 0; } .search-bar { display: none; } .search-icon-btn { display: flex; padding: 4px; } .edit-layout-btn { padding: 4px; } .bell-btn { padding: 4px; } .header-right { gap: 6px; } .live-badge { padding: 4px 6px; gap: 0; } .live-label { display: none; } .search-mobile-overlay { position: fixed; top: 0; left: 0; right: 0; z-index: 810; display: flex; flex-direction: column; align-items: stretch; backdrop-filter: blur(12px) saturate(120%); -webkit-backdrop-filter: blur(12px) saturate(120%); border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(8,12,18,0.7); } .search-mobile-top { display: flex; align-items: center; gap: 10px; padding: 10px 12px; } .search-mobile-wrap { flex: 1; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); border-radius: 10px; padding: 0 12px; transition: border-color 0.2s; } .search-mobile-wrap:focus-within { border-color: var(--accent); } .search-mobile-wrap .search-bar-input { width: 100%; height: 40px; font-size: 15px; } .search-cancel-btn { background: none; border: none; cursor: pointer; color: var(--text-dim); font-family: var(--font); font-size: 14px; padding: 6px 2px; white-space: nowrap; flex-shrink: 0; } }
 
   /* ── Card ── */
   .card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); height: 100%; box-sizing: border-box; overflow: hidden; }
@@ -342,6 +351,8 @@ const GLOBAL_CSS = `
     .hamburger-btn { display: none; }
     .bottom-tab-bar { display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: calc(60px + max(env(safe-area-inset-bottom, 0px), 12px)); padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px); background: rgba(8,12,18,0.88); backdrop-filter: blur(20px) saturate(150%); -webkit-backdrop-filter: blur(20px) saturate(150%); border-top: 1px solid rgba(255,255,255,0.10); z-index: 900; align-items: stretch; }
     .shell { padding-bottom: calc(80px + max(env(safe-area-inset-bottom, 0px), 12px)); }
+    .page-content { animation: none; -webkit-transform: translateZ(0); transform: translateZ(0); }
+    .grid { -webkit-transform: translateZ(0); transform: translateZ(0); }
   }
 
   /* ── Nav sidebar ── */
@@ -395,7 +406,7 @@ const GLOBAL_CSS = `
   @keyframes fade-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
   .fade-in { animation: fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
   @keyframes page-fade { from { opacity: 0; } to { opacity: 1; } }
-  .page-content { animation: page-fade 0.25s ease-out both; }
+  .page-content { animation: page-fade 0.25s ease-out both; background: none; border: none; outline: none; box-shadow: none; }
   @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
   @keyframes pulse-crit { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
   @keyframes shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
@@ -543,23 +554,6 @@ const GLOBAL_CSS = `
   .notif-time  { font-size: 10px; color: var(--text-dim); margin-top: 4px; font-family: var(--mono); opacity: 0.7; }
   .notif-delete-btn { position: absolute; right: 0; top: 0; bottom: 0; width: 64px; display: flex; align-items: center; justify-content: center; background: var(--crit); border: none; color: #fff; font-size: 20px; cursor: pointer; }
 
-  /* ── Quick Look Page ── */
-  .ql-wrap { max-width: 440px; display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
-  .ql-section { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 16px 18px; backdrop-filter: blur(22px) saturate(160%); }
-  .ql-row-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
-  .ql-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); font-weight: 600; }
-  .ql-value { font-size: 20px; font-weight: 700; font-family: var(--mono); line-height: 1; }
-  .ql-cores { display: flex; gap: 4px; align-items: flex-end; height: 40px; margin-top: 12px; }
-  .ql-core-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; height: 100%; }
-  .ql-core-track { flex: 1; width: 100%; background: rgba(255,255,255,0.06); border-radius: 3px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; min-height: 0; }
-  .ql-core-fill { width: 100%; border-radius: 3px; transition: height 0.5s cubic-bezier(0.22, 1, 0.36, 1); min-height: 2px; }
-  .ql-core-num { font-size: 8px; font-family: var(--mono); color: var(--text-dim); flex-shrink: 0; }
-  .ql-load-row { display: flex; gap: 0; margin-top: 8px; }
-  .ql-load-item { flex: 1; text-align: center; padding: 6px 0; border-right: 1px solid var(--card-border); }
-  .ql-load-item:last-child { border-right: none; }
-  .ql-load-val { font-size: 22px; font-weight: 700; font-family: var(--mono); color: var(--text); line-height: 1; }
-  .ql-load-lbl { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
-
   /* ── System Info Popover ── */
   .sysinfo-wrap { position: relative; display: inline-flex; align-items: center; }
   .sysinfo-btn { width: 16px; height: 16px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); color: var(--text-dim); font-size: 10px; font-style: italic; font-weight: 700; font-family: serif; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s, color 0.2s, border-color 0.2s; flex-shrink: 0; line-height: 1; padding: 0; }
@@ -572,6 +566,21 @@ const GLOBAL_CSS = `
   .sysinfo-val { font-size: 11px; font-family: var(--mono); color: var(--text); text-align: right; word-break: break-all; }
   .sysinfo-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 6px 0; }
   .sysinfo-loading { padding: 16px; text-align: center; font-size: 12px; color: var(--text-dim); }
+
+  /* ── Service search results dropdown ── */
+  .search-results-drop { position: absolute; top: calc(100% + 8px); right: 0; min-width: 280px; background: rgba(8,12,18,0.96); backdrop-filter: blur(32px) saturate(160%); -webkit-backdrop-filter: blur(32px) saturate(160%); border: 1px solid rgba(255,255,255,0.18); border-radius: 14px; box-shadow: 0 12px 48px rgba(0,0,0,0.65); z-index: 5000; overflow: hidden; animation: slide-down 0.14s cubic-bezier(0.22,1,0.36,1) both; }
+  .search-result-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; background: none; border: none; color: var(--text); cursor: pointer; text-align: left; transition: background 0.12s; font-family: var(--font); border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .search-result-item:last-child { border-bottom: none; }
+  .search-result-item:hover, .search-result-item:focus { background: rgba(255,255,255,0.07); outline: none; }
+  .search-result-icon { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .search-result-name { font-size: 13px; font-weight: 600; line-height: 1.2; }
+  .search-result-page { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+  .search-results-drop-mobile { position: static !important; border-radius: 0 0 10px 10px !important; animation: none !important; border-top: 1px solid rgba(255,255,255,0.08); min-width: unset !important; }
+  .search-google-item { border-top: 1px solid rgba(255,255,255,0.08) !important; }
+
+  /* ── Card search highlight ── */
+  @keyframes card-highlight-glow { 0%, 100% { box-shadow: var(--card-shadow); border-color: var(--card-border); } 25% { box-shadow: var(--card-shadow), 0 0 0 2px var(--accent), 0 0 32px rgba(34,211,167,0.5); border-color: rgba(34,211,167,0.7); } }
+  .card-highlight { animation: card-highlight-glow 1.5s ease-out forwards !important; transition: none !important; }
 `;
 
 // ─── LOGO ────────────────────────────────────────────────────────
@@ -639,44 +648,155 @@ const SearchIcon = () => (
   </svg>
 );
 
-function SearchBar() {
+function SearchBar({ navigate }) {
   const [query, setQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
   const inputRef = useRef(null);
+  const wrapRef = useRef(null);
+
+  const results = query.trim().length > 0
+    ? SERVICE_INDEX.filter(s => {
+        const q = query.toLowerCase();
+        return s.name.toLowerCase().includes(q) || s.desc.toLowerCase().includes(q);
+      }).slice(0, 8)
+    : [];
+
+  const showDrop = query.trim().length > 0;
+
+  const doGoogleSearch = useCallback(() => {
+    const q = query.trim();
+    if (!q) return;
+    window.open("https://www.google.com.au/search?q=" + encodeURIComponent(q), "_blank");
+    setQuery("");
+    setFocused(false);
+    setMobileOpen(false);
+  }, [query]);
+
+  const selectResult = useCallback((result) => {
+    navigate?.(result.page);
+    setQuery("");
+    setFocused(false);
+    setMobileOpen(false);
+    setTimeout(() => {
+      const el = document.querySelector(`[data-drag-id="${result.svcId}"], [data-sort-id="${result.svcId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        const card = el.querySelector(".svc-card, .live-svc-card, .card");
+        if (card) {
+          card.classList.add("card-highlight");
+          setTimeout(() => card.classList.remove("card-highlight"), 1600);
+        }
+      }
+    }, 300);
+  }, [navigate]);
+
+  const dismiss = useCallback(() => {
+    setQuery(""); setFocused(false); setMobileOpen(false);
+  }, []);
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape") dismiss();
+    if (e.key === "Enter") doGoogleSearch();
+  };
 
   useEffect(() => {
     if (mobileOpen && inputRef.current) inputRef.current.focus();
   }, [mobileOpen]);
 
-  const doSearch = (q) => {
-    const trimmed = q.trim();
-    if (!trimmed) return;
-    window.open("https://www.google.com.au/search?q=" + encodeURIComponent(trimmed), "_blank");
-    setQuery("");
-    setMobileOpen(false);
-  };
+  useEffect(() => {
+    if (!focused) return;
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setFocused(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [focused]);
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") doSearch(query);
-    if (e.key === "Escape") { setMobileOpen(false); setQuery(""); }
-  };
+  const ResultItems = () => (
+    <>
+      {results.map(r => (
+        <button
+          key={r.svcId}
+          className="search-result-item"
+          onMouseDown={(e) => { e.preventDefault(); selectResult(r); }}
+          onTouchEnd={(e) => { e.preventDefault(); selectResult(r); }}
+        >
+          <div className="search-result-icon" style={{ background: SVC[r.svcId].col + "22", border: `1px solid ${SVC[r.svcId].col}44` }}>
+            <SvcIcon id={r.svcId} color={SVC[r.svcId].col} size={16} />
+          </div>
+          <div>
+            <div className="search-result-name">{r.name}</div>
+            <div className="search-result-page">{r.pageLabel}</div>
+          </div>
+        </button>
+      ))}
+      <button
+        className="search-result-item search-google-item"
+        onMouseDown={(e) => { e.preventDefault(); doGoogleSearch(); }}
+        onTouchEnd={(e) => { e.preventDefault(); doGoogleSearch(); }}
+      >
+        <div className="search-result-icon" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div className="search-result-name" style={{ color: "var(--text-dim)" }}>Search Google</div>
+          <div className="search-result-page">{query.trim()}</div>
+        </div>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4, flexShrink: 0 }}>
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+      </button>
+    </>
+  );
 
   return (
     <>
-      <div className="search-bar">
+      <div className="search-bar" ref={wrapRef} style={{ position: "relative" }}>
         <span className="search-bar-icon"><SearchIcon /></span>
-        <input className="search-bar-input" type="search" placeholder="Search Google…" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKeyDown} />
+        <input
+          className="search-bar-input"
+          type="search"
+          placeholder="Find service…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onKeyDown={handleKeyDown}
+        />
+        {focused && showDrop && (
+          <div className="search-results-drop">
+            <ResultItems />
+          </div>
+        )}
       </div>
       <button className="search-icon-btn" onClick={() => setMobileOpen(true)} aria-label="Search">
         <SearchIcon />
       </button>
       {mobileOpen && (
         <div className="search-mobile-overlay">
-          <div className="search-mobile-wrap">
-            <span className="search-bar-icon"><SearchIcon /></span>
-            <input ref={inputRef} className="search-bar-input" type="search" placeholder="Search Google…" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={handleKeyDown} />
+          <div className="search-mobile-top">
+            <div className="search-mobile-wrap">
+              <span className="search-bar-icon"><SearchIcon /></span>
+              <input
+                ref={inputRef}
+                className="search-bar-input"
+                type="search"
+                placeholder="Find service…"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+            </div>
+            <button className="search-cancel-btn" onClick={dismiss}>Cancel</button>
           </div>
-          <button className="search-cancel-btn" onClick={() => { setMobileOpen(false); setQuery(""); }}>Cancel</button>
+          {showDrop && (
+            <div className="search-results-drop search-results-drop-mobile">
+              <ResultItems />
+            </div>
+          )}
         </div>
       )}
     </>
@@ -1002,7 +1122,7 @@ function DataProvider({ children }) {
     cpu: null, mem: null, memswap: null, sensors: [],
     uptime: null, network: null, docker: null,
     processes: null, fs: null, diskio: null,
-    quicklook: null, alert: [],
+    alert: [],
   });
   const [connected, setConnected] = useState(true);
   const [glHistory, setGlHistory]     = useState({ cpu: [], lan: { rx: [], tx: [] }, ts: { rx: [], tx: [] } });
@@ -1062,17 +1182,6 @@ function DataProvider({ children }) {
     }
     run();
     const id = setInterval(run, POLL_INTERVAL);
-    return () => clearInterval(id);
-  }, []);
-
-  // ── Glances quicklook (5s) ─────────────────────────────────────
-  useEffect(() => {
-    function run() {
-      fetch(`${GLANCES_API}/quicklook`).then(r => r.json())
-        .then(quicklook => setGlances(prev => ({ ...prev, quicklook }))).catch(() => {});
-    }
-    run();
-    const id = setInterval(run, 5000);
     return () => clearInterval(id);
   }, []);
 
@@ -1588,6 +1697,31 @@ function SettingsPanel({ colors, onChange, onClose, onResetLayout }) {
     Object.keys(t.colors).every(k => t.colors[k] === colors[k])
   );
 
+  const [sysInfo, setSysInfo]   = useState(null);
+  const [sysFetch, setSysFetch] = useState(false);
+
+  useEffect(() => {
+    if (sysInfo || sysFetch) return;
+    setSysFetch(true);
+    Promise.all([
+      fetch(`${GLANCES_API}/system`).then(r => r.json()).catch(() => null),
+      fetch(`${GLANCES_API}/version`).then(r => r.json()).catch(() => null),
+      fetch(`${GLANCES_API}/core`).then(r => r.json()).catch(() => null),
+      fetch(`${GLANCES_API}/psutilversion`).then(r => r.json()).catch(() => null),
+      fetch(`${GLANCES_API}/ip`).then(r => r.json()).catch(() => null),
+    ]).then(([system, version, core, psutil, ip]) => {
+      setSysInfo({ system, version, core, psutil, ip });
+      setSysFetch(false);
+    });
+  }, []);
+
+  const ver        = sysInfo?.version;
+  const glancesVer = typeof ver === "string" ? ver : (ver?.version ?? ver?.glances ?? null);
+  const psutilVer  = typeof sysInfo?.psutil === "string" ? sysInfo.psutil : (sysInfo?.psutil?.version ?? null);
+  const cores      = sysInfo?.core;
+  const sys        = sysInfo?.system;
+  const ip         = sysInfo?.ip;
+
   return (
     <div className="settings-panel">
       <div className="settings-panel-header">
@@ -1642,6 +1776,34 @@ function SettingsPanel({ colors, onChange, onClose, onResetLayout }) {
         Resets the main page to all Small cards, arranged alphabetically.
       </div>
       <button className="reset-btn" onClick={onResetLayout} style={{ width: "100%" }}>Reset layout</button>
+
+      <div className="settings-section-lbl">System Information</div>
+      {sysFetch ? (
+        <div className="sysinfo-loading">Loading…</div>
+      ) : (
+        <>
+          <div className="sysinfo-heading">System</div>
+          {sys?.hostname     && <SysRow label="Hostname"  value={sys.hostname} />}
+          {sys?.os_name      && <SysRow label="OS"        value={`${sys.os_name} ${sys.os_version ?? ""}`.trim()} />}
+          {sys?.linux_distro && <SysRow label="Distro"    value={sys.linux_distro} />}
+          {sys?.platform     && <SysRow label="Platform"  value={sys.platform} />}
+          {cores             && <SysRow label="CPU Cores" value={`${cores.phys_cores ?? "—"} phys / ${cores.log_cores ?? "—"} logical`} />}
+          {ip && (
+            <>
+              <div className="sysinfo-divider" />
+              <div className="sysinfo-heading">Network</div>
+              {ip.address        && <SysRow label="Local IP"  value={ip.address} />}
+              {ip.mask           && <SysRow label="Mask"      value={ip.mask} />}
+              {ip.gateway        && <SysRow label="Gateway"   value={ip.gateway} />}
+              {ip.public_address && <SysRow label="Public IP" value={ip.public_address} />}
+            </>
+          )}
+          <div className="sysinfo-divider" />
+          <div className="sysinfo-heading">Versions</div>
+          {glancesVer && <SysRow label="Glances" value={glancesVer} />}
+          {psutilVer  && <SysRow label="psutil"  value={psutilVer} />}
+        </>
+      )}
     </div>
   );
 }
@@ -2444,106 +2606,13 @@ function DraggableGrid({ pageKey, items, resizable, defaultSizes, defaultPositio
   );
 }
 
-// ─── SYSTEM INFO BUTTON ──────────────────────────────────────────
+// ─── SYSTEM INFO ROW ─────────────────────────────────────────────
 const SysRow = ({ label, value }) => (
   <div className="sysinfo-row">
     <span className="sysinfo-lbl">{label}</span>
     <span className="sysinfo-val">{value}</span>
   </div>
 );
-
-function InfoButton() {
-  const [open, setOpen]       = useState(false);
-  const [info, setInfo]       = useState(null);
-  const [fetching, setFetch]  = useState(false);
-  const [pos, setPos]         = useState({ top: 0, left: 0 });
-  const wrapRef               = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const rect = wrapRef.current?.getBoundingClientRect();
-    if (rect) {
-      if (window.innerWidth <= 600) {
-        const headerBottom = document.querySelector('.header')?.getBoundingClientRect().bottom ?? rect.bottom;
-        setPos({ top: headerBottom + 8, left: 8, right: 8, width: 'auto' });
-      } else {
-        const popW = 270 + 8; // min-width + right padding
-        const left = Math.min(rect.left, window.innerWidth - popW);
-        setPos({ top: rect.bottom + 10, left: Math.max(8, left) });
-      }
-    }
-  }, [open]);
-
-  useEffect(() => {
-    if (!open || info || fetching) return;
-    setFetch(true);
-    Promise.all([
-      fetch(`${GLANCES_API}/system`).then(r => r.json()).catch(() => null),
-      fetch(`${GLANCES_API}/version`).then(r => r.json()).catch(() => null),
-      fetch(`${GLANCES_API}/core`).then(r => r.json()).catch(() => null),
-      fetch(`${GLANCES_API}/psutilversion`).then(r => r.json()).catch(() => null),
-      fetch(`${GLANCES_API}/ip`).then(r => r.json()).catch(() => null),
-    ]).then(([system, version, core, psutil, ip]) => {
-      setInfo({ system, version, core, psutil, ip });
-      setFetch(false);
-    });
-  }, [open, info, fetching]);
-
-  const ver = info?.version;
-  const glancesVer = typeof ver === "string" ? ver : (ver?.version ?? ver?.glances ?? null);
-  const psutilVer  = typeof info?.psutil === "string" ? info.psutil : (info?.psutil?.version ?? null);
-  const cores      = info?.core;
-  const sys        = info?.system;
-  const ip         = info?.ip;
-
-  return (
-    <div className="sysinfo-wrap" ref={wrapRef}>
-      <button
-        className={`sysinfo-btn${open ? " active" : ""}`}
-        onClick={() => setOpen(o => !o)}
-        aria-label="System information"
-      >
-        i
-      </button>
-      {open && createPortal(
-        <div className="sysinfo-popover fade-in" style={pos}>
-          {fetching ? (
-            <div className="sysinfo-loading">Loading…</div>
-          ) : (
-            <>
-              <div className="sysinfo-heading">System</div>
-              {sys?.hostname    && <SysRow label="Hostname" value={sys.hostname} />}
-              {sys?.os_name     && <SysRow label="OS"       value={`${sys.os_name} ${sys.os_version ?? ""}`.trim()} />}
-              {sys?.linux_distro && <SysRow label="Distro"  value={sys.linux_distro} />}
-              {sys?.platform    && <SysRow label="Platform" value={sys.platform} />}
-              {cores            && <SysRow label="CPU Cores" value={`${cores.phys_cores ?? "—"} phys / ${cores.log_cores ?? "—"} logical`} />}
-              {ip && (<>
-                <div className="sysinfo-divider" />
-                <div className="sysinfo-heading">Network</div>
-                {ip.address    && <SysRow label="Local IP"   value={ip.address} />}
-                {ip.mask       && <SysRow label="Mask"       value={ip.mask} />}
-                {ip.gateway    && <SysRow label="Gateway"    value={ip.gateway} />}
-                {ip.public_address && <SysRow label="Public IP"  value={ip.public_address} />}
-              </>)}
-              <div className="sysinfo-divider" />
-              <div className="sysinfo-heading">Versions</div>
-              {glancesVer  && <SysRow label="Glances" value={glancesVer} />}
-              {psutilVer   && <SysRow label="psutil"  value={psutilVer} />}
-            </>
-          )}
-        </div>,
-        document.body
-      )}
-    </div>
-  );
-}
 
 // ─── NAV SIDEBAR ─────────────────────────────────────────────────
 const NAV_ITEMS = [
@@ -2557,8 +2626,6 @@ const NAV_ITEMS = [
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> },
   { id: "downloads",  label: "Downloads & Transcodes", shortLabel: "Downloads", abbr: "DL", col: "#2979FF",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> },
-  { id: "quick-look", label: "Quick Look",             shortLabel: "Quick",     abbr: "QL", col: "#22D3A7",
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15.65" y2="15.65"/></svg> },
 ];
 
 function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onThemeChange, alerts, onResetLayout }) {
@@ -2651,7 +2718,7 @@ const SettingsCogIcon = () => (
 );
 
 function BottomTabBar({ activePage, onNavigate, settingsOpen, onSettingsToggle }) {
-  const tabs = NAV_ITEMS.filter(item => item.id !== "quick-look");
+  const tabs = NAV_ITEMS;
   return (
     <nav className="bottom-tab-bar">
       {tabs.map((item) => (
@@ -2729,7 +2796,7 @@ function Skeleton() {
 }
 
 // ─── MAIN PAGE (system dashboard) ────────────────────────────────
-function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
+function MainPage({ onMenuToggle, onNavigate, bellProps, layoutResetKey }) {
   const { glances: data, connected, glHistory: history, diskHistory: diskioHistory } = useData();
   const [time, setTime] = useState(new Date());
   const [containerView, setContainerView] = useState(false);
@@ -2940,7 +3007,7 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
           <Logo size={38} />
         </div>
         <div className="header-right">
-          <SearchBar />
+          <SearchBar navigate={onNavigate} />
           {data.uptime && (
             <div className="uptime-strip">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -2952,7 +3019,6 @@ function MainPage({ onMenuToggle, bellProps, layoutResetKey }) {
             <PencilIcon />
           </button>
           {bellProps && <NotificationBell {...bellProps} />}
-          <InfoButton />
           <div className="live-badge">
             <div className="live-dot" style={{ background: connected ? "var(--accent)" : "var(--crit)" }} />
             <span className="live-label">{connected ? "LIVE" : "OFFLINE"}</span>
@@ -3461,7 +3527,7 @@ function PageHeader({ title, onMenuToggle, onNavigate, bellProps, onEditLayout }
         </div>
       </div>
       <div className="header-right">
-        <SearchBar />
+        <SearchBar navigate={onNavigate} />
         {typeof uptime === "string" && (
           <div className="uptime-strip">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -3583,95 +3649,6 @@ function DownloadsPage({ onMenuToggle, onNavigate, bellProps }) {
         <DraggableGrid pageKey="downloads" items={items} resizable={new Set(["qbittorrent","unmanic"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} onReorder={setMobileOrder} />
       </div>
       {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
-    </div>
-  );
-}
-
-// ─── QUICK LOOK PAGE ─────────────────────────────────────────────
-function QuickLookPage({ onMenuToggle, onNavigate, bellProps }) {
-  const { glances: { quicklook: data } } = useData();
-  const loading = data === null;
-
-  if (loading) {
-    return (
-      <div className="shell">
-        <PageHeader title="Quick Look" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
-        <div className="page-content">
-          <div className="loading" style={{ paddingTop: 60 }}>
-            <Logo size={36} />
-            <div style={{ marginTop: 12, opacity: 0.5, fontSize: 13 }}>Loading…</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const cpu  = data?.cpu  ?? 0;
-  const mem  = data?.mem  ?? 0;
-  const swap = data?.swap ?? 0;
-  const loadArr = Array.isArray(data?.load)
-    ? data.load
-    : [data?.load?.min1 ?? data?.load1 ?? 0, data?.load?.min5 ?? data?.load5 ?? 0, data?.load?.min15 ?? data?.load15 ?? 0];
-  const percpu = Array.isArray(data?.percpu)
-    ? data.percpu.map(c => c.total ?? c.cpu_percent ?? 0)
-    : [];
-
-  return (
-    <div className="shell">
-      <PageHeader title="Quick Look" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
-      <div className="page-content">
-      <div className="ql-wrap">
-
-        <div className="ql-section">
-          <div className="ql-row-header">
-            <span className="ql-label">CPU</span>
-            <span className="ql-value" style={{ color: statusColor(cpu) }}>{cpu.toFixed(1)}%</span>
-          </div>
-          <Bar value={cpu} height={8} />
-          {percpu.length > 0 && (
-            <div className="ql-cores">
-              {percpu.map((v, i) => (
-                <div key={i} className="ql-core-col">
-                  <div className="ql-core-track">
-                    <div className="ql-core-fill" style={{ height: `${Math.min(100, Math.max(2, v))}%`, background: statusColor(v) }} />
-                  </div>
-                  <div className="ql-core-num">{Math.round(v)}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="ql-section">
-          <div className="ql-row-header">
-            <span className="ql-label">Memory</span>
-            <span className="ql-value" style={{ color: statusColor(mem) }}>{mem.toFixed(1)}%</span>
-          </div>
-          <Bar value={mem} height={8} />
-        </div>
-
-        <div className="ql-section">
-          <div className="ql-row-header">
-            <span className="ql-label">Swap</span>
-            <span className="ql-value" style={{ color: statusColor(swap) }}>{swap.toFixed(1)}%</span>
-          </div>
-          <Bar value={swap} height={8} />
-        </div>
-
-        <div className="ql-section">
-          <div className="ql-label" style={{ marginBottom: 0 }}>Load Average</div>
-          <div className="ql-load-row">
-            {["1m", "5m", "15m"].map((lbl, i) => (
-              <div key={lbl} className="ql-load-item">
-                <div className="ql-load-val">{(loadArr[i] ?? 0).toFixed(2)}</div>
-                <div className="ql-load-lbl">{lbl}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-      </div>
-      </div>
     </div>
   );
 }
@@ -3798,12 +3775,11 @@ function AppInner() {
         onResetLayout={resetLayout}
       />
 
-      {activePage === "main"       && <MainPage            onMenuToggle={toggleMenu} bellProps={bellProps} layoutResetKey={layoutResetKey} />}
+      {activePage === "main"       && <MainPage            onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} layoutResetKey={layoutResetKey} />}
       {activePage === "media-auto" && <MediaAutomationPage onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "media-srv"  && <MediaServerPage     onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "mgmt"       && <ManagementPage      onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "downloads"  && <DownloadsPage        onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
-      {activePage === "quick-look" && <QuickLookPage        onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
 
       <BottomTabBar
         activePage={activePage}
