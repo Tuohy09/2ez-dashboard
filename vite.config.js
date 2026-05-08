@@ -97,12 +97,10 @@ function qbtAuthPlugin() {
 
 export default defineConfig({
   plugins: [react(), qbtAuthPlugin()],
+  build: { sourcemap: true },
   server: {
     proxy: {
       '/api':       { target: 'http://192.168.0.170:61208', changeOrigin: true },
-      '/jellyfin':  { target: 'https://2ez.dinosaur-banana.ts.net', changeOrigin: true },
-      '/navidrome': { target: 'https://2ez.dinosaur-banana.ts.net', changeOrigin: true },
-      '/unmanic':   { target: 'http://192.168.0.170:8888',  changeOrigin: true },
       '/speedtest': { target: 'http://192.168.0.170:8083',  changeOrigin: true, rewrite: (p) => p.replace(/^\/speedtest/, '') },
     }
   }

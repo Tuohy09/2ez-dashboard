@@ -1158,7 +1158,7 @@ function DataProvider({ children }) {
         .then(memswap => setGlances(prev => ({ ...prev, memswap: { percent: memswap?.percent || 0, used: memswap?.used || 0, total: memswap?.total || 0, sin: memswap?.sin || 0, sout: memswap?.sout || 0 } })))
         .catch(() => {});
       fetch(`${GLANCES_API}/sensors`).then(r => r.json())
-        .then(sensors => setGlances(prev => ({ ...prev, sensors: (sensors || []).filter(s => s.type === "temperature_core").slice(0, 5).map(s => ({ label: s.label, value: s.value, unit: "C" })) })))
+        .then(sensors => setGlances(prev => ({ ...prev, sensors: (Array.isArray(sensors) ? sensors : []).filter(s => s.type === "temperature_core").slice(0, 5).map(s => ({ label: s.label, value: s.value, unit: "C" })) })))
         .catch(() => {});
       fetch(`${GLANCES_API}/uptime`).then(r => r.json())
         .then(uptime => setGlances(prev => ({ ...prev, uptime: typeof uptime === "string" ? uptime : "—" })))
@@ -1176,7 +1176,7 @@ function DataProvider({ children }) {
         .then(processlist => setGlances(prev => ({ ...prev, processes: Array.isArray(processlist) ? processlist : [] })))
         .catch(() => {});
       Promise.all([fetch(`${GLANCES_API}/fs`).then(r => r.json()).catch(() => null), fetch(`${GLANCES_API}/diskio`).then(r => r.json()).catch(() => null)])
-        .then(([fs, diskio]) => setGlances(prev => ({ ...prev, fs: fs || [], diskio: diskio || [] }))).catch(() => {});
+        .then(([fs, diskio]) => setGlances(prev => ({ ...prev, fs: Array.isArray(fs) ? fs : [], diskio: Array.isArray(diskio) ? diskio : [] }))).catch(() => {});
       Promise.all([fetch(`${GLANCES_API}/cpu`).then(r => r.json()).catch(() => null), fetch(`${GLANCES_API}/percpu`).then(r => r.json()).catch(() => null)])
         .then(([cpu, percpu]) => setGlances(prev => ({ ...prev, cpu: { total: cpu?.total || 0, cores: Array.isArray(percpu) ? percpu.map(c => c.total) : [], model: cpu?.cpucore ? `${cpu.cpucore} cores` : "", freq: cpu?.cpufreq_current || 0 } }))).catch(() => {});
     }
@@ -1257,7 +1257,7 @@ function DataProvider({ children }) {
 
   // ── Jellyfin sessions (15s) + counts (60s) ────────────────────
   useEffect(() => {
-    function run() { fetch(`/jellyfin/Sessions?api_key=${JF_KEY}`).then(r => r.json()).then(sessions => setJellyfin(prev => ({ ...prev, sessions }))).catch(() => {}); }
+    function run() { fetch(`/jellyfin/Sessions?api_key=${JF_KEY}`).then(r => r.json()).then(sessions => setJellyfin(prev => ({ ...prev, sessions: Array.isArray(sessions) ? sessions : null }))).catch(() => {}); }
     run(); const id = setInterval(run, 15000); return () => clearInterval(id);
   }, []);
   useEffect(() => {
@@ -1276,14 +1276,14 @@ function DataProvider({ children }) {
   useEffect(() => {
     function run() {
       fetch(`/navidrome/rest/getArtists.view?${NAV_PARAMS}`).then(r => r.json())
-        .then(d => { const idx = d["subsonic-response"]?.artists?.index || []; setNavidrome(prev => ({ ...prev, artistCount: idx.reduce((n, i) => n + (i.artist?.length || 0), 0) })); }).catch(() => {});
+        .then(d => { const idx = Array.isArray(d["subsonic-response"]?.artists?.index) ? d["subsonic-response"].artists.index : []; setNavidrome(prev => ({ ...prev, artistCount: idx.reduce((n, i) => n + (i.artist?.length || 0), 0) })); }).catch(() => {});
     }
     run(); const id = setInterval(run, 120000); return () => clearInterval(id);
   }, []);
   useEffect(() => {
     function run() {
       fetch(`/navidrome/rest/getAlbumList2.view?type=newest&size=3&${NAV_PARAMS}`).then(r => r.json())
-        .then(d => { setNavidrome(prev => ({ ...prev, recentAlbums: d["subsonic-response"]?.albumList2?.album || [] })); }).catch(() => {});
+        .then(d => { const album = d["subsonic-response"]?.albumList2?.album; setNavidrome(prev => ({ ...prev, recentAlbums: Array.isArray(album) ? album : [] })); }).catch(() => {});
     }
     run(); const id = setInterval(run, 60000); return () => clearInterval(id);
   }, []);
@@ -1332,8 +1332,9 @@ function JellyfinWidget() {
   const s = SVC.jellyfin;
   const { jellyfin: { sessions, counts } } = useData();
 
-  const activeStreams = sessions ? sessions.filter(s => s.NowPlayingItem).length : null;
-  const nowPlaying   = sessions ? sessions.filter(s => s.NowPlayingItem) : [];
+  const sessArr      = Array.isArray(sessions) ? sessions : [];
+  const activeStreams = sessions != null ? sessArr.filter(s => s.NowPlayingItem).length : null;
+  const nowPlaying   = sessArr.filter(s => s.NowPlayingItem);
 
   return (
     <a href={s.url} target="_blank" rel="noopener noreferrer" className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
@@ -1952,7 +1953,7 @@ function AlertsPanel({ alerts, onClose }) {
     () => parseInt(localStorage.getItem("2ez-alerts-cleared") || "0", 10)
   );
 
-  const all     = alerts || [];
+  const all     = Array.isArray(alerts) ? alerts : [];
   const active  = all.filter(a => a.end === -1);
   const crits   = active.filter(a => a.state === "CRITICAL").length;
   const warns   = active.filter(a => a.state === "WARNING").length;
@@ -2179,11 +2180,11 @@ function useSortable(pageKey, defaultOrder, containerRef) {
   const [order, setOrder] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(`2ez-order-${pageKey}`) || "null");
-      if (!Array.isArray(saved)) return defaultOrder;
+      if (!Array.isArray(saved)) return [...defaultOrder];
       const valid = saved.filter(id => defaultOrder.includes(id));
       const added = defaultOrder.filter(id => !valid.includes(id));
       return [...valid, ...added];
-    } catch { return defaultOrder; }
+    } catch { return [...defaultOrder]; }
   });
 
   useEffect(() => {
@@ -2328,8 +2329,10 @@ function useDraggableGrid(pageKey, ids, defaultSizes, defaultPositions, onAutoRe
   const [sizes, setSizes] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(`2ez-sizes-${pageKey}`) || "null");
-      return { ...defaultSizes, ...(saved || {}) };
-    } catch { return defaultSizes; }
+      if (saved && typeof saved === "object" && !Array.isArray(saved))
+        return { ...defaultSizes, ...saved };
+    } catch {}
+    return { ...defaultSizes };
   });
   useEffect(() => {
     localStorage.setItem(`2ez-sizes-${pageKey}`, JSON.stringify(sizes));
@@ -2632,7 +2635,7 @@ function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onTh
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [alertsOpen,   setAlertsOpen]   = useState(false);
 
-  const activeAlerts = (alerts || []).filter(a => a.end === -1);
+  const activeAlerts = (Array.isArray(alerts) ? alerts : []).filter(a => a.end === -1);
   const hasCrit = activeAlerts.some(a => a.state === "CRITICAL");
   const hasWarn = activeAlerts.some(a => a.state === "WARNING");
 
@@ -2846,8 +2849,10 @@ function MainPage({ onMenuToggle, onNavigate, bellProps, layoutResetKey }) {
   const [cardSizes, setCardSizes] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("2ez-card-sizes") || "null");
-      return { ...DEFAULT_CARD_SIZES, ...(saved || {}) };
-    } catch { return DEFAULT_CARD_SIZES; }
+      if (saved && typeof saved === "object" && !Array.isArray(saved))
+        return { ...DEFAULT_CARD_SIZES, ...saved };
+    } catch {}
+    return { ...DEFAULT_CARD_SIZES };
   });
 
   useEffect(() => {
@@ -3665,7 +3670,10 @@ function AppInner() {
   const [themeColors, setThemeColors] = useState(() => {
     try {
       const saved = localStorage.getItem("2ez-theme");
-      return saved ? JSON.parse(saved) : DEFAULT_THEME;
+      if (!saved) return DEFAULT_THEME;
+      const parsed = JSON.parse(saved);
+      return (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+        ? parsed : DEFAULT_THEME;
     } catch { return DEFAULT_THEME; }
   });
 
@@ -3684,8 +3692,10 @@ function AppInner() {
 
   // ── Notifications ──────────────────────────────────────────────
   const [notifications, setNotifications] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("2ez-notifications") || "[]"); }
-    catch { return []; }
+    try {
+      const parsed = JSON.parse(localStorage.getItem("2ez-notifications") || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
   });
   useEffect(() => {
     localStorage.setItem("2ez-notifications", JSON.stringify(notifications));
@@ -3699,11 +3709,16 @@ function AppInner() {
   const { glances: { alert: alerts } } = useData();
 
   const seenAlertIds = useRef(new Set(
-    JSON.parse(localStorage.getItem("2ez-seen-alerts") || "[]")
+    (() => {
+      try {
+        const parsed = JSON.parse(localStorage.getItem("2ez-seen-alerts") || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+      } catch { return []; }
+    })()
   ));
 
   useEffect(() => {
-    if (!alerts) return;
+    if (!Array.isArray(alerts) || alerts.length === 0) return;
     let changed = false;
     alerts.filter(a => a.end === -1).forEach(a => {
       const id = `alert_${a.type}_${a.begin}`;
