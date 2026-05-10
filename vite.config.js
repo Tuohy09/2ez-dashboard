@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-const QBT_BASE = 'http://192.168.0.170:8080'
+const QBT_BASE = 'https://2ez.dinosaur-banana.ts.net:8081'
 const QBT_CREDS = 'username=tuohy&password=Angcoops'
 
 function qbtAuthPlugin() {
