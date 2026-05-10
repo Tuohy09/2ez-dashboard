@@ -28,8 +28,8 @@ const SVC = {
   lrcget:      { id: "lrcget",      name: "LRCGET",         url: "http://100.107.207.57:5800",                   abbr: "LR", col: "#F59E0B", desc: "Lyrics fetcher"         },
   jellyfin:    { id: "jellyfin",    name: "Jellyfin",       url: "https://2ez.dinosaur-banana.ts.net/jellyfin",  abbr: "JF", col: "#00A4DC", desc: "Media server"           },
   navidrome:   { id: "navidrome",   name: "Navidrome",      url: "https://2ez.dinosaur-banana.ts.net/navidrome", abbr: "NV", col: "#F97316", desc: "Music server"           },
-  qbt:         { id: "qbt",         name: "qBittorrent",    url: "http://192.168.0.170:8080",                    abbr: "QB", col: "#2979FF", desc: "Torrent client"         },
-  unmanic:     { id: "unmanic",     name: "Unmanic",        url: "http://192.168.0.170:8888/unmanic/",           abbr: "UM", col: "#FF6D00", desc: "Media transcoder"       },
+  qbt:         { id: "qbt",         name: "qBittorrent",    url: "https://2ez.dinosaur-banana.ts.net:8081",      abbr: "QB", col: "#2979FF", desc: "Torrent client"         },
+  unmanic:     { id: "unmanic",     name: "Unmanic",        url: "https://2ez.dinosaur-banana.ts.net/unmanic",   abbr: "UM", col: "#FF6D00", desc: "Media transcoder"       },
   speedtest:   { id: "speedtest",   name: "Speedtest",      url: "http://192.168.0.170:8083",                    abbr: "ST", col: "#22D3A7", desc: "Speed history"          },
   uptimekuma:  { id: "uptimekuma",  name: "Uptime Kuma",    url: "http://192.168.0.170:3001",                    abbr: "UK", col: "#5CDD8B", desc: "Service monitoring"     },
 };
