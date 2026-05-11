@@ -19,7 +19,7 @@ const SVC = {
   bazarr:      { id: "bazarr",      name: "Bazarr",         url: "https://2ez.dinosaur-banana.ts.net/bazarr",    abbr: "BZ", col: "#14B8A6", desc: "Subtitle management"    },
   seerr:       { id: "seerr",       name: "Seerr",          url: "https://2ez.dinosaur-banana.ts.net:5056",      abbr: "SE", col: "#6366F1", desc: "Media requests"         },
   nextcloud:   { id: "nextcloud",   name: "Nextcloud",      url: "https://2ez.dinosaur-banana.ts.net:8444",      abbr: "NC", col: "#0082C9", desc: "File sync & share"      },
-  immich:      { id: "immich",      name: "Immich",         url: "https://2ez.dinosaur-banana.ts.net:2284",      abbr: "IC", col: "#F59E0B", desc: "Photo management"       },
+  immich:      { id: "immich",      name: "Immich",         url: "http://2ez.dinosaur-banana.ts.net:2283",       abbr: "IC", col: "#F59E0B", desc: "Photo management"       },
   cockpit:     { id: "cockpit",     name: "Cockpit",        url: "https://2ez.dinosaur-banana.ts.net:9091",      abbr: "CP", col: "#EF4444", desc: "System management"      },
   dockge:      { id: "dockge",      name: "Dockge",         url: "https://2ez.dinosaur-banana.ts.net:5002",      abbr: "DK", col: "#22D3A7", desc: "Container management"   },
   filebrowser: { id: "filebrowser", name: "File Browser",   url: "https://2ez.dinosaur-banana.ts.net:8084",      abbr: "FB", col: "#8B5CF6", desc: "Web file manager"       },
