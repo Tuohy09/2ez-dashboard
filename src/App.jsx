@@ -30,8 +30,8 @@ const SVC = {
   navidrome:   { id: "navidrome",   name: "Navidrome",      url: "https://2ez.dinosaur-banana.ts.net/navidrome", abbr: "NV", col: "#F97316", desc: "Music server"           },
   qbt:         { id: "qbt",         name: "qBittorrent",    url: "https://2ez.dinosaur-banana.ts.net:8081",      abbr: "QB", col: "#2979FF", desc: "Torrent client"         },
   unmanic:     { id: "unmanic",     name: "Unmanic",        url: "https://2ez.dinosaur-banana.ts.net/unmanic",   abbr: "UM", col: "#FF6D00", desc: "Media transcoder"       },
-  speedtest:   { id: "speedtest",   name: "Speedtest",      url: "http://192.168.0.170:8083",                    abbr: "ST", col: "#22D3A7", desc: "Speed history"          },
-  uptimekuma:  { id: "uptimekuma",  name: "Uptime Kuma",    url: "http://192.168.0.170:3001",                    abbr: "UK", col: "#5CDD8B", desc: "Service monitoring"     },
+  speedtest:   { id: "speedtest",   name: "Speedtest",      url: "http://2ez.dinosaur-banana.ts.net:8083",       abbr: "ST", col: "#22D3A7", desc: "Speed history"          },
+  uptimekuma:  { id: "uptimekuma",  name: "Uptime Kuma",    url: "http://100.107.207.57:3001",                   abbr: "UK", col: "#5CDD8B", desc: "Service monitoring"     },
 };
 
 // ─── SERVICE SEARCH INDEX ────────────────────────────────────────
