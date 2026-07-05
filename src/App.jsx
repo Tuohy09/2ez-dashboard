@@ -32,13 +32,14 @@ const SVC = {
   unmanic:     { id: "unmanic",     name: "Unmanic",        url: "https://2ez.dinosaur-banana.ts.net/unmanic",   abbr: "UM", col: "#FF6D00", desc: "Media transcoder"       },
   speedtest:   { id: "speedtest",   name: "Speedtest",      url: "http://2ez.dinosaur-banana.ts.net:8083",       abbr: "ST", col: "#22D3A7", desc: "Speed history"          },
   uptimekuma:  { id: "uptimekuma",  name: "Uptime Kuma",    url: "http://100.107.207.57:3001",                   abbr: "UK", col: "#5CDD8B", desc: "Service monitoring"     },
+  wud:         { id: "wud",         name: "What's Up Docker", url: "http://192.168.0.170:3002/",                 abbr: "WD", col: "#2496ED", desc: "Docker update monitor"  },
 };
 
 // ─── SERVICE SEARCH INDEX ────────────────────────────────────────
 const SERVICE_INDEX = [
   ...["sonarr","radarr","prowlarr","bazarr","beetsflask","slskd","lrcget"].map(id => ({ svcId: id, page: "media-auto", pageLabel: "Media Automation" })),
   ...["jellyfin","navidrome","seerr","immich","nextcloud"].map(id => ({ svcId: id, page: "media-srv", pageLabel: "Media Server" })),
-  ...["cockpit","dockge","speedtest","filebrowser","uptimekuma"].map(id => ({ svcId: id, page: "mgmt", pageLabel: "Management" })),
+  ...["cockpit","dockge","speedtest","filebrowser","uptimekuma","wud"].map(id => ({ svcId: id, page: "mgmt", pageLabel: "Management" })),
   { svcId: "qbt",     page: "downloads", pageLabel: "Downloads" },
   { svcId: "unmanic", page: "downloads", pageLabel: "Downloads" },
 ].map(e => ({ ...e, name: SVC[e.svcId].name, desc: SVC[e.svcId].desc }));
@@ -83,6 +84,8 @@ const ICON_PATHS = {
   speedtest: <><circle cx="12" cy="12" r="10"/><path d="M12 6v2M7.05 7.05l1.41 1.41M5 13H3M21 13h-2M17.54 8.46l-1.41 1.41"/><path d="M12 13l-3-5"/><circle cx="12" cy="13" r="1.5" fill="currentColor" stroke="none"/></>,
   // Heartbeat line — Uptime Kuma
   uptimekuma: <><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></>,
+  // Refresh arrows — What's Up Docker
+  wud: <><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></>,
 };
 
 function SvcIcon({ id, color, size = 20 }) {
@@ -3607,7 +3610,7 @@ function MediaServerPage({ onMenuToggle, onNavigate, bellProps }) {
 
 // ─── MANAGEMENT PAGE ─────────────────────────────────────────────
 function ManagementPage({ onMenuToggle, onNavigate, bellProps }) {
-  const defaultIds = ["cockpit", "dockge", "speedtest", "filebrowser", "uptimekuma"];
+  const defaultIds = ["cockpit", "dockge", "speedtest", "filebrowser", "uptimekuma", "wud"];
   const [mobileOrder, setMobileOrder] = useMobileOrder("mgmt", defaultIds);
   const [editOpen, setEditOpen] = useState(false);
   const items = [
@@ -3616,11 +3619,12 @@ function ManagementPage({ onMenuToggle, onNavigate, bellProps }) {
     { id: "speedtest",   node: <SpeedtestWidget /> },
     { id: "filebrowser", node: <SvcCard id="filebrowser" /> },
     { id: "uptimekuma",  node: <SvcCard id="uptimekuma" /> },
+    { id: "wud",         node: <SvcCard id="wud" /> },
   ];
   const modalItems = defaultIds.map(id => ({ id, label: SVC[id]?.name ?? id }));
-  const defaultSizes = { cockpit: "compact", dockge: "compact", speedtest: "medium", filebrowser: "compact", uptimekuma: "compact" };
+  const defaultSizes = { cockpit: "compact", dockge: "compact", speedtest: "medium", filebrowser: "compact", uptimekuma: "compact", wud: "compact" };
   const defaultPositions = {
-    cockpit: {col:1,row:1}, dockge: {col:1,row:2}, speedtest: {col:2,row:1}, filebrowser: {col:3,row:1}, uptimekuma: {col:4,row:1},
+    cockpit: {col:1,row:1}, dockge: {col:1,row:2}, speedtest: {col:2,row:1}, filebrowser: {col:3,row:1}, uptimekuma: {col:4,row:1}, wud: {col:4,row:2},
   };
   return (
     <div className="shell">
