@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 let appMounted = false;
 
 // ─── CONFIG ──────────────────────────────────────────────────────
-const GLANCES_API   = "/api/4";
+const SYS_API       = "/sys-api";
 const POLL_INTERVAL = 2000;
 const JF_KEY        = "176d8ddc607e4278b4f198723b69bd9e";
 const NAV_PARAMS    = "u=tuohy&t=c3414658e4154ef03e5453c495b3b06f&s=poopy1&v=1.16.1&c=2ez-dashboard&f=json";
@@ -1149,39 +1149,39 @@ function DataProvider({ children }) {
   // ── Glances main endpoints (2s) ────────────────────────────────
   useEffect(() => {
     function run() {
-      if (!GLANCES_API) {
+      if (!SYS_API) {
         setGlances(prev => generateMockData(prev));
         setConnected(true);
         return;
       }
-      fetch(`${GLANCES_API}/mem`).then(r => r.json())
+      fetch(`${SYS_API}/mem`).then(r => r.json())
         .then(mem => { setGlances(prev => ({ ...prev, mem: { percent: mem?.percent || 0, used: mem?.used || 0, total: mem?.total || 0 } })); setConnected(true); })
         .catch(() => setConnected(false));
-      fetch(`${GLANCES_API}/memswap`).then(r => r.json())
-        .then(memswap => setGlances(prev => ({ ...prev, memswap: { percent: memswap?.percent || 0, used: memswap?.used || 0, total: memswap?.total || 0, sin: memswap?.sin || 0, sout: memswap?.sout || 0 } })))
+      fetch(`${SYS_API}/swap`).then(r => r.json())
+        .then(swap => setGlances(prev => ({ ...prev, memswap: { percent: swap?.percent || 0, used: swap?.used || 0, total: swap?.total || 0, sin: swap?.sin || 0, sout: swap?.sout || 0 } })))
         .catch(() => {});
-      fetch(`${GLANCES_API}/sensors`).then(r => r.json())
+      fetch(`${SYS_API}/sensors`).then(r => r.json())
         .then(sensors => setGlances(prev => ({ ...prev, sensors: (Array.isArray(sensors) ? sensors : []).filter(s => s.type === "temperature_core").slice(0, 5).map(s => ({ label: s.label, value: s.value, unit: "C" })) })))
         .catch(() => {});
-      fetch(`${GLANCES_API}/uptime`).then(r => r.json())
+      fetch(`${SYS_API}/uptime`).then(r => r.json())
         .then(uptime => setGlances(prev => ({ ...prev, uptime: typeof uptime === "string" ? uptime : "—" })))
         .catch(() => {});
-      fetch(`${GLANCES_API}/network`).then(r => r.json())
+      fetch(`${SYS_API}/network`).then(r => r.json())
         .then(raw => {
           const ifaces = Array.isArray(raw) ? raw : [];
           const pick = (name) => { const n = ifaces.find(i => i.interface_name === name); return n ? { rx: n.bytes_recv_rate_per_sec || 0, tx: n.bytes_sent_rate_per_sec || 0 } : null; };
           setGlances(prev => ({ ...prev, network: { lan: pick("enp3s0"), ts: pick("tailscale0") } }));
         }).catch(() => {});
-      fetch(`${GLANCES_API}/containers`).then(r => r.json())
+      fetch(`${SYS_API}/containers`).then(r => r.json())
         .then(docker => setGlances(prev => ({ ...prev, docker: (Array.isArray(docker) ? docker : []).map(c => ({ name: c.name || "unknown", status: c.status || "stopped", cpu: c.cpu_percent || c.cpu?.total || 0, mem: c.memory_usage || c.memory?.usage || 0, net_rx: c.network_rx || c.network?.rx || 0, net_tx: c.network_tx || c.network?.tx || 0, uptime: c.uptime || "—" })) })))
         .catch(() => {});
-      fetch(`${GLANCES_API}/processlist`).then(r => r.json())
+      fetch(`${SYS_API}/processlist`).then(r => r.json())
         .then(processlist => setGlances(prev => ({ ...prev, processes: Array.isArray(processlist) ? processlist : [] })))
         .catch(() => {});
-      Promise.all([fetch(`${GLANCES_API}/fs`).then(r => r.json()).catch(() => null), fetch(`${GLANCES_API}/diskio`).then(r => r.json()).catch(() => null)])
+      Promise.all([fetch(`${SYS_API}/fs`).then(r => r.json()).catch(() => null), fetch(`${SYS_API}/diskio`).then(r => r.json()).catch(() => null)])
         .then(([fs, diskio]) => setGlances(prev => ({ ...prev, fs: Array.isArray(fs) ? fs : [], diskio: Array.isArray(diskio) ? diskio : [] }))).catch(() => {});
-      Promise.all([fetch(`${GLANCES_API}/cpu`).then(r => r.json()).catch(() => null), fetch(`${GLANCES_API}/percpu`).then(r => r.json()).catch(() => null)])
-        .then(([cpu, percpu]) => setGlances(prev => ({ ...prev, cpu: { total: cpu?.total || 0, cores: Array.isArray(percpu) ? percpu.map(c => c.total) : [], model: cpu?.cpucore ? `${cpu.cpucore} cores` : "", freq: cpu?.cpufreq_current || 0 } }))).catch(() => {});
+      fetch(`${SYS_API}/cpu`).then(r => r.json())
+        .then(cpu => setGlances(prev => ({ ...prev, cpu: { total: cpu?.total || 0, cores: Array.isArray(cpu?.cores) ? cpu.cores : [], model: cpu?.model || "", freq: cpu?.freq || 0 } }))).catch(() => {});
     }
     run();
     const id = setInterval(run, POLL_INTERVAL);
@@ -1191,7 +1191,7 @@ function DataProvider({ children }) {
   // ── Glances alerts (10s) ───────────────────────────────────────
   useEffect(() => {
     function run() {
-      fetch(`${GLANCES_API}/alert`).then(r => r.json())
+      fetch(`${SYS_API}/alert`).then(r => r.json())
         .then(alert => setGlances(prev => ({ ...prev, alert: Array.isArray(alert) ? alert : [] }))).catch(() => {});
     }
     run();
@@ -1707,21 +1707,14 @@ function SettingsPanel({ colors, onChange, onClose, onResetLayout }) {
   useEffect(() => {
     if (sysInfo || sysFetch) return;
     setSysFetch(true);
-    Promise.all([
-      fetch(`${GLANCES_API}/system`).then(r => r.json()).catch(() => null),
-      fetch(`${GLANCES_API}/version`).then(r => r.json()).catch(() => null),
-      fetch(`${GLANCES_API}/core`).then(r => r.json()).catch(() => null),
-      fetch(`${GLANCES_API}/psutilversion`).then(r => r.json()).catch(() => null),
-      fetch(`${GLANCES_API}/ip`).then(r => r.json()).catch(() => null),
-    ]).then(([system, version, core, psutil, ip]) => {
-      setSysInfo({ system, version, core, psutil, ip });
-      setSysFetch(false);
-    });
+    fetch(`${SYS_API}/info`).then(r => r.json()).catch(() => null)
+      .then(info => {
+        setSysInfo({ system: info?.system, core: info?.core, ip: info?.ip, backend: info?.backend });
+        setSysFetch(false);
+      });
   }, []);
 
-  const ver        = sysInfo?.version;
-  const glancesVer = typeof ver === "string" ? ver : (ver?.version ?? ver?.glances ?? null);
-  const psutilVer  = typeof sysInfo?.psutil === "string" ? sysInfo.psutil : (sysInfo?.psutil?.version ?? null);
+  const backend    = sysInfo?.backend ?? null;
   const cores      = sysInfo?.core;
   const sys        = sysInfo?.system;
   const ip         = sysInfo?.ip;
@@ -1802,10 +1795,13 @@ function SettingsPanel({ colors, onChange, onClose, onResetLayout }) {
               {ip.public_address && <SysRow label="Public IP" value={ip.public_address} />}
             </>
           )}
-          <div className="sysinfo-divider" />
-          <div className="sysinfo-heading">Versions</div>
-          {glancesVer && <SysRow label="Glances" value={glancesVer} />}
-          {psutilVer  && <SysRow label="psutil"  value={psutilVer} />}
+          {backend && (
+            <>
+              <div className="sysinfo-divider" />
+              <div className="sysinfo-heading">Backend</div>
+              <SysRow label="Metrics" value={backend} />
+            </>
+          )}
         </>
       )}
     </div>
@@ -3227,13 +3223,13 @@ function MainPage({ onMenuToggle, onNavigate, bellProps, layoutResetKey }) {
                   {!data.fs ? <Skeleton /> : data.fs
                     .filter(d =>
                       d.mnt_point.includes("ironwolf") ||
-                      d.mnt_point === "/host"
+                      d.mnt_point === "/"
                     )
                     .filter((d, i, arr) => arr.findIndex(x => x.device_name === d.device_name) === i)
                     .map((d, i) => {
                       const label =
                         d.mnt_point.endsWith("ironwolf") ? "Ironwolf 8TB" :
-                        d.mnt_point === "/host"           ? "Host"          :
+                        d.mnt_point === "/"               ? "Host"          :
                         d.mnt_point;
                       return (
                         <Bar key={d.mnt_point} value={d.percent} label={label}

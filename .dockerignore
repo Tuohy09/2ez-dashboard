@@ -1,0 +1,7 @@
+node_modules
+src
+public
+vite.config.js
+eslint.config.js
+README.md
+.git

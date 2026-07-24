@@ -1,0 +1,13 @@
+services:
+  2ez-dashboard:
+    build: .
+    container_name: 2ez-dashboard
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /etc/passwd:/host/etc/passwd:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /:/host-root:ro

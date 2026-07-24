@@ -26,4 +26,12 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // Node backend files (Express server + system-metrics reader)
+    files: ['server.js', 'sys-metrics.js', 'vite.config.js'],
+    languageOptions: {
+      globals: globals.node,
+      parserOptions: { sourceType: 'module' },
+    },
+  },
 ])

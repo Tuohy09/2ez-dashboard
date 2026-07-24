@@ -100,7 +100,7 @@ export default defineConfig({
   build: { sourcemap: true },
   server: {
     proxy: {
-      '/api':       { target: 'http://192.168.0.170:61208', changeOrigin: true },
+      '/sys-api':   { target: 'http://192.168.0.170:3080',  changeOrigin: true },
       '/speedtest': { target: 'http://192.168.0.170:8083',  changeOrigin: true, rewrite: (p) => p.replace(/^\/speedtest/, '') },
     }
   }

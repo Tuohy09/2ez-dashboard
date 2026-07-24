@@ -9,7 +9,13 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(node -e ' *)",
+      "Read(//run/**)",
+      "Bash(grep -oE \"[a-z-]+/[a-z-]+$|no-[a-z-]+$\")",
+      "Bash(npx eslint *)",
+      "Bash(node -e \"import\\('./sys-metrics.js'\\).then\\(\\(\\)=>{console.log\\('module loads OK'\\); process.exit\\(0\\)}\\).catch\\(e=>{console.error\\(e\\);process.exit\\(1\\)}\\)\")",
+      "Bash(awk 'NR==1 || $1 ~ /^\\\\/dev\\\\//')"
     ]
   }
 }
