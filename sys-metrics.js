@@ -166,6 +166,30 @@ function tick() {
 tick()
 setInterval(tick, 1000).unref()
 
+// ─── Network history ring buffer ─────────────────────────────────
+// One throughput sample every 5 s, retained for 24 h (~17280 points),
+// for the Home page's 1-Hour / 24-Hour network graph ranges.
+const LAN_IF = process.env.LAN_IFACE || 'enp3s0'
+const TS_IF  = process.env.TS_IFACE  || 'tailscale0'
+const HISTORY_MS = 24 * 60 * 60 * 1000
+const HISTORY_STEP = 5000
+const netHistory = [] // { t, lanRx, lanTx, tsRx, tsTx }
+
+function pushNetHistory() {
+  const find = (name) => state.network.find(i => i.interface_name === name)
+  const lan = find(LAN_IF), ts = find(TS_IF)
+  netHistory.push({
+    t: Date.now(),
+    lanRx: lan ? Math.round(lan.bytes_recv_rate_per_sec) : 0,
+    lanTx: lan ? Math.round(lan.bytes_sent_rate_per_sec) : 0,
+    tsRx:  ts  ? Math.round(ts.bytes_recv_rate_per_sec)  : 0,
+    tsTx:  ts  ? Math.round(ts.bytes_sent_rate_per_sec)  : 0,
+  })
+  const cutoff = Date.now() - HISTORY_MS
+  while (netHistory.length && netHistory[0].t < cutoff) netHistory.shift()
+}
+setInterval(pushNetHistory, HISTORY_STEP).unref()
+
 // ─── Docker container sampler ────────────────────────────────────
 const dockerReq = (path) => new Promise((resolve, reject) => {
   const req = http.request({ socketPath: DOCKER_SOCK, path, method: 'GET', timeout: 4000 }, (res) => {
@@ -468,6 +492,26 @@ router.get('/swap', (_req, res) => send(res, () => {
 }))
 
 router.get('/network', (_req, res) => send(res, () => state.network))
+
+// Historical throughput for the 1-Hour / 24-Hour ranges, downsampled
+// to at most ~400 points so the payload stays small and the chart smooth.
+router.get('/network/history', (req, res) => send(res, () => {
+  const range = req.query.range === '24h' ? HISTORY_MS : 60 * 60 * 1000
+  const since = Date.now() - range
+  let pts = netHistory.filter(p => p.t >= since)
+  const MAX = 400
+  if (pts.length > MAX) {
+    const bucket = Math.ceil(pts.length / MAX)
+    const out = []
+    for (let i = 0; i < pts.length; i += bucket) {
+      const slice = pts.slice(i, i + bucket)
+      const avg = (k) => Math.round(slice.reduce((s, p) => s + p[k], 0) / slice.length)
+      out.push({ t: slice[slice.length - 1].t, lanRx: avg('lanRx'), lanTx: avg('lanTx'), tsRx: avg('tsRx'), tsTx: avg('tsTx') })
+    }
+    pts = out
+  }
+  return pts
+}))
 router.get('/diskio', (_req, res) => send(res, () => state.diskio))
 router.get('/fs', (_req, res) => send(res, readFilesystems))
 router.get('/sensors', (_req, res) => send(res, readSensors))

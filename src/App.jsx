@@ -44,6 +44,69 @@ const SERVICE_INDEX = [
   { svcId: "unmanic", page: "downloads", pageLabel: "Downloads" },
 ].map(e => ({ ...e, name: SVC[e.svcId].name, desc: SVC[e.svcId].desc }));
 
+// ─── HOME GREETINGS ──────────────────────────────────────────────
+const GREETINGS = [
+  "Welcome back, Captain",
+  "What's cooking on 2EZ?",
+  "All systems nominal",
+  "Home sweet homelab",
+  "Your servers missed you",
+  "Ready when you are",
+  "The homelab awaits",
+  "Everything's humming along",
+  "Back at the helm",
+  "Mission control online",
+  "Good to see you again",
+  "Your digital kingdom awaits",
+  "Powered up and ready",
+  "The bits are flowing",
+  "Welcome to the command center",
+  "Rise and shine, sysadmin",
+  "Let's make some magic",
+  "The lab is yours",
+];
+const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+
+// ─── SERVICE CLICK TRACKING ──────────────────────────────────────
+// Persists { [svcId]: { count, last } } so the Home page can surface
+// recently- and frequently-used services across every page.
+const CLICKS_KEY = "2ez-service-clicks";
+const CLICKS_EVENT = "2ez-clicks-updated";
+
+function readServiceClicks() {
+  try {
+    const p = JSON.parse(localStorage.getItem(CLICKS_KEY) || "{}");
+    return (p && typeof p === "object" && !Array.isArray(p)) ? p : {};
+  } catch { return {}; }
+}
+
+function recordServiceClick(id) {
+  if (!SVC[id]) return;
+  const data = readServiceClicks();
+  const cur = data[id] || { count: 0, last: 0 };
+  data[id] = { count: cur.count + 1, last: Date.now() };
+  try { localStorage.setItem(CLICKS_KEY, JSON.stringify(data)); } catch { /* storage full/blocked */ }
+  try { window.dispatchEvent(new CustomEvent(CLICKS_EVENT)); } catch { /* no window */ }
+}
+
+// ─── RELATIVE TIME ───────────────────────────────────────────────
+function timeAgo(ts) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 10) return "just now";
+  if (s < 60) return `${s} secs ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min${m > 1 ? "s" : ""} ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} hour${h > 1 ? "s" : ""} ago`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return "yesterday";
+  if (d < 7) return `${d} days ago`;
+  const w = Math.floor(d / 7);
+  if (w < 5) return `${w} week${w > 1 ? "s" : ""} ago`;
+  const mo = Math.floor(d / 30);
+  return `${mo} month${mo > 1 ? "s" : ""} ago`;
+}
+
 // ─── SERVICE ICONS ────────────────────────────────────────────────
 const ICON_PATHS = {
   // TV monitor + antenna — Sonarr
@@ -404,6 +467,97 @@ const GLOBAL_CSS = `
 
   /* ── Page section heading ── */
   .page-section { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim); font-weight: 600; margin-bottom: 16px; margin-top: 4px; }
+
+  /* ── Home page ── */
+  .home-greeting { margin-bottom: 28px; }
+  .home-greeting-text { font-size: 32px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.1; background: linear-gradient(120deg, var(--text) 30%, var(--accent)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .home-greeting-sub { font-size: 13px; color: var(--text-dim); margin-top: 8px; }
+  .home-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 28px; }
+  .home-mini-grid { display: flex; flex-direction: column; gap: 8px; }
+  .home-mini-card { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--card); border: 1px solid var(--card-border); box-shadow: var(--card-shadow); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); text-decoration: none; color: var(--text); transition: background 0.24s, border-color 0.24s, transform 0.24s cubic-bezier(0.22,1,0.36,1); }
+  .home-mini-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.16); }
+  .home-mini-icon { width: 36px; height: 36px; border-radius: 11px; box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+  .home-mini-name { font-size: 14px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .home-mini-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .home-mini-badge { flex-shrink: 0; font-family: var(--mono); font-size: 12px; font-weight: 700; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .home-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 32px 16px; border-radius: 16px; border: 1px dashed var(--card-border); color: var(--text-dim); font-size: 13px; text-align: center; }
+  .home-empty svg { opacity: 0.5; }
+
+  .home-net-section { margin-top: 4px; }
+  .home-net-card { padding: 18px 20px 16px; }
+  .home-net-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .home-range-selector { display: inline-flex; gap: 2px; padding: 3px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); border-radius: 11px; flex-shrink: 0; }
+  .home-range-btn { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; font-family: var(--font); font-size: 12px; font-weight: 500; color: var(--text-dim); padding: 6px 12px; border-radius: 8px; transition: background 0.18s, color 0.18s; }
+  .home-range-btn:hover { color: var(--text); }
+  .home-range-btn.active { background: var(--accent-dim); color: var(--accent); }
+  .home-range-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse-dot 1.8s ease-in-out infinite; }
+  .home-net-chart-wrap { position: relative; width: 100%; }
+  .home-net-chart { display: block; width: 100%; height: 240px; overflow: visible; animation: page-fade 0.4s ease-out both; }
+  .home-net-axis-txt { font-family: var(--mono); font-size: 11px; }
+  .home-net-empty { display: flex; align-items: center; justify-content: center; height: 240px; color: var(--text-dim); font-size: 13px; }
+  .home-net-tip { position: absolute; top: 0; transform: translateX(-50%); pointer-events: none; background: rgba(8,12,18,0.94); backdrop-filter: blur(24px) saturate(160%); border: 1px solid var(--card-border); border-radius: 10px; padding: 8px 10px; box-shadow: 0 16px 40px rgba(0,0,0,0.55); z-index: 5; min-width: 132px; }
+  .home-net-tip-time { font-size: 10px; color: var(--text-dim); margin-bottom: 6px; font-family: var(--mono); }
+  .home-net-tip-row { display: flex; align-items: center; gap: 7px; padding: 2px 0; }
+  .home-net-tip-swatch { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+  .home-net-tip-lbl { font-size: 11px; color: var(--text-dim); flex: 1; white-space: nowrap; }
+  .home-net-tip-val { font-size: 11px; font-family: var(--mono); color: var(--text); font-weight: 500; }
+  .home-net-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--card-border); }
+  .home-net-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-dim); }
+
+  /* ── Home widgets ── */
+  .home-widgets-section { margin-top: 28px; }
+  .home-widgets-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .home-widgets-actions { display: flex; gap: 8px; }
+  .home-add-widget-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(34,211,167,0.3); border-radius: 10px; padding: 8px 14px; font-family: var(--font); font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.18s, border-color 0.18s; }
+  .home-add-widget-btn:hover { background: rgba(34,211,167,0.2); border-color: rgba(34,211,167,0.5); }
+  .home-edit-order-btn { display: none; align-items: center; background: rgba(255,255,255,0.05); color: var(--text-dim); border: 1px solid var(--card-border); border-radius: 10px; padding: 8px 14px; font-family: var(--font); font-size: 13px; font-weight: 500; cursor: pointer; }
+  .home-widgets-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; width: 100%; padding: 40px 16px; border-radius: 16px; border: 1px dashed var(--card-border); background: transparent; color: var(--text-dim); font-size: 13px; cursor: pointer; transition: border-color 0.2s, color 0.2s; }
+  .home-widgets-empty:hover { border-color: rgba(34,211,167,0.4); color: var(--accent); }
+  .home-widgets-empty svg { opacity: 0.5; }
+
+  .home-widget-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; align-items: start; }
+  .home-widget { position: relative; }
+  .home-widget.dragging { opacity: 0.35; }
+  .home-widget.drop-before::before { content: ''; position: absolute; top: 0; bottom: 0; left: -9px; width: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; }
+  .home-widget.drop-after::after { content: ''; position: absolute; top: 0; bottom: 0; right: -9px; width: 3px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent); z-index: 10; }
+  .home-widget > .card, .home-widget > .svc-card, .home-widget > .live-svc-card { height: 100%; box-sizing: border-box; }
+  .home-widget-handle { position: absolute; top: 8px; left: 8px; width: 22px; height: 26px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); opacity: 0; cursor: grab; z-index: 11; border-radius: 6px; background: rgba(8,12,18,0.6); transition: opacity 0.16s; }
+  .home-widget-handle:active { cursor: grabbing; }
+  .home-widget:hover .home-widget-handle { opacity: 0.65; }
+  .home-widget-handle:hover { opacity: 1 !important; color: var(--text); }
+  .home-widget-remove { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); opacity: 0; cursor: pointer; z-index: 11; border-radius: 7px; border: 1px solid var(--card-border); background: rgba(8,12,18,0.7); transition: opacity 0.16s, background 0.16s, color 0.16s; }
+  .home-widget:hover .home-widget-remove { opacity: 0.8; }
+  .home-widget-remove:hover { opacity: 1; background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.5); color: var(--crit); }
+
+  /* ── Add-widget drawer ── */
+  .widget-drawer-backdrop { position: fixed; inset: 0; z-index: 1200; background: rgba(0,0,0,0.5); backdrop-filter: blur(3px); display: flex; justify-content: flex-end; animation: page-fade 0.2s ease-out both; }
+  .widget-drawer { width: 420px; max-width: 90vw; height: 100%; background: rgba(12,16,22,0.96); backdrop-filter: blur(32px) saturate(160%); border-left: 1px solid var(--card-border); box-shadow: -20px 0 60px rgba(0,0,0,0.5); display: flex; flex-direction: column; animation: drawer-in 0.28s cubic-bezier(0.22,1,0.36,1) both; }
+  @keyframes drawer-in { from { transform: translateX(40px); opacity: 0.4; } to { transform: translateX(0); opacity: 1; } }
+  .widget-drawer-head { display: flex; justify-content: space-between; align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--card-border); flex-shrink: 0; }
+  .widget-drawer-title { font-size: 16px; font-weight: 700; }
+  .widget-drawer-body { overflow-y: auto; padding: 8px 20px 24px; }
+  .widget-cat { margin-top: 18px; }
+  .widget-cat-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 600; margin-bottom: 10px; }
+  .widget-cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .widget-chip { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border-radius: 11px; background: rgba(255,255,255,0.04); border: 1px solid var(--card-border); color: var(--text); font-family: var(--font); font-size: 13px; cursor: pointer; text-align: left; transition: background 0.16s, border-color 0.16s, transform 0.16s; }
+  .widget-chip:hover { background: rgba(255,255,255,0.08); transform: translateY(-1px); }
+  .widget-chip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .widget-chip-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .widget-chip-action { font-size: 15px; font-weight: 700; color: var(--text-dim); flex-shrink: 0; width: 16px; text-align: center; }
+
+  @media (max-width: 720px) {
+    .home-greeting-text { font-size: 25px; }
+    .home-columns { grid-template-columns: 1fr; gap: 20px; }
+    .home-net-head { flex-direction: column; }
+    .home-range-selector { width: 100%; }
+    .home-range-btn { flex: 1; justify-content: center; }
+    .home-widget-grid { grid-template-columns: 1fr; }
+    .home-widget-handle { display: none; }
+    .widget-cat-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 767px) {
+    .home-edit-order-btn { display: inline-flex; }
+  }
 
   /* ── Animations ── */
   @keyframes fade-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
@@ -1124,7 +1278,7 @@ function DataProvider({ children }) {
   const [glances, setGlances] = useState({
     cpu: null, mem: null, memswap: null, sensors: [],
     uptime: null, network: null, docker: null,
-    processes: null, fs: null, diskio: null,
+    processes: null, fs: null, diskio: null, load: null,
     alert: [],
   });
   const [connected, setConnected] = useState(true);
@@ -1182,6 +1336,8 @@ function DataProvider({ children }) {
         .then(([fs, diskio]) => setGlances(prev => ({ ...prev, fs: Array.isArray(fs) ? fs : [], diskio: Array.isArray(diskio) ? diskio : [] }))).catch(() => {});
       fetch(`${SYS_API}/cpu`).then(r => r.json())
         .then(cpu => setGlances(prev => ({ ...prev, cpu: { total: cpu?.total || 0, cores: Array.isArray(cpu?.cores) ? cpu.cores : [], model: cpu?.model || "", freq: cpu?.freq || 0 } }))).catch(() => {});
+      fetch(`${SYS_API}/load`).then(r => r.json())
+        .then(load => setGlances(prev => ({ ...prev, load: { min1: load?.min1 || 0, min5: load?.min5 || 0, min15: load?.min15 || 0, cpucore: load?.cpucore || 0 } }))).catch(() => {});
     }
     run();
     const id = setInterval(run, POLL_INTERVAL);
@@ -1311,7 +1467,7 @@ function DataProvider({ children }) {
 function SvcCard({ id }) {
   const s = SVC[id];
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" className={`svc-card${appMounted ? "" : " fade-in"}`}>
+    <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
         <SvcIcon id={s.id} color={s.col} />
       </div>
@@ -1340,7 +1496,7 @@ function JellyfinWidget() {
   const nowPlaying   = sessArr.filter(s => s.NowPlayingItem);
 
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
+    <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1397,7 +1553,7 @@ function QBittorrentWidget() {
   const activeTorrents = Array.isArray(torrents) ? torrents : [];
 
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
+    <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1456,7 +1612,7 @@ function NavidromeWidget() {
   const recent  = Array.isArray(recentAlbums) ? recentAlbums : [];
 
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
+    <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1527,7 +1683,7 @@ function UnmanicWidget() {
   const encSpeed      = parseEncSpeed(activeWorker?.worker_log_tail);
 
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
+    <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1579,7 +1735,7 @@ function SpeedtestWidget() {
   const { speedtest: { result } } = useData();
 
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
+    <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -2618,8 +2774,10 @@ const SysRow = ({ label, value }) => (
 
 // ─── NAV SIDEBAR ─────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { id: "main",       label: "Main",                  shortLabel: "Home",      abbr: "HM", col: "#22D3A7",
+  { id: "home",       label: "Home",                  shortLabel: "Home",      abbr: "HO", col: "#22D3A7",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
+  { id: "main",       label: "System",                shortLabel: "System",    abbr: "SY", col: "#22D3A7",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><polyline points="6 10 9 12 12 8 15 11 18 7"/></svg> },
   { id: "media-auto", label: "Media Automation",       shortLabel: "Automate",  abbr: "MA", col: "#A855F7",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="8" width="20" height="14" rx="2"/><path d="M2 13h20"/><path d="M4 8V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/><path d="M7 6l2 2M13 5l2 3"/></svg> },
   { id: "media-srv",  label: "Media Server",           shortLabel: "Media",     abbr: "MS", col: "#00A4DC",
@@ -2643,7 +2801,7 @@ function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onTh
       {isOpen && <div className="nav-backdrop" onClick={() => { onClose(); setSettingsOpen(false); }} />}
       <div className={`nav-sidebar${isOpen ? " open" : ""}`} style={{ display: "flex", flexDirection: "column" }}>
         <div className="nav-header">
-          <Logo size={32} onClick={() => { onNavigate("main"); onClose(); }} />
+          <Logo size={32} onClick={() => { onNavigate("home"); onClose(); }} />
           <div>
             <div className="nav-header-title">2EZ</div>
             <div style={{ fontSize: 10, color: "var(--text-dim)" }}>2ez.dinosaur-banana.ts.net</div>
@@ -2795,6 +2953,474 @@ function Skeleton() {
       <div className="skeleton-line" style={{ width: "45%" }} />
     </div>
   );
+}
+
+// ─── SYSTEM METRIC CARD ──────────────────────────────────────────
+// Single source of truth for every system-metric card. Used by the
+// System page (MainPage) and, reused verbatim, by the Home widget grid.
+// Container/Process expanded views are controlled props when the parent
+// needs to know (MainPage grid spanning), else internal state (Home).
+function SystemMetricCard({ id, renderSize = "medium", controls,
+  containerView: cvProp, onContainerView, processView: pvProp, onProcessView }) {
+  const { glances: data, glHistory: history, diskHistory: diskioHistory } = useData();
+  const [cvLocal, setCvLocal] = useState(false);
+  const [pvLocal, setPvLocal] = useState(false);
+  const containerView   = cvProp !== undefined ? cvProp : cvLocal;
+  const setContainerView = onContainerView || setCvLocal;
+  const processView     = pvProp !== undefined ? pvProp : pvLocal;
+  const setProcessView   = onProcessView || setPvLocal;
+
+  const runningCount = data.docker ? data.docker.filter(d => d.status === "running").length : 0;
+  const sortedDocker = data.docker ? [...data.docker].sort((a, b) => b.cpu - a.cpu) : [];
+
+  let node;
+  switch (id) {
+    case "cpu": node = (
+      <Card title="Processor" controls={controls}>
+        {!data.cpu ? <Skeleton /> : renderSize === "compact" ? (
+          <>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+              <div className="big-num" style={{ color: statusColor(data.cpu.total) }}><AnimNum value={data.cpu.total} /></div>
+              <span className="label-sm">%</span>
+            </div>
+            <Spark data={history.cpu} color={statusColor(data.cpu.total)} height={28} width={180} />
+          </>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+              <div>
+                <div className="big-num" style={{ color: statusColor(data.cpu.total) }}><AnimNum value={data.cpu.total} /></div>
+                <div className="label-sm" style={{ marginTop: 4 }}>{data.cpu.model}</div>
+                {data.cpu.freq > 0 && <div className="label-xs" style={{ marginTop: 2 }}>{fmt.freq(data.cpu.freq)}</div>}
+              </div>
+              <div style={{ width: renderSize === "large" ? 180 : 120, flexShrink: 0 }}>
+                <Spark data={history.cpu} color={statusColor(data.cpu.total)} height={renderSize === "large" ? 72 : 40} width={renderSize === "large" ? 180 : 120} />
+              </div>
+            </div>
+            <div className="cores-grid">
+              {data.cpu.cores.map((c, i) => (
+                <div key={i} className="core-bar-wrap">
+                  <div className="core-bar-outer" style={renderSize === "large" ? { height: 56 } : {}}>
+                    <div className="core-bar-inner" style={{ height: `${Math.max(2, c)}%`, background: statusColor(c), opacity: 0.8 }} />
+                  </div>
+                  <span className="core-label">{i}</span>
+                </div>
+              ))}
+            </div>
+            {renderSize === "large" && data.cpu.cores.length > 0 && (
+              <div style={{ display: "flex", gap: 12, marginTop: 10, borderTop: "1px solid var(--card-border)", paddingTop: 10, flexWrap: "wrap" }}>
+                <div className="stat-row" style={{ flex: 1 }}>
+                  <span className="label-sm">Peak core</span>
+                  <span className="mono label-sm" style={{ color: statusColor(Math.max(...data.cpu.cores)) }}>{Math.max(...data.cpu.cores).toFixed(0)}%</span>
+                </div>
+                <div className="stat-row" style={{ flex: 1 }}>
+                  <span className="label-sm">Avg core</span>
+                  <span className="mono label-sm">{(data.cpu.cores.reduce((a, b) => a + b, 0) / data.cpu.cores.length).toFixed(0)}%</span>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </Card>
+    ); break;
+
+    case "mem": node = (
+      <Card title="Memory" controls={controls}>
+        {!data.mem ? <Skeleton /> : renderSize === "compact" ? (
+          <>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+              <div className="big-num" style={{ color: statusColor(data.mem.percent) }}>{data.mem.percent.toFixed(0)}</div>
+              <span className="label-sm">%</span>
+            </div>
+            <Bar value={data.mem.percent} height={6} />
+            <div className="stat-row" style={{ marginTop: 4 }}>
+              <span className="label-sm">{fmt.bytes(data.mem.used)}</span>
+              <span className="label-sm" style={{ opacity: 0.5 }}>/ {fmt.bytes(data.mem.total)}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+              <Ring value={data.mem.percent} size={renderSize === "large" ? 150 : 110} label="Used" />
+            </div>
+            <div className="stat-row">
+              <span className="label-sm">Used</span>
+              <span className="mono label-sm">{fmt.bytes(data.mem.used)}</span>
+            </div>
+            <div className="stat-row">
+              <span className="label-sm">Total</span>
+              <span className="mono label-sm">{fmt.bytes(data.mem.total)}</span>
+            </div>
+            {renderSize === "large" && (
+              <div className="stat-row">
+                <span className="label-sm">Free</span>
+                <span className="mono label-sm">{fmt.bytes(data.mem.total - data.mem.used)}</span>
+              </div>
+            )}
+          </>
+        )}
+      </Card>
+    ); break;
+
+    case "memswap": node = (
+      <Card title="Swap" controls={controls}>
+        {!data.memswap ? <Skeleton /> : renderSize === "compact" ? (
+          <>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+              <div className="big-num" style={{ color: statusColor(data.memswap.percent) }}>{data.memswap.percent.toFixed(0)}</div>
+              <span className="label-sm">%</span>
+            </div>
+            <Bar value={data.memswap.percent} height={6} />
+            <div className="stat-row" style={{ marginTop: 4 }}>
+              <span className="label-sm">{fmt.bytes(data.memswap.used)}</span>
+              <span className="label-sm" style={{ opacity: 0.5 }}>/ {fmt.bytes(data.memswap.total)}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+              <Ring value={data.memswap.total > 0 ? data.memswap.percent : 0} size={110} label="Used" color={data.memswap.total === 0 ? "var(--text-dim)" : undefined} />
+            </div>
+            <div className="stat-row">
+              <span className="label-sm">Used</span>
+              <span className="mono label-sm">{fmt.bytes(data.memswap.used)}</span>
+            </div>
+            <div className="stat-row">
+              <span className="label-sm">Total</span>
+              <span className="mono label-sm">{data.memswap.total > 0 ? fmt.bytes(data.memswap.total) : "No swap"}</span>
+            </div>
+            <div className="stat-row">
+              <span className="label-sm">Swap In</span>
+              <span className="mono label-sm" style={{ color: "var(--accent)" }}>{fmt.bytes(data.memswap.sin)}</span>
+            </div>
+            <div className="stat-row">
+              <span className="label-sm">Swap Out</span>
+              <span className="mono label-sm" style={{ color: "var(--warn)" }}>{fmt.bytes(data.memswap.sout)}</span>
+            </div>
+          </>
+        )}
+      </Card>
+    ); break;
+
+    case "temps": node = (
+      <Card title="Temperatures" controls={controls}>
+        {!data.sensors ? <Skeleton /> : renderSize === "compact" ? (
+          data.sensors.length > 0 ? (
+            <>
+              <div className="big-num" style={{ color: tempColor(Math.max(...data.sensors.map(s => s.value))), marginBottom: 6 }}>
+                {Math.max(...data.sensors.map(s => s.value)).toFixed(0)}°
+              </div>
+              <div className="label-xs" style={{ opacity: 0.5 }}>°C · peak sensor</div>
+            </>
+          ) : <span className="label-sm" style={{ opacity: 0.4 }}>No data</span>
+        ) : (
+          <div className="temp-grid">
+            {data.sensors.map((s, i) => (
+              <Ring key={i} value={s.value} size={renderSize === "large" ? 96 : 72} stroke={5} color={tempColor(s.value)} label={s.label} format="temp" />
+            ))}
+          </div>
+        )}
+      </Card>
+    ); break;
+
+    case "storage": node = (
+      <Card title="Storage" controls={controls}>
+        {!data.fs ? <Skeleton /> : data.fs
+          .filter(d =>
+            d.mnt_point.includes("ironwolf") ||
+            d.mnt_point === "/"
+          )
+          .filter((d, i, arr) => arr.findIndex(x => x.device_name === d.device_name) === i)
+          .map((d, i) => {
+            const label =
+              d.mnt_point.endsWith("ironwolf") ? "Ironwolf 8TB" :
+              d.mnt_point === "/"               ? "Host"          :
+              d.mnt_point;
+            return (
+              <Bar key={d.mnt_point} value={d.percent} label={label}
+                detail={`${fmt.bytes(d.used)} / ${fmt.bytes(d.size)}`}
+                height={renderSize === "large" ? 12 : 8} delay={i * 80} />
+            );
+          })
+        }
+        {renderSize !== "compact" && data.diskio && data.diskio.length > 0 && (
+          <div style={{ marginTop: 10, borderTop: "1px solid var(--card-border)", paddingTop: 10 }}>
+            <div className="label-xs" style={{ marginBottom: 5, textTransform: "uppercase", letterSpacing: 1 }}>I/O Rates</div>
+            {data.diskio.filter(d => /^nvme\d+n\d+$/.test(d.disk_name) || /^sd[a-z]$/.test(d.disk_name)).map((d, i, arr) => {
+              const hist = diskioHistory[d.disk_name] || { rx: [], tx: [] };
+              return (
+                <div key={d.disk_name} style={{ paddingBottom: i < arr.length - 1 ? 10 : 0, marginBottom: i < arr.length - 1 ? 10 : 0, borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <span className="mono label-sm">{d.disk_name}</span>
+                    <span className="label-sm" style={{ display: "flex", gap: 8 }}>
+                      <span style={{ color: "var(--accent)" }}>↓ {fmt.speed(d.read_bytes)}</span>
+                      <span style={{ color: "var(--warn)" }}>↑ {fmt.speed(d.write_bytes)}</span>
+                    </span>
+                  </div>
+                  <DualSpark id={`disk-${d.disk_name}`} rxData={hist.rx} txData={hist.tx} height={28} width={180} />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+    ); break;
+
+    case "diskio": node = (
+      <Card title="Disk I/O" controls={controls}>
+        {!data.diskio ? <Skeleton /> : (() => {
+          const disks = data.diskio.filter(d => /^nvme\d+n\d+$/.test(d.disk_name) || /^sd[a-z]$/.test(d.disk_name));
+          if (disks.length === 0) return <span className="label-sm" style={{ opacity: 0.4 }}>No data</span>;
+          return disks.map((d, i, arr) => {
+            const hist = diskioHistory[d.disk_name] || { rx: [], tx: [] };
+            return (
+              <div key={d.disk_name} style={{ paddingBottom: i < arr.length - 1 ? 10 : 0, marginBottom: i < arr.length - 1 ? 10 : 0, borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span className="mono label-sm">{d.disk_name}</span>
+                  <span className="label-sm" style={{ display: "flex", gap: 8 }}>
+                    <span style={{ color: "var(--accent)" }}>↓ {fmt.speed(d.read_bytes)}</span>
+                    <span style={{ color: "var(--warn)" }}>↑ {fmt.speed(d.write_bytes)}</span>
+                  </span>
+                </div>
+                <DualSpark id={`dio-${d.disk_name}`} rxData={hist.rx} txData={hist.tx} height={32} width={180} />
+              </div>
+            );
+          });
+        })()}
+      </Card>
+    ); break;
+
+    case "network": node = (
+      <Card title="Network" controls={controls}>
+        {!data.network ? <Skeleton /> : <>
+          {[
+            { key: "lan", label: "LAN",       iface: data.network.lan, hist: history.lan },
+            { key: "ts",  label: "Tailscale", iface: data.network.ts,  hist: history.ts  },
+          ].map(({ key, label, iface, hist }, i) => (
+            <div key={key} style={i > 0 ? { marginTop: renderSize === "compact" ? 6 : 10, paddingTop: renderSize === "compact" ? 6 : 10, borderTop: "1px solid var(--card-border)" } : {}}>
+              <div className="label-xs" style={{ marginBottom: renderSize === "compact" ? 2 : 5, textTransform: "uppercase", letterSpacing: 1, opacity: 0.5 }}>{label}</div>
+              <div style={{ display: "flex", gap: 16, marginBottom: renderSize !== "compact" ? 6 : 0 }}>
+                <div className="net-row" style={renderSize === "compact" ? { marginBottom: 0 } : {}}>
+                  <span className="net-arrow" style={{ color: "var(--accent)" }}>↓</span>
+                  <span className="net-val" style={{ color: "var(--accent)", fontSize: renderSize === "compact" ? 13 : undefined }}><AnimNum value={iface ? Math.abs(iface.rx) : 0} format="speed" /></span>
+                </div>
+                <div className="net-row" style={renderSize === "compact" ? { marginBottom: 0 } : {}}>
+                  <span className="net-arrow" style={{ color: "var(--warn)" }}>↑</span>
+                  <span className="net-val" style={{ color: "var(--warn)", fontSize: renderSize === "compact" ? 13 : undefined }}><AnimNum value={iface ? Math.abs(iface.tx) : 0} format="speed" /></span>
+                </div>
+              </div>
+              {renderSize !== "compact" && (
+                <DualSpark id={`net-${key}`} rxData={hist.rx} txData={hist.tx} height={renderSize === "large" ? 44 : 32} width={180} />
+              )}
+            </div>
+          ))}
+        </>}
+      </Card>
+    ); break;
+
+    case "load": node = (
+      <Card title="Load Average" controls={controls}>
+        {!data.load ? <Skeleton /> : (() => {
+          const cores = data.load.cpucore || 1;
+          const pct = Math.min(100, (data.load.min1 / cores) * 100);
+          return (
+            <>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
+                <div className="big-num" style={{ color: statusColor(pct) }}>{data.load.min1.toFixed(2)}</div>
+                <span className="label-sm">1 min · {cores} cores</span>
+              </div>
+              <Bar value={pct} height={6} />
+              <div className="stat-row" style={{ marginTop: 8 }}>
+                <span className="label-sm">5 min</span>
+                <span className="mono label-sm">{data.load.min5.toFixed(2)}</span>
+              </div>
+              <div className="stat-row">
+                <span className="label-sm">15 min</span>
+                <span className="mono label-sm">{data.load.min15.toFixed(2)}</span>
+              </div>
+            </>
+          );
+        })()}
+      </Card>
+    ); break;
+
+    case "alert": {
+      const active = Array.isArray(data.alert) ? data.alert.filter(a => a.end === -1) : [];
+      const hasCrit = active.some(a => a.state === "CRITICAL");
+      node = (
+        <Card title="Alerts" controls={controls}>
+          {active.length === 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "18px 0", color: "var(--accent)" }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+              <span className="label-sm">All systems nominal</span>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
+                <span className="big-num" style={{ color: hasCrit ? "var(--crit)" : "var(--warn)" }}>{active.length}</span>
+                <span className="label-sm">active</span>
+              </div>
+              {active.slice(0, 4).map((a, i) => (
+                <div key={i} className="stat-row">
+                  <span className="label-sm" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "60%" }}>{a.type}</span>
+                  <span className="mono label-sm" style={{ color: a.state === "CRITICAL" ? "var(--crit)" : "var(--warn)" }}>{a.state}</span>
+                </div>
+              ))}
+            </>
+          )}
+        </Card>
+      );
+      break;
+    }
+
+    case "containers":
+      if (!data.docker) {
+        node = <Card title="Containers" controls={controls}><Skeleton /></Card>;
+      } else if (renderSize === "compact") {
+        node = (
+          <Card title="Containers" controls={controls}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+              <span className="big-num" style={{ color: "var(--accent)" }}>{runningCount}</span>
+              <span className="label-sm">/ {data.docker.length} running</span>
+            </div>
+          </Card>
+        );
+      } else if (renderSize === "large" || containerView) {
+        node = (
+          <div className={`card${appMounted ? "" : " fade-in"}`}>
+            <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+              <div style={{ minWidth: 180, flexShrink: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div className="card-title" style={{ margin: 0 }}>Containers</div>
+                    {controls}
+                  </div>
+                  {containerView && renderSize !== "large" && (
+                    <button className="close-btn" onClick={() => setContainerView(false)}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+                  <span className="big-num" style={{ color: "var(--accent)" }}>{runningCount}</span>
+                  <span className="label-sm">/ {data.docker.length} running</span>
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  <Bar value={(runningCount / data.docker.length) * 100} color="var(--accent)" height={4} />
+                </div>
+                <div className="stat-row" style={{ marginTop: 4 }}>
+                  <span className="label-sm">Total CPU</span>
+                  <span className="mono label-sm">{data.docker.reduce((a, d) => a + d.cpu, 0).toFixed(1)}%</span>
+                </div>
+                <div className="stat-row">
+                  <span className="label-sm">Total RAM</span>
+                  <span className="mono label-sm">{fmt.bytes(data.docker.reduce((a, d) => a + d.mem, 0))}</span>
+                </div>
+              </div>
+              <div style={{ width: 1, background: "var(--card-border)", alignSelf: "stretch", flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <div className="card-title" style={{ marginBottom: 14 }}>Container Status</div>
+                <div className="docker-grid">
+                  {sortedDocker.map((c) => <DockerItem key={c.name} {...c} />)}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      } else {
+        node = (
+          <Card title="Containers" controls={controls} onClick={() => setContainerView(true)}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+              <span className="big-num" style={{ color: "var(--accent)" }}>{runningCount}</span>
+              <span className="label-sm">/ {data.docker.length} running</span>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <Bar value={(runningCount / data.docker.length) * 100} color="var(--accent)" height={4} />
+            </div>
+            <div className="stat-row" style={{ marginTop: 4 }}>
+              <span className="label-sm">Total CPU</span>
+              <span className="mono label-sm">{data.docker.reduce((a, d) => a + d.cpu, 0).toFixed(1)}%</span>
+            </div>
+            <div className="stat-row">
+              <span className="label-sm">Total RAM</span>
+              <span className="mono label-sm">{fmt.bytes(data.docker.reduce((a, d) => a + d.mem, 0))}</span>
+            </div>
+          </Card>
+        );
+      }
+      break;
+
+    case "processes": {
+      if (!data.processes) { node = <Card title="Processes"><Skeleton /></Card>; break; }
+      const sorted = [...data.processes].sort((a, b) => (b.cpu_percent || 0) - (a.cpu_percent || 0));
+      const topProc = sorted[0];
+      node = (
+        <>
+          <Card title="Processes" controls={controls} onClick={() => setProcessView(true)}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+              <span className="big-num">{data.processes.length}</span>
+              <span className="label-sm">processes</span>
+            </div>
+            {topProc && (
+              <div className="stat-row" style={{ marginTop: 2 }}>
+                <span className="label-sm" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "65%" }}>{topProc.name}</span>
+                <span className="mono label-sm" style={{ color: statusColor(topProc.cpu_percent) }}>{(topProc.cpu_percent || 0).toFixed(1)}%</span>
+              </div>
+            )}
+          </Card>
+          {processView && createPortal(
+            <div className="proc-backdrop" onClick={() => setProcessView(false)}>
+              <div className="proc-modal" onClick={e => e.stopPropagation()}>
+                <div className="proc-modal-header">
+                  <div className="card-title" style={{ margin: 0 }}>Processes ({data.processes.length})</div>
+                  <button className="close-btn" onClick={() => setProcessView(false)}>× Close</button>
+                </div>
+                <div className="proc-table-wrap">
+                  <table className="proc-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th className="r">PID</th>
+                        <th>User</th>
+                        <th className="r">CPU%</th>
+                        <th className="r">RAM%</th>
+                        <th className="r">Threads</th>
+                        <th>Status</th>
+                        <th>Command</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sorted.map(p => (
+                        <tr key={p.pid}>
+                          <td className="mono">{p.name}</td>
+                          <td className="r dim mono">{p.pid}</td>
+                          <td className="dim">{p.username || "—"}</td>
+                          <td className="r mono" style={{ color: statusColor(p.cpu_percent || 0) }}>{(p.cpu_percent || 0).toFixed(1)}</td>
+                          <td className="r mono" style={{ color: statusColor(p.memory_percent || 0) }}>{(p.memory_percent || 0).toFixed(1)}</td>
+                          <td className="r dim mono">{p.num_threads ?? "—"}</td>
+                          <td className="dim">{p.status || "—"}</td>
+                          <td><div className="proc-cmd">{Array.isArray(p.cmdline) ? p.cmdline.join(" ") : (p.cmdline || "—")}</div></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
+        </>
+      );
+      break;
+    }
+
+    default: return null;
+  }
+  return node;
 }
 
 // ─── MAIN PAGE (system dashboard) ────────────────────────────────
@@ -2998,9 +3624,6 @@ function MainPage({ onMenuToggle, onNavigate, bellProps, layoutResetKey }) {
     localStorage.setItem("2ez-card-sizes", JSON.stringify(cardSizes));
   }, [cardSizes]);
 
-  const runningCount = data.docker ? data.docker.filter(d => d.status === "running").length : 0;
-  const sortedDocker = data.docker ? [...data.docker].sort((a, b) => b.cpu - a.cpu) : [];
-
   return (
     <div className="shell">
       <header className="header">
@@ -3068,372 +3691,13 @@ function MainPage({ onMenuToggle, onNavigate, bellProps, layoutResetKey }) {
           const gridCol = isContainerFull ? "1 / -1" : `${pos.col} / span ${cols}`;
           const gridRow = isMobile ? `span ${CARD_SIZE_SPANS[renderSize].rows}` : `${pos.row} / span ${rows}`;
 
-                let node;
-            switch (id) {
-              case "cpu": node = (
-                <Card title="Processor" controls={ctrl}>
-                  {!data.cpu ? <Skeleton /> : renderSize === "compact" ? (
-                    <>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
-                        <div className="big-num" style={{ color: statusColor(data.cpu.total) }}><AnimNum value={data.cpu.total} /></div>
-                        <span className="label-sm">%</span>
-                      </div>
-                      <Spark data={history.cpu} color={statusColor(data.cpu.total)} height={28} width={180} />
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-                        <div>
-                          <div className="big-num" style={{ color: statusColor(data.cpu.total) }}><AnimNum value={data.cpu.total} /></div>
-                          <div className="label-sm" style={{ marginTop: 4 }}>{data.cpu.model}</div>
-                          {data.cpu.freq > 0 && <div className="label-xs" style={{ marginTop: 2 }}>{fmt.freq(data.cpu.freq)}</div>}
-                        </div>
-                        <div style={{ width: renderSize === "large" ? 180 : 120, flexShrink: 0 }}>
-                          <Spark data={history.cpu} color={statusColor(data.cpu.total)} height={renderSize === "large" ? 72 : 40} width={renderSize === "large" ? 180 : 120} />
-                        </div>
-                      </div>
-                      <div className="cores-grid">
-                        {data.cpu.cores.map((c, i) => (
-                          <div key={i} className="core-bar-wrap">
-                            <div className="core-bar-outer" style={renderSize === "large" ? { height: 56 } : {}}>
-                              <div className="core-bar-inner" style={{ height: `${Math.max(2, c)}%`, background: statusColor(c), opacity: 0.8 }} />
-                            </div>
-                            <span className="core-label">{i}</span>
-                          </div>
-                        ))}
-                      </div>
-                      {renderSize === "large" && data.cpu.cores.length > 0 && (
-                        <div style={{ display: "flex", gap: 12, marginTop: 10, borderTop: "1px solid var(--card-border)", paddingTop: 10, flexWrap: "wrap" }}>
-                          <div className="stat-row" style={{ flex: 1 }}>
-                            <span className="label-sm">Peak core</span>
-                            <span className="mono label-sm" style={{ color: statusColor(Math.max(...data.cpu.cores)) }}>{Math.max(...data.cpu.cores).toFixed(0)}%</span>
-                          </div>
-                          <div className="stat-row" style={{ flex: 1 }}>
-                            <span className="label-sm">Avg core</span>
-                            <span className="mono label-sm">{(data.cpu.cores.reduce((a, b) => a + b, 0) / data.cpu.cores.length).toFixed(0)}%</span>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </Card>
-              ); break;
-
-              case "mem": node = (
-                <Card title="Memory" controls={ctrl}>
-                  {!data.mem ? <Skeleton /> : renderSize === "compact" ? (
-                    <>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
-                        <div className="big-num" style={{ color: statusColor(data.mem.percent) }}>{data.mem.percent.toFixed(0)}</div>
-                        <span className="label-sm">%</span>
-                      </div>
-                      <Bar value={data.mem.percent} height={6} />
-                      <div className="stat-row" style={{ marginTop: 4 }}>
-                        <span className="label-sm">{fmt.bytes(data.mem.used)}</span>
-                        <span className="label-sm" style={{ opacity: 0.5 }}>/ {fmt.bytes(data.mem.total)}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-                        <Ring value={data.mem.percent} size={renderSize === "large" ? 150 : 110} label="Used" />
-                      </div>
-                      <div className="stat-row">
-                        <span className="label-sm">Used</span>
-                        <span className="mono label-sm">{fmt.bytes(data.mem.used)}</span>
-                      </div>
-                      <div className="stat-row">
-                        <span className="label-sm">Total</span>
-                        <span className="mono label-sm">{fmt.bytes(data.mem.total)}</span>
-                      </div>
-                      {renderSize === "large" && (
-                        <div className="stat-row">
-                          <span className="label-sm">Free</span>
-                          <span className="mono label-sm">{fmt.bytes(data.mem.total - data.mem.used)}</span>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </Card>
-              ); break;
-
-              case "memswap": node = (
-                <Card title="Swap" controls={ctrl}>
-                  {!data.memswap ? <Skeleton /> : renderSize === "compact" ? (
-                    <>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
-                        <div className="big-num" style={{ color: statusColor(data.memswap.percent) }}>{data.memswap.percent.toFixed(0)}</div>
-                        <span className="label-sm">%</span>
-                      </div>
-                      <Bar value={data.memswap.percent} height={6} />
-                      <div className="stat-row" style={{ marginTop: 4 }}>
-                        <span className="label-sm">{fmt.bytes(data.memswap.used)}</span>
-                        <span className="label-sm" style={{ opacity: 0.5 }}>/ {fmt.bytes(data.memswap.total)}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-                        <Ring value={data.memswap.total > 0 ? data.memswap.percent : 0} size={110} label="Used" color={data.memswap.total === 0 ? "var(--text-dim)" : undefined} />
-                      </div>
-                      <div className="stat-row">
-                        <span className="label-sm">Used</span>
-                        <span className="mono label-sm">{fmt.bytes(data.memswap.used)}</span>
-                      </div>
-                      <div className="stat-row">
-                        <span className="label-sm">Total</span>
-                        <span className="mono label-sm">{data.memswap.total > 0 ? fmt.bytes(data.memswap.total) : "No swap"}</span>
-                      </div>
-                      <div className="stat-row">
-                        <span className="label-sm">Swap In</span>
-                        <span className="mono label-sm" style={{ color: "var(--accent)" }}>{fmt.bytes(data.memswap.sin)}</span>
-                      </div>
-                      <div className="stat-row">
-                        <span className="label-sm">Swap Out</span>
-                        <span className="mono label-sm" style={{ color: "var(--warn)" }}>{fmt.bytes(data.memswap.sout)}</span>
-                      </div>
-                    </>
-                  )}
-                </Card>
-              ); break;
-
-              case "temps": node = (
-                <Card title="Temperatures" controls={ctrl}>
-                  {!data.sensors ? <Skeleton /> : renderSize === "compact" ? (
-                    data.sensors.length > 0 ? (
-                      <>
-                        <div className="big-num" style={{ color: tempColor(Math.max(...data.sensors.map(s => s.value))), marginBottom: 6 }}>
-                          {Math.max(...data.sensors.map(s => s.value)).toFixed(0)}°
-                        </div>
-                        <div className="label-xs" style={{ opacity: 0.5 }}>°C · peak sensor</div>
-                      </>
-                    ) : <span className="label-sm" style={{ opacity: 0.4 }}>No data</span>
-                  ) : (
-                    <div className="temp-grid">
-                      {data.sensors.map((s, i) => (
-                        <Ring key={i} value={s.value} size={renderSize === "large" ? 96 : 72} stroke={5} color={tempColor(s.value)} label={s.label} format="temp" />
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              ); break;
-
-              case "storage": node = (
-                <Card title="Storage" controls={ctrl}>
-                  {!data.fs ? <Skeleton /> : data.fs
-                    .filter(d =>
-                      d.mnt_point.includes("ironwolf") ||
-                      d.mnt_point === "/"
-                    )
-                    .filter((d, i, arr) => arr.findIndex(x => x.device_name === d.device_name) === i)
-                    .map((d, i) => {
-                      const label =
-                        d.mnt_point.endsWith("ironwolf") ? "Ironwolf 8TB" :
-                        d.mnt_point === "/"               ? "Host"          :
-                        d.mnt_point;
-                      return (
-                        <Bar key={d.mnt_point} value={d.percent} label={label}
-                          detail={`${fmt.bytes(d.used)} / ${fmt.bytes(d.size)}`}
-                          height={renderSize === "large" ? 12 : 8} delay={i * 80} />
-                      );
-                    })
-                  }
-                  {renderSize !== "compact" && data.diskio && data.diskio.length > 0 && (
-                    <div style={{ marginTop: 10, borderTop: "1px solid var(--card-border)", paddingTop: 10 }}>
-                      <div className="label-xs" style={{ marginBottom: 5, textTransform: "uppercase", letterSpacing: 1 }}>I/O Rates</div>
-                      {data.diskio.filter(d => /^nvme\d+n\d+$/.test(d.disk_name) || /^sd[a-z]$/.test(d.disk_name)).map((d, i, arr) => {
-                        const hist = diskioHistory[d.disk_name] || { rx: [], tx: [] };
-                        return (
-                          <div key={d.disk_name} style={{ paddingBottom: i < arr.length - 1 ? 10 : 0, marginBottom: i < arr.length - 1 ? 10 : 0, borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                              <span className="mono label-sm">{d.disk_name}</span>
-                              <span className="label-sm" style={{ display: "flex", gap: 8 }}>
-                                <span style={{ color: "var(--accent)" }}>↓ {fmt.speed(d.read_bytes)}</span>
-                                <span style={{ color: "var(--warn)" }}>↑ {fmt.speed(d.write_bytes)}</span>
-                              </span>
-                            </div>
-                            <DualSpark id={`disk-${d.disk_name}`} rxData={hist.rx} txData={hist.tx} height={28} width={180} />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </Card>
-              ); break;
-
-              case "network": node = (
-                <Card title="Network" controls={ctrl}>
-                  {!data.network ? <Skeleton /> : <>
-                    {[
-                      { key: "lan", label: "LAN",       iface: data.network.lan, hist: history.lan },
-                      { key: "ts",  label: "Tailscale", iface: data.network.ts,  hist: history.ts  },
-                    ].map(({ key, label, iface, hist }, i) => (
-                      <div key={key} style={i > 0 ? { marginTop: renderSize === "compact" ? 6 : 10, paddingTop: renderSize === "compact" ? 6 : 10, borderTop: "1px solid var(--card-border)" } : {}}>
-                        <div className="label-xs" style={{ marginBottom: renderSize === "compact" ? 2 : 5, textTransform: "uppercase", letterSpacing: 1, opacity: 0.5 }}>{label}</div>
-                        <div style={{ display: "flex", gap: 16, marginBottom: renderSize !== "compact" ? 6 : 0 }}>
-                          <div className="net-row" style={renderSize === "compact" ? { marginBottom: 0 } : {}}>
-                            <span className="net-arrow" style={{ color: "var(--accent)" }}>↓</span>
-                            <span className="net-val" style={{ color: "var(--accent)", fontSize: renderSize === "compact" ? 13 : undefined }}><AnimNum value={iface ? Math.abs(iface.rx) : 0} format="speed" /></span>
-                          </div>
-                          <div className="net-row" style={renderSize === "compact" ? { marginBottom: 0 } : {}}>
-                            <span className="net-arrow" style={{ color: "var(--warn)" }}>↑</span>
-                            <span className="net-val" style={{ color: "var(--warn)", fontSize: renderSize === "compact" ? 13 : undefined }}><AnimNum value={iface ? Math.abs(iface.tx) : 0} format="speed" /></span>
-                          </div>
-                        </div>
-                        {renderSize !== "compact" && (
-                          <DualSpark id={`net-${key}`} rxData={hist.rx} txData={hist.tx} height={renderSize === "large" ? 44 : 32} width={180} />
-                        )}
-                      </div>
-                    ))}
-                  </>}
-                </Card>
-              ); break;
-
-              case "containers":
-                if (!data.docker) {
-                  node = <Card title="Containers" controls={ctrl}><Skeleton /></Card>;
-                } else if (renderSize === "compact") {
-                  node = (
-                    <Card title="Containers" controls={ctrl}>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                        <span className="big-num" style={{ color: "var(--accent)" }}>{runningCount}</span>
-                        <span className="label-sm">/ {data.docker.length} running</span>
-                      </div>
-                    </Card>
-                  );
-                } else if (renderSize === "large" || containerView) {
-                  node = (
-                    <div className={`card${appMounted ? "" : " fade-in"}`}>
-                      <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-                        <div style={{ minWidth: 180, flexShrink: 0 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <div className="card-title" style={{ margin: 0 }}>Containers</div>
-                              {ctrl}
-                            </div>
-                            {containerView && renderSize !== "large" && (
-                              <button className="close-btn" onClick={() => setContainerView(false)}>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
-                            <span className="big-num" style={{ color: "var(--accent)" }}>{runningCount}</span>
-                            <span className="label-sm">/ {data.docker.length} running</span>
-                          </div>
-                          <div style={{ marginTop: 10 }}>
-                            <Bar value={(runningCount / data.docker.length) * 100} color="var(--accent)" height={4} />
-                          </div>
-                          <div className="stat-row" style={{ marginTop: 4 }}>
-                            <span className="label-sm">Total CPU</span>
-                            <span className="mono label-sm">{data.docker.reduce((a, d) => a + d.cpu, 0).toFixed(1)}%</span>
-                          </div>
-                          <div className="stat-row">
-                            <span className="label-sm">Total RAM</span>
-                            <span className="mono label-sm">{fmt.bytes(data.docker.reduce((a, d) => a + d.mem, 0))}</span>
-                          </div>
-                        </div>
-                        <div style={{ width: 1, background: "var(--card-border)", alignSelf: "stretch", flexShrink: 0 }} />
-                        <div style={{ flex: 1, minWidth: 240 }}>
-                          <div className="card-title" style={{ marginBottom: 14 }}>Container Status</div>
-                          <div className="docker-grid">
-                            {sortedDocker.map((c) => <DockerItem key={c.name} {...c} />)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                } else {
-                  node = (
-                    <Card title="Containers" controls={ctrl} onClick={() => setContainerView(true)}>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
-                        <span className="big-num" style={{ color: "var(--accent)" }}>{runningCount}</span>
-                        <span className="label-sm">/ {data.docker.length} running</span>
-                      </div>
-                      <div style={{ marginTop: 10 }}>
-                        <Bar value={(runningCount / data.docker.length) * 100} color="var(--accent)" height={4} />
-                      </div>
-                      <div className="stat-row" style={{ marginTop: 4 }}>
-                        <span className="label-sm">Total CPU</span>
-                        <span className="mono label-sm">{data.docker.reduce((a, d) => a + d.cpu, 0).toFixed(1)}%</span>
-                      </div>
-                      <div className="stat-row">
-                        <span className="label-sm">Total RAM</span>
-                        <span className="mono label-sm">{fmt.bytes(data.docker.reduce((a, d) => a + d.mem, 0))}</span>
-                      </div>
-                    </Card>
-                  );
-                }
-                break;
-
-              case "processes": {
-                if (!data.processes) { node = <Card title="Processes"><Skeleton /></Card>; break; }
-                const sorted = [...data.processes].sort((a, b) => (b.cpu_percent || 0) - (a.cpu_percent || 0));
-                const topProc = sorted[0];
-                node = (
-                  <>
-                    <Card title="Processes" onClick={() => setProcessView(true)}>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
-                        <span className="big-num">{data.processes.length}</span>
-                        <span className="label-sm">processes</span>
-                      </div>
-                      {topProc && (
-                        <div className="stat-row" style={{ marginTop: 2 }}>
-                          <span className="label-sm" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "65%" }}>{topProc.name}</span>
-                          <span className="mono label-sm" style={{ color: statusColor(topProc.cpu_percent) }}>{(topProc.cpu_percent || 0).toFixed(1)}%</span>
-                        </div>
-                      )}
-                    </Card>
-                    {processView && createPortal(
-                      <div className="proc-backdrop" onClick={() => setProcessView(false)}>
-                        <div className="proc-modal" onClick={e => e.stopPropagation()}>
-                          <div className="proc-modal-header">
-                            <div className="card-title" style={{ margin: 0 }}>Processes ({data.processes.length})</div>
-                            <button className="close-btn" onClick={() => setProcessView(false)}>× Close</button>
-                          </div>
-                          <div className="proc-table-wrap">
-                            <table className="proc-table">
-                              <thead>
-                                <tr>
-                                  <th>Name</th>
-                                  <th className="r">PID</th>
-                                  <th>User</th>
-                                  <th className="r">CPU%</th>
-                                  <th className="r">RAM%</th>
-                                  <th className="r">Threads</th>
-                                  <th>Status</th>
-                                  <th>Command</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {sorted.map(p => (
-                                  <tr key={p.pid}>
-                                    <td className="mono">{p.name}</td>
-                                    <td className="r dim mono">{p.pid}</td>
-                                    <td className="dim">{p.username || "—"}</td>
-                                    <td className="r mono" style={{ color: statusColor(p.cpu_percent || 0) }}>{(p.cpu_percent || 0).toFixed(1)}</td>
-                                    <td className="r mono" style={{ color: statusColor(p.memory_percent || 0) }}>{(p.memory_percent || 0).toFixed(1)}</td>
-                                    <td className="r dim mono">{p.num_threads ?? "—"}</td>
-                                    <td className="dim">{p.status || "—"}</td>
-                                    <td><div className="proc-cmd">{Array.isArray(p.cmdline) ? p.cmdline.join(" ") : (p.cmdline || "—")}</div></td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>,
-                      document.body
-                    )}
-                  </>
-                );
-                break;
-              }
-
-              default: return null;
-            }
+            const node = (
+              <SystemMetricCard
+                id={id} renderSize={renderSize} controls={ctrl}
+                containerView={containerView} onContainerView={setContainerView}
+                processView={processView} onProcessView={setProcessView}
+              />
+            );
 
             const mainAutoHandlers = isAutoLayout ? {
               onDragOver: (e) => {
@@ -3525,7 +3789,7 @@ function PageHeader({ title, onMenuToggle, onNavigate, bellProps, onEditLayout }
         <button className="hamburger-btn" onClick={onMenuToggle} aria-label="Open menu">
           <HamburgerIcon />
         </button>
-        <Logo size={38} onClick={() => onNavigate("main")} />
+        <Logo size={38} onClick={() => onNavigate("home")} />
         <div>
           <div className="header-sub" style={{ color: "var(--accent)", fontWeight: 500 }}>{title}</div>
         </div>
@@ -3658,13 +3922,531 @@ function DownloadsPage({ onMenuToggle, onNavigate, bellProps }) {
   );
 }
 
+// ─── NETWORK GRAPH ───────────────────────────────────────────────
+// Smooth multi-line throughput chart. Four series on one shared axis
+// (all bytes/sec): direction is encoded by hue (↓ accent / ↑ warn) and
+// interface by line style (LAN solid / Tailscale dashed), so identity
+// never rests on colour alone. Legend + hover crosshair included.
+const NET_W = 800, NET_H = 240;
+const NET_PAD = { l: 6, r: 6, t: 14, b: 22 };
+
+function niceCeil(v) {
+  if (v <= 0) return 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(v)));
+  const n = v / pow;
+  const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+  return step * pow;
+}
+
+function linePath(pts) {
+  if (pts.length < 2) return "";
+  // Straight linear segments between points — sharp angular lines, no smoothing.
+  return pts.map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+}
+
+const NET_SERIES = [
+  { key: "lanRx", label: "LAN ↓",       color: "var(--accent)", dash: false },
+  { key: "lanTx", label: "LAN ↑",       color: "var(--warn)",   dash: false },
+  { key: "tsRx",  label: "Tailscale ↓", color: "var(--accent)", dash: true  },
+  { key: "tsTx",  label: "Tailscale ↑", color: "var(--warn)",   dash: true  },
+];
+
+function NetworkGraph({ series, times, stepMs }) {
+  const wrapRef = useRef(null);
+  const [hover, setHover] = useState(null); // { idx, px, timeLabel }
+
+  const n = Math.max(
+    series.lanRx?.length || 0, series.lanTx?.length || 0,
+    series.tsRx?.length || 0, series.tsTx?.length || 0,
+  );
+
+  if (n < 2) {
+    return <div className="home-net-empty">Collecting data…</div>;
+  }
+
+  const pw = NET_W - NET_PAD.l - NET_PAD.r;
+  const ph = NET_H - NET_PAD.t - NET_PAD.b;
+  const rawMax = Math.max(
+    1, ...NET_SERIES.flatMap(s => series[s.key] || []),
+  );
+  const max = niceCeil(rawMax);
+  const xAt = (i) => NET_PAD.l + (i / (n - 1)) * pw;
+  const yAt = (v) => NET_PAD.t + ph - (Math.min(v, max) / max) * ph;
+
+  const gridVals = [0, 0.25, 0.5, 0.75, 1].map(f => f * max);
+
+  const onMove = (e) => {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const rx = ((e.clientX - rect.left) / rect.width) * NET_W;
+    let idx = Math.round(((rx - NET_PAD.l) / pw) * (n - 1));
+    idx = Math.max(0, Math.min(n - 1, idx));
+    // Time label is derived here (event context) to keep render pure.
+    let timeLabel = "";
+    if (times && times[idx] != null) timeLabel = timeAgo(times[idx]);
+    else if (stepMs) {
+      const secs = Math.round((n - 1 - idx) * stepMs / 1000);
+      timeLabel = secs <= 1 ? "now" : `${secs}s ago`;
+    }
+    setHover({ idx, px: (xAt(idx) / NET_W) * rect.width, timeLabel });
+  };
+
+  return (
+    <div className="home-net-chart-wrap" ref={wrapRef}
+      onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+      <svg viewBox={`0 0 ${NET_W} ${NET_H}`} className="home-net-chart" preserveAspectRatio="none">
+        <defs>
+          <clipPath id="net-clip"><rect x={NET_PAD.l} y={0} width={pw} height={NET_H} /></clipPath>
+        </defs>
+        {/* recessive gridlines */}
+        {gridVals.map((v, i) => (
+          <line key={i} x1={NET_PAD.l} x2={NET_W - NET_PAD.r} y1={yAt(v)} y2={yAt(v)}
+            stroke="var(--card-border)" strokeWidth="1" strokeDasharray={i === 0 ? "" : "2 4"} vectorEffect="non-scaling-stroke" />
+        ))}
+        {/* series */}
+        <g clipPath="url(#net-clip)">
+          {NET_SERIES.map(s => {
+            const data = series[s.key] || [];
+            if (data.length < 2) return null;
+            const pts = data.map((v, i) => [xAt(i), yAt(v)]);
+            return (
+              <path key={s.key} d={linePath(pts)} fill="none" stroke={s.color} strokeWidth="2"
+                strokeDasharray={s.dash ? "5 4" : ""} strokeLinecap="round" strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke" opacity={s.dash ? 0.9 : 1} />
+            );
+          })}
+        </g>
+        {/* hover crosshair */}
+        {hover && (
+          <>
+            <line x1={xAt(hover.idx)} x2={xAt(hover.idx)} y1={NET_PAD.t} y2={NET_H - NET_PAD.b}
+              stroke="var(--text-dim)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+            {NET_SERIES.map(s => {
+              const v = (series[s.key] || [])[hover.idx];
+              if (v == null) return null;
+              return <circle key={s.key} cx={xAt(hover.idx)} cy={yAt(v)} r="3.5" fill="var(--bg)" stroke={s.color} strokeWidth="2" vectorEffect="non-scaling-stroke" />;
+            })}
+          </>
+        )}
+        {/* y-axis max label */}
+        <text x={NET_PAD.l + 2} y={NET_PAD.t - 3} className="home-net-axis-txt" fill="var(--text-dim)">{fmt.speed(max)}</text>
+      </svg>
+
+      {/* hover tooltip */}
+      {hover && (
+        <div className="home-net-tip" style={{ left: hover.px }}>
+          <div className="home-net-tip-time">{hover.timeLabel}</div>
+          {NET_SERIES.map(s => {
+            const v = (series[s.key] || [])[hover.idx];
+            return (
+              <div key={s.key} className="home-net-tip-row">
+                <span className="home-net-tip-swatch" style={{ background: s.color, opacity: s.dash ? 0.6 : 1 }} />
+                <span className="home-net-tip-lbl">{s.label}</span>
+                <span className="home-net-tip-val">{fmt.speed(v ?? 0)}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NetLegend() {
+  return (
+    <div className="home-net-legend">
+      {NET_SERIES.map(s => (
+        <div key={s.key} className="home-net-legend-item">
+          <svg width="20" height="8" style={{ flexShrink: 0 }}>
+            <line x1="0" y1="4" x2="20" y2="4" stroke={s.color} strokeWidth="2" strokeDasharray={s.dash ? "4 3" : ""} strokeLinecap="round" />
+          </svg>
+          <span>{s.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const NET_RANGES = [
+  { id: "live", label: "Live" },
+  { id: "1h",   label: "1 Hour" },
+  { id: "24h",  label: "24 Hours" },
+];
+
+function HomeNetworkWidget() {
+  const { glHistory } = useData();
+  const [range, setRange] = useState("live");
+  const [hist, setHist] = useState(null);
+
+  // Fetch server-side history for the longer ranges; poll while active.
+  useEffect(() => {
+    if (range === "live") { setHist(null); return; }
+    let alive = true;
+    const load = () => {
+      fetch(`/sys-api/network/history?range=${range}`).then(r => r.json())
+        .then(pts => { if (alive) setHist(Array.isArray(pts) ? pts : []); })
+        .catch(() => { if (alive) setHist([]); });
+    };
+    load();
+    const id = setInterval(load, range === "1h" ? 10000 : 60000);
+    return () => { alive = false; clearInterval(id); };
+  }, [range]);
+
+  let series, times = null, stepMs = null;
+  if (range === "live") {
+    series = {
+      lanRx: glHistory.lan.rx, lanTx: glHistory.lan.tx,
+      tsRx:  glHistory.ts.rx,  tsTx:  glHistory.ts.tx,
+    };
+    stepMs = POLL_INTERVAL; // hover derives "Xs ago" from point spacing
+  } else if (hist) {
+    series = {
+      lanRx: hist.map(p => p.lanRx), lanTx: hist.map(p => p.lanTx),
+      tsRx:  hist.map(p => p.tsRx),  tsTx:  hist.map(p => p.tsTx),
+    };
+    times = hist.map(p => p.t);
+  } else {
+    series = { lanRx: [], lanTx: [], tsRx: [], tsTx: [] };
+  }
+
+  const spanLabel = range === "live" ? "Live · real-time (60 samples)" : range === "1h" ? "Last hour" : "Last 24 hours";
+
+  return (
+    <div className="card home-net-card">
+      <div className="home-net-head">
+        <div>
+          <div className="card-title" style={{ margin: 0 }}>Network Throughput</div>
+          <div className="label-xs" style={{ marginTop: 3, opacity: 0.6 }}>{spanLabel}</div>
+        </div>
+        <div className="home-range-selector">
+          {NET_RANGES.map(r => (
+            <button key={r.id} className={`home-range-btn${range === r.id ? " active" : ""}`} onClick={() => setRange(r.id)}>
+              {r.id === "live" && <span className="home-range-dot" />}{r.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <NetworkGraph key={range} series={series} times={times} stepMs={stepMs} />
+      <NetLegend />
+    </div>
+  );
+}
+
+// ─── HOME SERVICE MINI-CARD ──────────────────────────────────────
+function ServiceMiniCard({ id, subtitle, badge }) {
+  const s = SVC[id];
+  if (!s) return null;
+  return (
+    <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className="home-mini-card">
+      <div className="svc-icon home-mini-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
+        <SvcIcon id={s.id} color={s.col} size={18} />
+      </div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div className="home-mini-name">{s.name}</div>
+        <div className="home-mini-sub">{subtitle}</div>
+      </div>
+      {badge != null && (
+        <span className="home-mini-badge" style={{ color: s.col, background: s.col + "18", border: `1px solid ${s.col}33` }}>{badge}</span>
+      )}
+    </a>
+  );
+}
+
+const HomeEmpty = ({ text }) => (
+  <div className="home-empty">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+    <span>{text}</span>
+  </div>
+);
+
+// ─── HOME WIDGET SYSTEM ──────────────────────────────────────────
+const SYS_WIDGET_LABELS = {
+  cpu: "CPU", mem: "Memory", memswap: "Swap", storage: "Storage",
+  network: "Network", temps: "Temperatures", containers: "Containers",
+  load: "Load Average", alert: "Alerts", processes: "Processes", diskio: "Disk I/O",
+};
+// Services that have dedicated live-data widgets (vs. plain quick links).
+const SVC_LIVE_WIDGETS = ["jellyfin", "qbt", "unmanic", "speedtest", "navidrome"];
+const LINK_WIDGETS = ["sonarr", "radarr", "prowlarr", "bazarr", "seerr", "nextcloud", "immich", "cockpit", "dockge", "filebrowser", "slskd", "beetsflask", "lrcget", "uptimekuma", "wud"];
+
+const WIDGET_CATALOG = [
+  { category: "System Metrics", items: Object.keys(SYS_WIDGET_LABELS).map(k => ({ wid: `sys:${k}`, label: SYS_WIDGET_LABELS[k] })) },
+  { category: "Services",       items: SVC_LIVE_WIDGETS.map(k => ({ wid: `svc:${k}`, label: SVC[k].name })) },
+  { category: "Quick Links",    items: LINK_WIDGETS.map(k => ({ wid: `link:${k}`, label: SVC[k].name })) },
+];
+const VALID_WIDGETS = new Set(WIDGET_CATALOG.flatMap(c => c.items.map(i => i.wid)));
+
+const widgetLabel = (wid) => {
+  const [type, key] = wid.split(":");
+  return type === "sys" ? (SYS_WIDGET_LABELS[key] || key) : (SVC[key]?.name || key);
+};
+const widgetColor = (wid) => {
+  const [type, key] = wid.split(":");
+  return type === "sys" ? "var(--accent)" : (SVC[key]?.col || "var(--accent)");
+};
+
+// Resolves a widget id to its actual component — reusing the exact
+// System-page card and service-page live cards, never a duplicate.
+function WidgetNode({ wid }) {
+  const [type, key] = wid.split(":");
+  if (type === "sys") return <SystemMetricCard id={key} renderSize="medium" />;
+  if (type === "svc") {
+    switch (key) {
+      case "jellyfin":  return <JellyfinWidget />;
+      case "qbt":       return <QBittorrentWidget />;
+      case "unmanic":   return <UnmanicWidget />;
+      case "speedtest": return <SpeedtestWidget />;
+      case "navidrome": return <NavidromeWidget />;
+      default: return null;
+    }
+  }
+  if (type === "link") return <SvcCard id={key} />;
+  return null;
+}
+
+const HOME_WIDGETS_KEY = "2ez-home-widgets";
+function readHomeWidgets() {
+  try {
+    const p = JSON.parse(localStorage.getItem(HOME_WIDGETS_KEY) || "[]");
+    return Array.isArray(p) ? p.filter(w => VALID_WIDGETS.has(w)) : [];
+  } catch { return []; }
+}
+
+// ─── ADD WIDGET DRAWER ───────────────────────────────────────────
+function AddWidgetDrawer({ active, onToggle, onClose }) {
+  return createPortal(
+    <div className="widget-drawer-backdrop" onClick={onClose}>
+      <div className="widget-drawer" onClick={e => e.stopPropagation()}>
+        <div className="widget-drawer-head">
+          <span className="widget-drawer-title">Add Widget</span>
+          <button className="close-btn" onClick={onClose}>× Done</button>
+        </div>
+        <div className="widget-drawer-body">
+          {WIDGET_CATALOG.map(cat => (
+            <div key={cat.category} className="widget-cat">
+              <div className="widget-cat-title">{cat.category}</div>
+              <div className="widget-cat-grid">
+                {cat.items.map(({ wid, label }) => {
+                  const added = active.includes(wid);
+                  const col = widgetColor(wid);
+                  return (
+                    <button key={wid} className={`widget-chip${added ? " added" : ""}`}
+                      onClick={() => onToggle(wid)}
+                      style={added ? { borderColor: col + "66", background: col + "1a" } : undefined}>
+                      <span className="widget-chip-dot" style={{ background: col }} />
+                      <span className="widget-chip-label">{label}</span>
+                      <span className="widget-chip-action" style={added ? { color: col } : undefined}>{added ? "✓" : "+"}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── HOME WIDGET GRID (drag reorder + remove) ────────────────────
+function HomeWidgetGrid({ widgets, onRemove, onReorder }) {
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragOver, setDragOver] = useState(null); // { id, before }
+
+  const drop = (toId) => {
+    const fromId = draggingId;
+    const before = dragOver?.before ?? true;
+    setDraggingId(null);
+    setDragOver(null);
+    if (!fromId || fromId === toId) return;
+    const next = widgets.filter(w => w !== fromId);
+    const ti = next.indexOf(toId);
+    if (ti === -1) return;
+    next.splice(before ? ti : ti + 1, 0, fromId);
+    onReorder(next);
+  };
+
+  return (
+    <div className="home-widget-grid">
+      {widgets.map(wid => (
+        <div key={wid}
+          className={`home-widget${draggingId === wid ? " dragging" : ""}${dragOver?.id === wid ? (dragOver.before ? " drop-before" : " drop-after") : ""}`}
+          onDragOver={(e) => {
+            if (!draggingId) return;
+            e.preventDefault();
+            const r = e.currentTarget.getBoundingClientRect();
+            setDragOver({ id: wid, before: e.clientX < r.left + r.width / 2 });
+          }}
+          onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(d => (d?.id === wid ? null : d)); }}
+          onDrop={(e) => { e.preventDefault(); drop(wid); }}
+        >
+          <div className="home-widget-handle" draggable
+            onDragStart={(e) => { setDraggingId(wid); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", wid); }}
+            onDragEnd={() => { setDraggingId(null); setDragOver(null); }}
+            title="Drag to reorder" aria-label="Drag to reorder">
+            <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true">
+              <circle cx="2.5" cy="2" r="1.5"/><circle cx="7.5" cy="2" r="1.5"/>
+              <circle cx="2.5" cy="8" r="1.5"/><circle cx="7.5" cy="8" r="1.5"/>
+              <circle cx="2.5" cy="14" r="1.5"/><circle cx="7.5" cy="14" r="1.5"/>
+            </svg>
+          </div>
+          <button className="home-widget-remove" onClick={() => onRemove(wid)} aria-label="Remove widget">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+          <WidgetNode wid={wid} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── HOME PAGE ───────────────────────────────────────────────────
+function HomePage({ onMenuToggle, onNavigate, bellProps }) {
+  const { connected, glances: { uptime } } = useData();
+  const [greeting] = useState(randomGreeting);
+  const [time, setTime] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const [clicks, setClicks] = useState(readServiceClicks);
+  useEffect(() => {
+    const refresh = () => setClicks(readServiceClicks());
+    window.addEventListener(CLICKS_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener(CLICKS_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+
+  const entries = Object.entries(clicks).filter(([id]) => SVC[id]);
+  const recent   = [...entries].sort((a, b) => b[1].last - a[1].last).slice(0, 5);
+  const frequent = [...entries].sort((a, b) => b[1].count - a[1].count).slice(0, 5);
+
+  // ── Customizable widgets ──────────────────────────────────────
+  const [widgets, setWidgets] = useState(readHomeWidgets);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editOrderOpen, setEditOrderOpen] = useState(false);
+  useEffect(() => {
+    localStorage.setItem(HOME_WIDGETS_KEY, JSON.stringify(widgets));
+  }, [widgets]);
+  const toggleWidget = useCallback((wid) => {
+    setWidgets(prev => prev.includes(wid) ? prev.filter(w => w !== wid) : [...prev, wid]);
+  }, []);
+  const removeWidget = useCallback((wid) => setWidgets(prev => prev.filter(w => w !== wid)), []);
+
+  return (
+    <div className="shell">
+      <header className="header">
+        <div className="header-left">
+          <button className="hamburger-btn" onClick={onMenuToggle} aria-label="Open menu">
+            <HamburgerIcon />
+          </button>
+          <Logo size={38} onClick={() => onNavigate("home")} />
+        </div>
+        <div className="header-right">
+          <SearchBar navigate={onNavigate} />
+          {uptime && (
+            <div className="uptime-strip">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+              {uptime}
+            </div>
+          )}
+          <span className="header-clock">{time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+          {bellProps && <NotificationBell {...bellProps} />}
+          <div className="live-badge">
+            <div className="live-dot" style={{ background: connected ? "var(--accent)" : "var(--crit)" }} />
+            <span className="live-label">{connected ? "LIVE" : "OFFLINE"}</span>
+          </div>
+        </div>
+      </header>
+
+      <div className="page-content">
+        <div className="home-greeting">
+          <div className="home-greeting-text">{greeting}</div>
+          <div className="home-greeting-sub">
+            {time.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
+          </div>
+        </div>
+
+        <div className="home-columns">
+          <section>
+            <p className="page-section">Recently Used</p>
+            {recent.length > 0 ? (
+              <div className="home-mini-grid">
+                {recent.map(([id, d]) => <ServiceMiniCard key={id} id={id} subtitle={timeAgo(d.last)} />)}
+              </div>
+            ) : <HomeEmpty text="Start exploring your services" />}
+          </section>
+
+          <section>
+            <p className="page-section">Most Frequently Used</p>
+            {frequent.length > 0 ? (
+              <div className="home-mini-grid">
+                {frequent.map(([id, d]) => <ServiceMiniCard key={id} id={id} subtitle={`${d.count} visit${d.count > 1 ? "s" : ""} · ${timeAgo(d.last)}`} badge={d.count} />)}
+              </div>
+            ) : <HomeEmpty text="Your favourites will show up here" />}
+          </section>
+        </div>
+
+        <section className="home-net-section">
+          <HomeNetworkWidget />
+        </section>
+
+        <section className="home-widgets-section">
+          <div className="home-widgets-head">
+            <p className="page-section" style={{ margin: 0 }}>Your Widgets</p>
+            <div className="home-widgets-actions">
+              {widgets.length > 1 && (
+                <button className="home-edit-order-btn" onClick={() => setEditOrderOpen(true)}>Edit order</button>
+              )}
+              <button className="home-add-widget-btn" onClick={() => setDrawerOpen(true)}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Widget
+              </button>
+            </div>
+          </div>
+          {widgets.length > 0 ? (
+            <HomeWidgetGrid widgets={widgets} onRemove={removeWidget} onReorder={setWidgets} />
+          ) : (
+            <button className="home-widgets-empty" onClick={() => setDrawerOpen(true)}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                <line x1="17.5" y1="14.5" x2="17.5" y2="20.5"/><line x1="14.5" y1="17.5" x2="20.5" y2="17.5"/>
+              </svg>
+              <span>Build your dashboard — tap to add widgets</span>
+            </button>
+          )}
+        </section>
+      </div>
+
+      {drawerOpen && <AddWidgetDrawer active={widgets} onToggle={toggleWidget} onClose={() => setDrawerOpen(false)} />}
+      {editOrderOpen && (
+        <LayoutEditModal
+          items={widgets.map(w => ({ id: w, label: widgetLabel(w) }))}
+          order={widgets}
+          onSave={o => { setWidgets(o); setEditOrderOpen(false); }}
+          onCancel={() => setEditOrderOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 // ─── APP ROOT ────────────────────────────────────────────────────
 export default function App() {
   return <DataProvider><AppInner /></DataProvider>;
 }
 
 function AppInner() {
-  const [activePage, setActivePage] = useState("main");
+  const [activePage, setActivePage] = useState("home");
   const [menuOpen, setMenuOpen]     = useState(false);
 
   const [themeColors, setThemeColors] = useState(() => {
@@ -3790,6 +4572,7 @@ function AppInner() {
         onResetLayout={resetLayout}
       />
 
+      {activePage === "home"       && <HomePage            onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "main"       && <MainPage            onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} layoutResetKey={layoutResetKey} />}
       {activePage === "media-auto" && <MediaAutomationPage onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "media-srv"  && <MediaServerPage     onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}

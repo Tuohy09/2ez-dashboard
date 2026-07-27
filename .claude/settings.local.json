@@ -15,7 +15,27 @@
       "Bash(grep -oE \"[a-z-]+/[a-z-]+$|no-[a-z-]+$\")",
       "Bash(npx eslint *)",
       "Bash(node -e \"import\\('./sys-metrics.js'\\).then\\(\\(\\)=>{console.log\\('module loads OK'\\); process.exit\\(0\\)}\\).catch\\(e=>{console.error\\(e\\);process.exit\\(1\\)}\\)\")",
-      "Bash(awk 'NR==1 || $1 ~ /^\\\\/dev\\\\//')"
+      "Bash(awk 'NR==1 || $1 ~ /^\\\\/dev\\\\//')",
+      "Bash(node -e \"require.resolve\\('playwright'\\)\")",
+      "Read(//home/tuohy/.cache/ms-playwright/**)",
+      "Bash(lsof -ti:3080 -sTCP:LISTEN)",
+      "Bash(xargs -r kill)",
+      "Bash(node server.js)",
+      "Bash(timeout 20 bash -c 'until curl -sf http://127.0.0.1:3080/sys-api/mem >/dev/null; do sleep 0.5; done')",
+      "Bash(node /tmp/claude-1000/-home-tuohy-2ez-dashboard/6b9d1da8-84b7-41f2-9634-bac3a6870847/scratchpad/drive.mjs)",
+      "Bash(ldd ~/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome)",
+      "Bash(sudo -n true)",
+      "Bash(timeout 15 bash -c 'until curl -sf http://127.0.0.1:3080/sys-api/mem >/dev/null; do sleep 0.5; done')",
+      "Bash(curl -s http://127.0.0.1:3080/)",
+      "Bash(kill -9 2108607)",
+      "Bash(lsof -ti:3080)",
+      "Bash(xargs -r kill -9)",
+      "Bash(lsof -ti:3099 -sTCP:LISTEN)",
+      "Bash(npm remove *)",
+      "Bash(cd /home/tuohy/2ez-dashboard *)"
+    ],
+    "additionalDirectories": [
+      "/home/tuohy/2ez-dashboard/src"
     ]
   }
 }

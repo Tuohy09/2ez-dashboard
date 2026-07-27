@@ -115,6 +115,7 @@ app.get(/.*/, (_req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'))
 })
 
-app.listen(3080, () => {
-  console.log('[2ez] server running on http://0.0.0.0:3080')
+const PORT = process.env.PORT || 3080
+app.listen(PORT, () => {
+  console.log(`[2ez] server running on http://0.0.0.0:${PORT}`)
 })
