@@ -4,6 +4,8 @@ services:
     container_name: 2ez-dashboard
     network_mode: host
     restart: unless-stopped
+    stdin_open: true
+    tty: true
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro

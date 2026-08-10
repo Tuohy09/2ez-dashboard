@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef, useCallback, forwardRef, createContext, useContext } from "react";
 import { createPortal } from "react-dom";
+import { Terminal } from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
+import "@xterm/xterm/css/xterm.css";
 
 // ─── ANIMATION GATE ──────────────────────────────────────────────
 let appMounted = false;
@@ -544,6 +547,86 @@ const GLOBAL_CSS = `
   .widget-chip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .widget-chip-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .widget-chip-action { font-size: 15px; font-weight: 700; color: var(--text-dim); flex-shrink: 0; width: 16px; text-align: center; }
+
+  /* ── Docker page ── */
+  .dk-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  .dk-summary { display: flex; align-items: baseline; gap: 8px; }
+  .dk-controls { display: flex; gap: 10px; flex-wrap: wrap; }
+  .dk-seg { display: inline-flex; gap: 2px; padding: 3px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); border-radius: 10px; }
+  .dk-seg-btn { background: none; border: none; cursor: pointer; font-family: var(--font); font-size: 12px; font-weight: 500; color: var(--text-dim); padding: 6px 11px; border-radius: 7px; transition: background 0.16s, color 0.16s; white-space: nowrap; }
+  .dk-seg-btn:hover { color: var(--text); }
+  .dk-seg-btn.active { background: var(--accent-dim); color: var(--accent); }
+  .dk-error { padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(239,68,68,0.3); background: rgba(239,68,68,0.1); color: var(--crit); font-size: 13px; margin-bottom: 14px; }
+  .dk-empty { padding: 40px; text-align: center; color: var(--text-dim); font-size: 13px; }
+
+  .dk-list { display: flex; flex-direction: column; gap: 6px; }
+  .dk-row { display: grid; grid-template-columns: 26px minmax(120px, 1.3fr) minmax(140px, 1.7fr) minmax(120px, 1.4fr) 66px 92px 118px; align-items: center; gap: 10px; padding: 0 14px; }
+  .dk-head { padding: 4px 14px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); font-weight: 600; }
+  .dk-head .r, .dk-row .r { text-align: right; }
+  .dk-item { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; box-shadow: var(--card-shadow); overflow: hidden; transition: border-color 0.2s; }
+  .dk-item.open { border-color: rgba(36,150,237,0.4); }
+  .dk-body-row { height: 52px; cursor: pointer; transition: background 0.15s; }
+  .dk-body-row:hover { background: rgba(255,255,255,0.03); }
+  .dk-dot-cell { display: flex; align-items: center; justify-content: center; }
+  .dk-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dk-col-img { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dk-status { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dk-col-act { justify-self: end; }
+  .dk-actions { display: flex; gap: 5px; }
+  .dk-act { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid var(--card-border); background: rgba(255,255,255,0.04); color: var(--text-dim); cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; flex-shrink: 0; }
+  .dk-act:hover:not(:disabled) { background: rgba(255,255,255,0.09); color: var(--text); }
+  .dk-act:disabled { opacity: 0.5; cursor: default; }
+  .dk-act.dk-start:hover:not(:disabled) { color: var(--accent); border-color: rgba(34,211,167,0.5); background: rgba(34,211,167,0.12); }
+  .dk-act.dk-stop:hover:not(:disabled) { color: var(--warn); border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.12); }
+  .dk-act.dk-del:hover:not(:disabled) { color: var(--crit); border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.12); }
+  .dk-spinner { width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.25); border-top-color: var(--accent); border-radius: 50%; animation: dk-spin 0.7s linear infinite; }
+  @keyframes dk-spin { to { transform: rotate(360deg); } }
+
+  .dk-detail { border-top: 1px solid var(--card-border); padding: 14px; background: rgba(0,0,0,0.18); }
+  .dk-detail-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; }
+  .dk-detail-logs { min-width: 0; }
+  .dk-logs { margin: 8px 0 0; padding: 10px 12px; background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); border-radius: 10px; font-family: var(--mono); font-size: 11px; line-height: 1.5; color: var(--text-dim); white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow: auto; }
+  .dk-detail-meta { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .dk-meta-section { min-width: 0; }
+  .dk-meta-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .dk-meta-count { background: rgba(255,255,255,0.08); color: var(--text-dim); border-radius: 8px; padding: 0 6px; font-size: 10px; letter-spacing: 0; }
+  .dk-meta-list { display: flex; flex-direction: column; gap: 3px; max-height: 150px; overflow: auto; }
+  .dk-meta-item { line-height: 1.4; }
+  .dk-wrap { word-break: break-all; white-space: normal; }
+  .dk-env { color: var(--text-dim); }
+
+  /* ── Confirm modal ── */
+  .confirm-backdrop { position: fixed; inset: 0; z-index: 1300; background: rgba(0,0,0,0.55); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; padding: 20px; animation: page-fade 0.18s ease-out both; }
+  .confirm-modal { width: 380px; max-width: 100%; background: rgba(14,18,24,0.98); border: 1px solid var(--card-border); border-radius: 16px; padding: 22px; box-shadow: 0 24px 70px rgba(0,0,0,0.6); }
+  .confirm-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+  .confirm-body { font-size: 13px; color: var(--text-dim); line-height: 1.5; margin-bottom: 20px; }
+  .confirm-actions { display: flex; justify-content: flex-end; gap: 10px; }
+  .confirm-cancel { background: rgba(255,255,255,0.06); border: 1px solid var(--card-border); color: var(--text); border-radius: 9px; padding: 8px 16px; font-family: var(--font); font-size: 13px; cursor: pointer; }
+  .confirm-danger { background: var(--crit); border: 1px solid var(--crit); color: #fff; border-radius: 9px; padding: 8px 16px; font-family: var(--font); font-size: 13px; font-weight: 600; cursor: pointer; }
+  .confirm-danger:hover { filter: brightness(1.1); }
+
+  /* ── Terminal ── */
+  .term-header-btn { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 9px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: var(--text-dim); cursor: pointer; transition: background 0.16s, color 0.16s, border-color 0.16s; flex-shrink: 0; }
+  .term-header-btn:hover { background: var(--accent-dim); color: var(--accent); border-color: rgba(34,211,167,0.4); }
+  .term-badge { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(34,211,167,0.25); border-radius: 6px; padding: 1px 7px; letter-spacing: 0.5px; }
+  .term-card { display: flex; flex-direction: column; padding: 14px; }
+  .term-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .term-card-body { height: 260px; background: #0a0e14; border: 1px solid var(--card-border); border-radius: 10px; overflow: hidden; padding: 6px 4px 6px 8px; }
+  .term-host { width: 100%; height: 100%; }
+  .term-host .xterm { height: 100%; padding: 0; }
+  .term-host .xterm-viewport { background-color: transparent !important; }
+
+  .term-modal-backdrop { position: fixed; inset: 0; z-index: 1250; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; padding: 24px; animation: page-fade 0.18s ease-out both; }
+  .term-modal { width: min(1000px, 94vw); height: min(620px, 82vh); background: rgba(12,16,22,0.98); border: 1px solid var(--card-border); border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,0.6); display: flex; flex-direction: column; overflow: hidden; }
+  .term-modal-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--card-border); flex-shrink: 0; }
+  .term-modal-title { font-size: 15px; font-weight: 700; }
+  .term-modal-body { flex: 1; min-height: 0; background: #0a0e14; padding: 10px 6px 10px 12px; }
+
+  @media (max-width: 860px) {
+    .dk-row { grid-template-columns: 22px minmax(80px, 1.3fr) minmax(80px, 1fr) 50px 74px 100px; }
+    .dk-col-img { display: none; }
+    .dk-detail-grid { grid-template-columns: 1fr; }
+  }
 
   @media (max-width: 720px) {
     .home-greeting-text { font-size: 25px; }
@@ -2778,6 +2861,8 @@ const NAV_ITEMS = [
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
   { id: "main",       label: "System",                shortLabel: "System",    abbr: "SY", col: "#22D3A7",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><polyline points="6 10 9 12 12 8 15 11 18 7"/></svg> },
+  { id: "docker",     label: "Docker",                shortLabel: "Docker",    abbr: "DK", col: "#2496ED",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="10" width="4" height="4"/><rect x="8" y="10" width="4" height="4"/><rect x="13" y="10" width="4" height="4"/><rect x="8" y="5" width="4" height="4"/><path d="M2 14h18a4 4 0 0 0 1.5-3c.5 1 .8 2 .5 3"/><path d="M5 18a2 2 0 0 0 2 2h6a5 5 0 0 0 5-4"/></svg> },
   { id: "media-auto", label: "Media Automation",       shortLabel: "Automate",  abbr: "MA", col: "#A855F7",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="8" width="20" height="14" rx="2"/><path d="M2 13h20"/><path d="M4 8V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/><path d="M7 6l2 2M13 5l2 3"/></svg> },
   { id: "media-srv",  label: "Media Server",           shortLabel: "Media",     abbr: "MS", col: "#00A4DC",
@@ -3645,6 +3730,7 @@ function MainPage({ onMenuToggle, onNavigate, bellProps, layoutResetKey }) {
           <button className="edit-layout-btn" onClick={() => setEditLayoutOpen(true)} aria-label="Edit layout">
             <PencilIcon />
           </button>
+          <TerminalButton />
           {bellProps && <NotificationBell {...bellProps} />}
           <div className="live-badge">
             <div className="live-dot" style={{ background: connected ? "var(--accent)" : "var(--crit)" }} />
@@ -3808,6 +3894,7 @@ function PageHeader({ title, onMenuToggle, onNavigate, bellProps, onEditLayout }
             <PencilIcon />
           </button>
         )}
+        <TerminalButton />
         {bellProps && <NotificationBell {...bellProps} />}
       </div>
     </header>
@@ -3918,6 +4005,357 @@ function DownloadsPage({ onMenuToggle, onNavigate, bellProps }) {
         <DraggableGrid pageKey="downloads" items={items} resizable={new Set(["qbittorrent","unmanic"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} onReorder={setMobileOrder} />
       </div>
       {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
+    </div>
+  );
+}
+
+// ─── TERMINAL ────────────────────────────────────────────────────
+// xterm.js front-end wired to the /terminal WebSocket (node-pty shell).
+const TERM_THEME = {
+  background: "#0a0e14", foreground: "#c8e6d8",
+  cursor: "#22D3A7", cursorAccent: "#0a0e14",
+  selectionBackground: "rgba(34,211,167,0.28)",
+  black: "#0a0e14", brightBlack: "#3b4754",
+  red: "#ef4444", brightRed: "#f87171",
+  green: "#22D3A7", brightGreen: "#4ade80",
+  yellow: "#f59e0b", brightYellow: "#fbbf24",
+  blue: "#2979FF", brightBlue: "#60a5fa",
+  magenta: "#a855f7", brightMagenta: "#c084fc",
+  cyan: "#22d3ee", brightCyan: "#67e8f9",
+  white: "#c8e6d8", brightWhite: "#f0fdf4",
+};
+
+function TerminalView() {
+  const hostRef = useRef(null);
+  useEffect(() => {
+    const term = new Terminal({
+      fontFamily: '"JetBrains Mono", "Fira Code", ui-monospace, monospace',
+      fontSize: 13, cursorBlink: true, theme: TERM_THEME, allowProposedApi: true,
+    });
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.open(hostRef.current);
+    const safeFit = () => { try { fit.fit(); } catch { /* not laid out yet */ } };
+    requestAnimationFrame(safeFit);
+
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(`${proto}://${location.host}/terminal`);
+    ws.binaryType = "arraybuffer";
+    let alive = true;
+    term.writeln("\x1b[38;5;80mConnecting to shell…\x1b[0m");
+
+    ws.onopen = () => {
+      term.clear();
+      safeFit();
+      try { ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows })); } catch { /* ignore */ }
+    };
+    ws.onmessage = (e) => term.write(typeof e.data === "string" ? e.data : new Uint8Array(e.data));
+    ws.onclose = () => { if (alive) term.write("\r\n\x1b[38;5;244m[session ended]\x1b[0m\r\n"); };
+    ws.onerror = () => { if (alive) term.write("\r\n\x1b[31m[connection error — is the terminal backend running?]\x1b[0m\r\n"); };
+
+    const dataSub = term.onData((d) => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "input", data: d })); });
+
+    const onResize = () => {
+      safeFit();
+      if (ws.readyState === WebSocket.OPEN) { try { ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows })); } catch { /* ignore */ } }
+    };
+    const ro = new ResizeObserver(onResize);
+    if (hostRef.current) ro.observe(hostRef.current);
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      alive = false;
+      ro.disconnect();
+      window.removeEventListener("resize", onResize);
+      dataSub.dispose();
+      try { ws.close(); } catch { /* ignore */ }
+      term.dispose();
+    };
+  }, []);
+  return <div ref={hostRef} className="term-host" />;
+}
+
+const TerminalGlyph = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+);
+
+function TerminalWidget() {
+  return (
+    <div className="card term-card">
+      <div className="term-card-head">
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ color: "var(--accent)", display: "flex" }}><TerminalGlyph /></span>
+          <span className="card-title" style={{ margin: 0 }}>Terminal</span>
+        </div>
+        <span className="term-badge">bash</span>
+      </div>
+      <div className="term-card-body"><TerminalView /></div>
+    </div>
+  );
+}
+
+function TerminalModal({ onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return createPortal(
+    <div className="term-modal-backdrop" onClick={onClose}>
+      <div className="term-modal" onClick={e => e.stopPropagation()}>
+        <div className="term-modal-head">
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ color: "var(--accent)", display: "flex" }}><TerminalGlyph /></span>
+            <span className="term-modal-title">Terminal</span>
+            <span className="term-badge">bash</span>
+          </div>
+          <button className="close-btn" onClick={onClose}>× Close</button>
+        </div>
+        <div className="term-modal-body"><TerminalView /></div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+const TerminalButton = () => (
+  <button className="term-header-btn" aria-label="Open terminal"
+    onClick={() => window.dispatchEvent(new Event("2ez-open-terminal"))}>
+    <TerminalGlyph />
+  </button>
+);
+
+// ─── DOCKER PAGE ─────────────────────────────────────────────────
+const DkSpinner = () => <span className="dk-spinner" />;
+const DkStart   = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 4 20 12 6 20 6 4"/></svg>;
+const DkStop    = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>;
+const DkRestart = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>;
+const DkTrash   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>;
+
+const DOCKER_SORTS = [
+  { id: "name", label: "Name" }, { id: "status", label: "Status" },
+  { id: "cpu", label: "CPU" }, { id: "memory", label: "Memory" },
+];
+const DOCKER_FILTERS = [
+  { id: "all", label: "All" }, { id: "running", label: "Running" }, { id: "stopped", label: "Stopped" },
+];
+
+function ConfirmModal({ title, body, confirmLabel = "Confirm", onConfirm, onCancel }) {
+  return createPortal(
+    <div className="confirm-backdrop" onClick={onCancel}>
+      <div className="confirm-modal" onClick={e => e.stopPropagation()}>
+        <div className="confirm-title">{title}</div>
+        <div className="confirm-body">{body}</div>
+        <div className="confirm-actions">
+          <button className="confirm-cancel" onClick={onCancel}>Cancel</button>
+          <button className="confirm-danger" onClick={onConfirm}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function DockerMetaSection({ title, items, empty, render }) {
+  const arr = Array.isArray(items) ? items : [];
+  return (
+    <div className="dk-meta-section">
+      <div className="dk-meta-title">{title}{arr.length > 0 && <span className="dk-meta-count">{arr.length}</span>}</div>
+      {arr.length === 0
+        ? <div className="label-xs dim">{empty}</div>
+        : <div className="dk-meta-list">{arr.map((it, i) => <div key={i} className="dk-meta-item">{render(it)}</div>)}</div>}
+    </div>
+  );
+}
+
+function DockerDetail({ det }) {
+  const insp = det.inspect || {};
+  const logRef = useRef(null);
+  useEffect(() => {
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [det.logs]);
+  return (
+    <div className="dk-detail-grid">
+      <div className="dk-detail-logs">
+        <div className="dk-meta-title">Logs <span className="dim" style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>· last 200 lines</span></div>
+        <pre className="dk-logs" ref={logRef}>{det.logs ? det.logs : "(no output)"}</pre>
+      </div>
+      <div className="dk-detail-meta">
+        <DockerMetaSection title="Ports" items={insp.ports} empty="No published ports" render={p => <span className="mono label-xs">{p}</span>} />
+        <DockerMetaSection title="Volumes" items={insp.volumes} empty="No mounts" render={v => <div className="mono label-xs dk-wrap"><span style={{ color: "var(--accent)" }}>{v.dest}</span> <span className="dim">← {v.source} ({v.mode})</span></div>} />
+        <DockerMetaSection title="Networks" items={insp.networks} empty="None" render={n => <span className="mono label-xs">{n.name}{n.ip ? <span className="dim"> · {n.ip}</span> : null}</span>} />
+        <DockerMetaSection title="Environment" items={insp.env} empty="None" render={e => <div className="mono label-xs dk-wrap dk-env">{e}</div>} />
+      </div>
+    </div>
+  );
+}
+
+function DockerPage({ onMenuToggle, onNavigate, bellProps }) {
+  const [containers, setContainers] = useState(null);
+  const [err, setErr] = useState(null);
+  const [sort, setSort] = useState("name");
+  const [dir, setDir] = useState(1);
+  const [filter, setFilter] = useState("all");
+  const [expandedId, setExpandedId] = useState(null);
+  const [details, setDetails] = useState({});
+  const [busy, setBusy] = useState({});
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const expandedRef = useRef(null);
+  expandedRef.current = expandedId;
+
+  const refresh = useCallback(async () => {
+    try {
+      const list = await fetch("/sys-api/docker/containers").then(r => r.json());
+      if (Array.isArray(list)) { setContainers(list); setErr(null); }
+      else { setContainers([]); setErr(list?.error || "Docker socket unavailable"); }
+    } catch { setErr("Docker socket unavailable"); }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    const id = setInterval(() => {
+      refresh();
+      const ex = expandedRef.current;
+      if (ex) fetch(`/sys-api/docker/${ex}/logs`).then(r => r.json())
+        .then(l => setDetails(d => ({ ...d, [ex]: { ...(d[ex] || {}), logs: l?.logs ?? d[ex]?.logs ?? "" } })))
+        .catch(() => {});
+    }, 3000);
+    return () => clearInterval(id);
+  }, [refresh]);
+
+  const doAction = async (cid, verb) => {
+    setBusy(b => ({ ...b, [cid]: verb }));
+    try { await fetch(`/sys-api/docker/${cid}/${verb}`, { method: "POST" }); } catch {}
+    await refresh();
+    setBusy(b => { const n = { ...b }; delete n[cid]; return n; });
+  };
+
+  const doDelete = async (cid) => {
+    setBusy(b => ({ ...b, [cid]: "delete" }));
+    try { await fetch(`/sys-api/docker/${cid}`, { method: "DELETE" }); } catch {}
+    setDeleteTarget(null);
+    if (expandedId === cid) setExpandedId(null);
+    await refresh();
+    setBusy(b => { const n = { ...b }; delete n[cid]; return n; });
+  };
+
+  const toggleExpand = async (cid) => {
+    if (expandedId === cid) { setExpandedId(null); return; }
+    setExpandedId(cid);
+    if (!details[cid]) {
+      const [insp, logs] = await Promise.all([
+        fetch(`/sys-api/docker/${cid}/inspect`).then(r => r.json()).catch(() => null),
+        fetch(`/sys-api/docker/${cid}/logs`).then(r => r.json()).catch(() => null),
+      ]);
+      setDetails(d => ({ ...d, [cid]: { inspect: insp, logs: logs?.logs || "" } }));
+    }
+  };
+
+  const setSortKey = (k) => {
+    if (sort === k) setDir(d => -d);
+    else { setSort(k); setDir(k === "name" ? 1 : -1); }
+  };
+
+  const list = containers || [];
+  const filtered = list.filter(c => filter === "all" ? true : filter === "running" ? c.state === "running" : c.state !== "running");
+  const sorted = [...filtered].sort((a, b) => {
+    let r;
+    if (sort === "name") r = a.name.localeCompare(b.name);
+    else if (sort === "status") r = String(a.state).localeCompare(String(b.state));
+    else if (sort === "cpu") r = (a.cpu_percent || 0) - (b.cpu_percent || 0);
+    else r = (a.memory_usage || 0) - (b.memory_usage || 0);
+    return r * dir;
+  });
+  const runningCount = list.filter(c => c.state === "running").length;
+
+  return (
+    <div className="shell">
+      <PageHeader title="Docker" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
+      <div className="page-content">
+        <div className="dk-toolbar">
+          <div className="dk-summary">
+            <span className="big-num" style={{ fontSize: 24, color: "var(--accent)" }}>{runningCount}</span>
+            <span className="label-sm">/ {list.length} running</span>
+          </div>
+          <div className="dk-controls">
+            <div className="dk-seg">
+              {DOCKER_FILTERS.map(f => (
+                <button key={f.id} className={`dk-seg-btn${filter === f.id ? " active" : ""}`} onClick={() => setFilter(f.id)}>{f.label}</button>
+              ))}
+            </div>
+            <div className="dk-seg">
+              {DOCKER_SORTS.map(s => (
+                <button key={s.id} className={`dk-seg-btn${sort === s.id ? " active" : ""}`} onClick={() => setSortKey(s.id)}>
+                  {s.label}{sort === s.id ? (dir > 0 ? " ↑" : " ↓") : ""}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {err && <div className="dk-error">⚠ {err}</div>}
+        {containers === null && !err ? (
+          <div className="dk-empty">Loading containers…</div>
+        ) : sorted.length === 0 && !err ? (
+          <div className="dk-empty">No containers match this filter.</div>
+        ) : (
+          <div className="dk-list">
+            <div className="dk-row dk-head">
+              <span />
+              <span>Name</span>
+              <span className="dk-col-img">Image</span>
+              <span>Status</span>
+              <span className="r">CPU</span>
+              <span className="r">Memory</span>
+              <span className="dk-col-act">Actions</span>
+            </div>
+            {sorted.map(c => {
+              const running = c.state === "running";
+              const b = busy[c.id];
+              const det = details[c.id];
+              const open = expandedId === c.id;
+              return (
+                <div key={c.id} className={`dk-item${open ? " open" : ""}`}>
+                  <div className="dk-row dk-body-row" onClick={() => toggleExpand(c.id)}>
+                    <span className="dk-dot-cell"><span className={`docker-dot ${running ? "dot-live" : "dot-dead"}`} /></span>
+                    <span className="dk-name mono">{c.name}</span>
+                    <span className="dk-col-img label-xs dim" title={c.image}>{c.image}</span>
+                    <span className="label-xs dk-status">{c.status || (running ? "running" : "stopped")}</span>
+                    <span className="r mono label-sm" style={{ color: running ? statusColor(c.cpu_percent || 0) : "var(--text-dim)" }}>{running ? (c.cpu_percent || 0).toFixed(1) + "%" : "—"}</span>
+                    <span className="r mono label-sm" style={running ? undefined : { color: "var(--text-dim)" }}>{running ? fmt.bytes(c.memory_usage || 0) : "—"}</span>
+                    <span className="dk-col-act dk-actions" onClick={e => e.stopPropagation()}>
+                      {running ? (
+                        <>
+                          <button className="dk-act dk-stop" disabled={!!b} onClick={() => doAction(c.id, "stop")} title="Stop">{b === "stop" ? <DkSpinner /> : <DkStop />}</button>
+                          <button className="dk-act" disabled={!!b} onClick={() => doAction(c.id, "restart")} title="Restart">{b === "restart" ? <DkSpinner /> : <DkRestart />}</button>
+                        </>
+                      ) : (
+                        <button className="dk-act dk-start" disabled={!!b} onClick={() => doAction(c.id, "start")} title="Start">{b === "start" ? <DkSpinner /> : <DkStart />}</button>
+                      )}
+                      <button className="dk-act dk-del" disabled={!!b} onClick={() => setDeleteTarget(c)} title="Delete">{b === "delete" ? <DkSpinner /> : <DkTrash />}</button>
+                    </span>
+                  </div>
+                  {open && (
+                    <div className="dk-detail">
+                      {!det ? <div className="label-sm dim" style={{ padding: "12px 4px" }}>Loading details…</div> : <DockerDetail det={det} />}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {deleteTarget && (
+        <ConfirmModal
+          title="Delete container?"
+          body={<>Force-remove <b style={{ color: "var(--text)" }}>{deleteTarget.name}</b> and its writable layer. This cannot be undone.</>}
+          confirmLabel="Delete"
+          onConfirm={() => doDelete(deleteTarget.id)}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   );
 }
@@ -4171,20 +4609,26 @@ const SYS_WIDGET_LABELS = {
 const SVC_LIVE_WIDGETS = ["jellyfin", "qbt", "unmanic", "speedtest", "navidrome"];
 const LINK_WIDGETS = ["sonarr", "radarr", "prowlarr", "bazarr", "seerr", "nextcloud", "immich", "cockpit", "dockge", "filebrowser", "slskd", "beetsflask", "lrcget", "uptimekuma", "wud"];
 
+const TOOL_WIDGET_LABELS = { terminal: "Terminal" };
+
 const WIDGET_CATALOG = [
   { category: "System Metrics", items: Object.keys(SYS_WIDGET_LABELS).map(k => ({ wid: `sys:${k}`, label: SYS_WIDGET_LABELS[k] })) },
   { category: "Services",       items: SVC_LIVE_WIDGETS.map(k => ({ wid: `svc:${k}`, label: SVC[k].name })) },
+  { category: "Tools",          items: Object.keys(TOOL_WIDGET_LABELS).map(k => ({ wid: `tool:${k}`, label: TOOL_WIDGET_LABELS[k] })) },
   { category: "Quick Links",    items: LINK_WIDGETS.map(k => ({ wid: `link:${k}`, label: SVC[k].name })) },
 ];
 const VALID_WIDGETS = new Set(WIDGET_CATALOG.flatMap(c => c.items.map(i => i.wid)));
 
 const widgetLabel = (wid) => {
   const [type, key] = wid.split(":");
-  return type === "sys" ? (SYS_WIDGET_LABELS[key] || key) : (SVC[key]?.name || key);
+  if (type === "sys") return SYS_WIDGET_LABELS[key] || key;
+  if (type === "tool") return TOOL_WIDGET_LABELS[key] || key;
+  return SVC[key]?.name || key;
 };
 const widgetColor = (wid) => {
   const [type, key] = wid.split(":");
-  return type === "sys" ? "var(--accent)" : (SVC[key]?.col || "var(--accent)");
+  if (type === "sys" || type === "tool") return "var(--accent)";
+  return SVC[key]?.col || "var(--accent)";
 };
 
 // Resolves a widget id to its actual component — reusing the exact
@@ -4192,6 +4636,7 @@ const widgetColor = (wid) => {
 function WidgetNode({ wid }) {
   const [type, key] = wid.split(":");
   if (type === "sys") return <SystemMetricCard id={key} renderSize="medium" />;
+  if (type === "tool") return key === "terminal" ? <TerminalWidget /> : null;
   if (type === "svc") {
     switch (key) {
       case "jellyfin":  return <JellyfinWidget />;
@@ -4360,6 +4805,7 @@ function HomePage({ onMenuToggle, onNavigate, bellProps }) {
             </div>
           )}
           <span className="header-clock">{time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+          <TerminalButton />
           {bellProps && <NotificationBell {...bellProps} />}
           <div className="live-badge">
             <div className="live-dot" style={{ background: connected ? "var(--accent)" : "var(--crit)" }} />
@@ -4448,6 +4894,15 @@ export default function App() {
 function AppInner() {
   const [activePage, setActivePage] = useState("home");
   const [menuOpen, setMenuOpen]     = useState(false);
+  const [terminalOpen, setTerminalOpen] = useState(false);
+
+  // Header terminal buttons (on every page) fire a window event so we
+  // don't have to thread a handler through every page component.
+  useEffect(() => {
+    const open = () => setTerminalOpen(true);
+    window.addEventListener("2ez-open-terminal", open);
+    return () => window.removeEventListener("2ez-open-terminal", open);
+  }, []);
 
   const [themeColors, setThemeColors] = useState(() => {
     try {
@@ -4574,6 +5029,7 @@ function AppInner() {
 
       {activePage === "home"       && <HomePage            onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "main"       && <MainPage            onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} layoutResetKey={layoutResetKey} />}
+      {activePage === "docker"     && <DockerPage          onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "media-auto" && <MediaAutomationPage onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "media-srv"  && <MediaServerPage     onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "mgmt"       && <ManagementPage      onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
@@ -4594,6 +5050,8 @@ function AppInner() {
           onResetLayout={resetLayout}
         />
       )}
+
+      {terminalOpen && <TerminalModal onClose={() => setTerminalOpen(false)} />}
     </>
   );
 }

@@ -116,6 +116,60 @@ app.get(/.*/, (_req, res) => {
 })
 
 const PORT = process.env.PORT || 3080
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`[2ez] server running on http://0.0.0.0:${PORT}`)
 })
+
+// ── WebSocket terminal ────────────────────────────────────────────
+// Spawns an interactive shell via node-pty and pipes it over a
+// WebSocket at /terminal for the xterm.js front-end. Dependencies are
+// loaded lazily so a missing native build of node-pty disables the
+// terminal without taking down the rest of the dashboard.
+// NOTE: this grants a full shell to anyone who can reach the server —
+// it is intended for the private, Tailscale-only homelab dashboard.
+async function setupTerminal(httpServer) {
+  let WebSocketServer, pty
+  try {
+    ;({ WebSocketServer } = await import('ws'))
+    const mod = await import('node-pty')
+    pty = mod.default && mod.default.spawn ? mod.default : mod
+    if (typeof pty.spawn !== 'function') throw new Error('node-pty.spawn unavailable')
+  } catch (err) {
+    console.warn(`[terminal] disabled — ${err.message}`)
+    return
+  }
+
+  const wss = new WebSocketServer({ server: httpServer, path: '/terminal' })
+  wss.on('connection', (ws) => {
+    let term
+    try {
+      const shell = process.env.SHELL || 'bash'
+      term = pty.spawn(shell, [], {
+        name: 'xterm-color',
+        cols: 80,
+        rows: 24,
+        cwd: process.env.HOME || '/',
+        env: process.env,
+      })
+    } catch (err) {
+      try { ws.send(`\r\n\x1b[31mFailed to start shell: ${err.message}\x1b[0m\r\n`); ws.close() } catch { /* ignore */ }
+      return
+    }
+
+    console.log('[terminal] session opened')
+    term.onData((d) => { try { if (ws.readyState === ws.OPEN) ws.send(d) } catch { /* ignore */ } })
+    term.onExit(() => { try { ws.close() } catch { /* ignore */ } })
+
+    ws.on('message', (raw) => {
+      let m
+      try { m = JSON.parse(raw.toString()) } catch { return }
+      if (m.type === 'input' && typeof m.data === 'string') term.write(m.data)
+      else if (m.type === 'resize' && m.cols > 0 && m.rows > 0) { try { term.resize(m.cols, m.rows) } catch { /* ignore */ } }
+    })
+    const kill = () => { try { term.kill() } catch { /* ignore */ } }
+    ws.on('close', () => { console.log('[terminal] session closed'); kill() })
+    ws.on('error', kill)
+  })
+  console.log('[terminal] websocket endpoint ready at /terminal')
+}
+setupTerminal(server)

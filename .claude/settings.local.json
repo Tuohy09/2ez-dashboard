@@ -32,7 +32,12 @@
       "Bash(xargs -r kill -9)",
       "Bash(lsof -ti:3099 -sTCP:LISTEN)",
       "Bash(npm remove *)",
-      "Bash(cd /home/tuohy/2ez-dashboard *)"
+      "Bash(cd /home/tuohy/2ez-dashboard *)",
+      "Bash(npm install *)",
+      "Bash(docker build *)",
+      "Bash(echo \"build PID $!\")",
+      "Bash(docker run --rm --entrypoint node 2ez-dashboard-test -e ' *)",
+      "Bash(docker rmi *)"
     ],
     "additionalDirectories": [
       "/home/tuohy/2ez-dashboard/src"

@@ -101,6 +101,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/sys-api':   { target: 'http://192.168.0.170:3080',  changeOrigin: true },
+      '/terminal':  { target: 'http://192.168.0.170:3080',  changeOrigin: true, ws: true },
       '/speedtest': { target: 'http://192.168.0.170:8083',  changeOrigin: true, rewrite: (p) => p.replace(/^\/speedtest/, '') },
     }
   }

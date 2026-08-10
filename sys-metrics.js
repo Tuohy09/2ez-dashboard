@@ -206,6 +206,7 @@ const dockerReq = (path) => new Promise((resolve, reject) => {
 
 let containers = []
 let containerNetPrev = new Map() // id → { rx, tx, ts }
+let containerStats = new Map()   // id → { cpu, mem } — reused by the Docker page
 
 function containerCpuPct(s) {
   const cpu = s.cpu_stats, pre = s.precpu_stats
@@ -225,10 +226,11 @@ function containerMem(s) {
 }
 
 async function sampleContainers() {
-  if (!fs.existsSync(DOCKER_SOCK)) { containers = []; return }
+  if (!fs.existsSync(DOCKER_SOCK)) { containers = []; containerStats = new Map(); return }
   let list
   try { list = await dockerReq('/containers/json?all=1') } catch { containers = []; return }
   const now = Date.now()
+  const stats = new Map()
   const results = await Promise.all((Array.isArray(list) ? list : []).map(async (c) => {
     const name = (c.Names?.[0] || c.Id?.slice(0, 12) || 'unknown').replace(/^\//, '')
     const running = c.State === 'running'
@@ -249,15 +251,114 @@ async function sampleContainers() {
         containerNetPrev.set(c.Id, { rx, tx, ts: now })
       } catch { /* container vanished mid-sample */ }
     }
-    return { name, status: c.State || 'stopped', cpu_percent: cpu, memory_usage: mem, network_rx: net_rx, network_tx: net_tx, uptime }
+    stats.set(c.Id, { cpu, mem })
+    return { id: c.Id, name, image: c.Image, status: c.State || 'stopped', cpu_percent: cpu, memory_usage: mem, network_rx: net_rx, network_tx: net_tx, uptime }
   }))
   containers = results
+  containerStats = stats
 }
 
 function scheduleDockerSampler() {
   sampleContainers().catch(() => {}).finally(() => setTimeout(scheduleDockerSampler, 2000).unref())
 }
 scheduleDockerSampler()
+
+// ─── Docker management (start/stop/logs/inspect) ─────────────────
+// Lifecycle action (start/stop/restart/delete). Docker replies 204 on
+// success; anything else surfaces the daemon's error message.
+function dockerAction(method, path) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ socketPath: DOCKER_SOCK, path, method, timeout: 12000 }, (res) => {
+      let body = ''
+      res.on('data', c => (body += c))
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) resolve({ ok: true })
+        else {
+          let msg = body
+          try { msg = JSON.parse(body).message || body } catch { /* keep raw */ }
+          reject(new Error(`docker ${res.statusCode}: ${String(msg).slice(0, 300)}`))
+        }
+      })
+    })
+    req.on('error', reject)
+    req.on('timeout', () => req.destroy(new Error('docker timeout')))
+    req.end()
+  })
+}
+
+// Raw byte stream (used for container logs).
+function dockerRaw(path) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ socketPath: DOCKER_SOCK, path, method: 'GET', timeout: 12000 }, (res) => {
+      const chunks = []
+      res.on('data', c => chunks.push(c))
+      res.on('end', () => resolve(Buffer.concat(chunks)))
+    })
+    req.on('error', reject)
+    req.on('timeout', () => req.destroy(new Error('docker timeout')))
+    req.end()
+  })
+}
+
+// Non-TTY container logs are multiplexed: 8-byte frame header
+// [stream(1) 0 0 0 size(uint32 BE)] + payload. Strip the headers; if
+// the bytes don't look framed (TTY containers) return them as-is.
+function demuxDockerLog(buf) {
+  let out = '', off = 0
+  while (off + 8 <= buf.length) {
+    const type = buf[off]
+    const size = buf.readUInt32BE(off + 4)
+    if (type > 2 || buf[off + 1] !== 0 || buf[off + 2] !== 0 || buf[off + 3] !== 0 || off + 8 + size > buf.length) {
+      return out + buf.slice(off).toString('utf8') // not framed → raw TTY stream
+    }
+    out += buf.slice(off + 8, off + 8 + size).toString('utf8')
+    off += 8 + size
+  }
+  return out
+}
+
+async function dockerListDetailed() {
+  if (!fs.existsSync(DOCKER_SOCK)) return []
+  const list = await dockerReq('/containers/json?all=1')
+  return (Array.isArray(list) ? list : []).map(c => {
+    const st = containerStats.get(c.Id) || {}
+    return {
+      id: c.Id,
+      name: (c.Names?.[0] || '').replace(/^\//, '') || (c.Id || '').slice(0, 12),
+      image: c.Image,
+      state: c.State || 'exited',          // running | exited | paused | ...
+      status: c.Status || '',              // "Up 3 days" / "Exited (0) 2 hours ago"
+      created: c.Created,
+      cpu_percent: st.cpu ?? 0,
+      memory_usage: st.mem ?? 0,
+    }
+  })
+}
+
+function extractInspect(info) {
+  const ports = []
+  const nsPorts = info.NetworkSettings?.Ports || {}
+  for (const [cp, binds] of Object.entries(nsPorts)) {
+    if (binds && binds.length) for (const b of binds) ports.push(`${b.HostIp || '0.0.0.0'}:${b.HostPort} → ${cp}`)
+    else ports.push(cp)
+  }
+  const volumes = (info.Mounts || []).map(m => ({
+    source: m.Source || m.Name || '', dest: m.Destination || '',
+    mode: m.RW === false ? 'ro' : 'rw', type: m.Type || 'bind',
+  }))
+  const networks = Object.entries(info.NetworkSettings?.Networks || {}).map(([name, n]) => ({
+    name, ip: n.IPAddress || '',
+  }))
+  return {
+    ports,
+    volumes,
+    env: info.Config?.Env || [],
+    networks,
+    restartPolicy: info.HostConfig?.RestartPolicy?.Name || 'no',
+    command: Array.isArray(info.Config?.Cmd) ? info.Config.Cmd.join(' ') : (info.Config?.Cmd || ''),
+    created: info.Created,
+  }
+}
 
 // ─── On-request readers ──────────────────────────────────────────
 function readMeminfo() {
@@ -533,5 +634,34 @@ router.get('/containers', (_req, res) => send(res, () => containers))
 router.get('/alert', (_req, res) => res.json([]))
 
 router.get('/info', (_req, res) => send(res, systemInfo))
+
+// ─── Docker management API ───────────────────────────────────────
+const sendAsync = async (res, fn) => {
+  try { res.json(await fn()) }
+  catch (e) { res.status(500).json({ error: e.message }) }
+}
+// Container ids/names only contain these chars — reject anything else
+// so an id can never break out of the socket path.
+router.param('id', (req, res, next, id) => {
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(id)) return res.status(400).json({ error: 'invalid container id' })
+  next()
+})
+
+router.get('/docker/containers', (_req, res) => sendAsync(res, dockerListDetailed))
+
+router.get('/docker/:id/logs', (req, res) => sendAsync(res, async () => {
+  const buf = await dockerRaw(`/containers/${req.params.id}/logs?stdout=1&stderr=1&tail=200&timestamps=0`)
+  return { logs: demuxDockerLog(buf) }
+}))
+
+router.get('/docker/:id/inspect', (req, res) => sendAsync(res, async () => {
+  const info = await dockerReq(`/containers/${req.params.id}/json`)
+  return extractInspect(info)
+}))
+
+router.post('/docker/:id/start',   (req, res) => sendAsync(res, () => dockerAction('POST', `/containers/${req.params.id}/start`)))
+router.post('/docker/:id/stop',    (req, res) => sendAsync(res, () => dockerAction('POST', `/containers/${req.params.id}/stop`)))
+router.post('/docker/:id/restart', (req, res) => sendAsync(res, () => dockerAction('POST', `/containers/${req.params.id}/restart`)))
+router.delete('/docker/:id',       (req, res) => sendAsync(res, () => dockerAction('DELETE', `/containers/${req.params.id}?force=1`)))
 
 export default router
