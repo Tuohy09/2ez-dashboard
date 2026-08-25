@@ -6,6 +6,22 @@ services:
     restart: unless-stopped
     stdin_open: true
     tty: true
+    # The /terminal WebSocket nsenter's into PID 1's namespaces so the web
+    # terminal is a real shell on the host, not the container's Alpine box.
+    # That needs the host PID namespace, CAP_SYS_ADMIN/SYS_PTRACE/SYS_CHROOT
+    # for setns(), and a seccomp profile that does not block setns.
+    # Set TERMINAL_HOST=0 to drop back to a shell inside the container.
+    pid: host
+    cap_add:
+      - SYS_ADMIN
+      - SYS_PTRACE
+      - SYS_CHROOT
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    environment:
+      # Host user the terminal logs in as; root gets a plain `bash -l`.
+      TERMINAL_USER: root
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro

@@ -1,6 +1,7 @@
 import express from 'express'
 import { createProxyMiddleware } from 'http-proxy-middleware'
 import { fileURLToPath } from 'url'
+import { spawnSync } from 'child_process'
 import path from 'path'
 import sysApi from './sys-metrics.js'
 
@@ -99,6 +100,10 @@ app.use('/qbt', (req, res) => {
 // System metrics — read straight from the Linux kernel (replaces Glances)
 app.use('/sys-api', sysApi)
 
+// Which shell the /terminal WebSocket hands out — filled in by setupTerminal().
+const terminalInfo = { mode: 'disabled', label: 'off', detail: 'terminal backend unavailable' }
+app.get('/terminal/info', (_req, res) => res.json(terminalInfo))
+
 // Standard upstream proxies
 // app.use('/mount', ...) causes Express to strip the mount path before the middleware
 // sees req.url, so pathRewrite re-prepends it before forwarding to the upstream.
@@ -127,6 +132,42 @@ const server = app.listen(PORT, () => {
 // terminal without taking down the rest of the dashboard.
 // NOTE: this grants a full shell to anyone who can reach the server —
 // it is intended for the private, Tailscale-only homelab dashboard.
+
+// The dashboard runs inside a container, where a plain shell is just the
+// Alpine box — no host tools, no docker CLI, no real filesystem. Given
+// `pid: host` and the caps in docker-compose.yaml we can instead nsenter
+// PID 1's namespaces and hand back a shell on the server itself.
+// Set TERMINAL_HOST=0 to force the in-container shell.
+const HOST_SHELL_ENABLED = process.env.TERMINAL_HOST !== '0'
+const HOST_USER = process.env.TERMINAL_USER || 'root'
+const NSENTER_ARGS = ['-t', '1', '-m', '-u', '-i', '-n', '-p', '--']
+const HOST_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+// A host shell needs PID 1 to be the host's init, CAP_SYS_ADMIN to setns()
+// into its namespaces, and a seccomp profile that permits setns. Probing
+// once at startup is cheaper — and far clearer in the logs — than
+// discovering the failure separately inside every session.
+function probeHostShell() {
+  if (!HOST_SHELL_ENABLED) return null
+  const probe = spawnSync('nsenter', [...NSENTER_ARGS, '/bin/sh', '-c', 'exit 0'], { stdio: 'ignore' })
+  if (probe.error || probe.status !== 0) {
+    const why = probe.error ? probe.error.message : `nsenter exited ${probe.status}`
+    console.warn(`[terminal] host shell unavailable (${why}) — falling back to the container shell`)
+    console.warn('[terminal] to enable it the container needs pid:host, CAP_SYS_ADMIN/SYS_PTRACE/SYS_CHROOT and seccomp:unconfined')
+    return null
+  }
+  // `su -` gives a proper login environment (host PATH, profile, HOME).
+  const args = HOST_USER === 'root'
+    ? [...NSENTER_ARGS, '/bin/bash', '-l']
+    : [...NSENTER_ARGS, '/bin/su', '-', HOST_USER]
+  return {
+    file: 'nsenter',
+    args,
+    env: { TERM: 'xterm-256color', PATH: HOST_PATH, LANG: process.env.LANG || 'C.UTF-8' },
+    cwd: '/',
+  }
+}
+
 async function setupTerminal(httpServer) {
   let WebSocketServer, pty
   try {
@@ -139,26 +180,45 @@ async function setupTerminal(httpServer) {
     return
   }
 
+  const host = probeHostShell()
+  const shell = host ?? {
+    file: process.env.SHELL || 'bash',
+    args: [],
+    env: process.env,
+    cwd: process.env.HOME || '/',
+  }
+  Object.assign(terminalInfo, host
+    ? { mode: 'host', label: 'host', detail: `${HOST_USER}@host via nsenter` }
+    : { mode: 'container', label: 'container', detail: `${path.basename(shell.file)} inside the dashboard container` })
+  console.log(`[terminal] shell mode: ${terminalInfo.mode} — ${terminalInfo.detail}`)
+
   const wss = new WebSocketServer({ server: httpServer, path: '/terminal' })
   wss.on('connection', (ws) => {
     let term
     try {
-      const shell = process.env.SHELL || 'bash'
-      term = pty.spawn(shell, [], {
+      term = pty.spawn(shell.file, shell.args, {
         name: 'xterm-color',
         cols: 80,
         rows: 24,
-        cwd: process.env.HOME || '/',
-        env: process.env,
+        cwd: shell.cwd,
+        env: shell.env,
       })
     } catch (err) {
       try { ws.send(`\r\n\x1b[31mFailed to start shell: ${err.message}\x1b[0m\r\n`); ws.close() } catch { /* ignore */ }
       return
     }
 
-    console.log('[terminal] session opened')
+    console.log(`[terminal] session opened (${terminalInfo.mode})`)
     term.onData((d) => { try { if (ws.readyState === ws.OPEN) ws.send(d) } catch { /* ignore */ } })
-    term.onExit(() => { try { ws.close() } catch { /* ignore */ } })
+    term.onExit(({ exitCode }) => {
+      // A host shell that dies straight away usually means nsenter lost its
+      // privileges (compose edited, container recreated) — say so rather
+      // than leaving a blank pane behind.
+      if (terminalInfo.mode === 'host' && exitCode !== 0) {
+        try { ws.send(`\r\n\x1b[31m[host shell exited ${exitCode} — check the container still has pid:host and CAP_SYS_ADMIN]\x1b[0m\r\n`) } catch { /* ignore */ }
+      }
+      try { ws.close() } catch { /* ignore */ }
+    })
 
     ws.on('message', (raw) => {
       let m

@@ -37,7 +37,13 @@
       "Bash(docker build *)",
       "Bash(echo \"build PID $!\")",
       "Bash(docker run --rm --entrypoint node 2ez-dashboard-test -e ' *)",
-      "Bash(docker rmi *)"
+      "Bash(docker rmi *)",
+      "Bash(node *)",
+      "Bash(docker exec *)",
+      "Bash(curl *)",
+      "Bash(tailscale serve *)",
+      "Bash(tailscale status *)",
+      "Bash(docker compose up *)"
     ],
     "additionalDirectories": [
       "/home/tuohy/2ez-dashboard/src"

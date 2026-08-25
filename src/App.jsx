@@ -4075,6 +4075,27 @@ function TerminalView() {
   return <div ref={hostRef} className="term-host" />;
 }
 
+// The backend hands out either a real host shell (nsenter into PID 1) or,
+// when the container lacks the privileges for that, a shell inside the
+// container itself — worth labelling, since the two behave very differently.
+function useTerminalMode() {
+  const [info, setInfo] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetch("/terminal/info")
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (alive && d) setInfo(d); })
+      .catch(() => { /* badge just stays generic */ });
+    return () => { alive = false; };
+  }, []);
+  return info;
+}
+
+function TerminalBadge() {
+  const info = useTerminalMode();
+  return <span className="term-badge" title={info?.detail || ""}>{info?.label || "shell"}</span>;
+}
+
 const TerminalGlyph = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
 );
@@ -4087,7 +4108,7 @@ function TerminalWidget() {
           <span style={{ color: "var(--accent)", display: "flex" }}><TerminalGlyph /></span>
           <span className="card-title" style={{ margin: 0 }}>Terminal</span>
         </div>
-        <span className="term-badge">bash</span>
+        <TerminalBadge />
       </div>
       <div className="term-card-body"><TerminalView /></div>
     </div>
@@ -4107,7 +4128,7 @@ function TerminalModal({ onClose }) {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ color: "var(--accent)", display: "flex" }}><TerminalGlyph /></span>
             <span className="term-modal-title">Terminal</span>
-            <span className="term-badge">bash</span>
+            <TerminalBadge />
           </div>
           <button className="close-btn" onClick={onClose}>× Close</button>
         </div>
