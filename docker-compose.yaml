@@ -22,6 +22,8 @@ services:
     environment:
       # Host user the terminal logs in as; root gets a plain `bash -l`.
       TERMINAL_USER: root
+      STACKS_DIR: /opt/stacks
+      STACK_HOST_ROOT: /host-root
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -29,3 +31,5 @@ services:
       - /etc/passwd:/host/etc/passwd:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /:/host-root:ro
+      # Match the host path so Compose resolves relative bind mounts correctly.
+      - /opt/stacks:/opt/stacks

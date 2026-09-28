@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url'
 import { spawnSync } from 'child_process'
 import path from 'path'
 import sysApi from './sys-metrics.js'
+import stackManager from './stack-manager.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -99,6 +100,7 @@ app.use('/qbt', (req, res) => {
 
 // System metrics — read straight from the Linux kernel (replaces Glances)
 app.use('/sys-api', sysApi)
+app.use('/stack-api', stackManager)
 
 // Which shell the /terminal WebSocket hands out — filled in by setupTerminal().
 const terminalInfo = { mode: 'disabled', label: 'off', detail: 'terminal backend unavailable' }

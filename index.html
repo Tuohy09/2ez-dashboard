@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#F5F5F3" />
+    <script>
+      // Apply the saved canvas before the application loads to avoid a light flash.
+      try {
+        const saved = JSON.parse(localStorage.getItem('2ez-theme'));
+        if (/^#[0-9a-f]{6}$/i.test(saved?.bg)) {
+          document.documentElement.style.setProperty('--startup-bg', saved.bg);
+          document.querySelector('meta[name="theme-color"]').content = saved.bg;
+        }
+      } catch { /* Use the default canvas when storage is unavailable. */ }
+    </script>
+    <style>html, body { background: var(--startup-bg, #F5F5F3); }</style>
     <title>2ez-dashboard</title>
   </head>
   <body>

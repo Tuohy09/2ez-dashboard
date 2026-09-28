@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
+import TWOEZ_CSS from "./2ez.css?raw";
+import StackManager from "./StackManager";
 
 // ─── ANIMATION GATE ──────────────────────────────────────────────
 let appMounted = false;
@@ -16,6 +18,11 @@ const ST_TOKEN      = "FEXsBlewacEQZtiCoU3DQVSyJ49iVDlbZjPXqRDQ86093df3";
 
 // ─── SERVICES REGISTRY ───────────────────────────────────────────
 const SVC = {
+  audiomuse:   { id: "audiomuse",   name: "AudioMuse AI",   url: "https://2ez.dinosaur-banana.ts.net:8001",        abbr: "AM", col: "#A855F7", desc: "Music analysis & playlists" },
+  lrcgen:      { id: "lrcgen",      name: "LRC Generator",  url: "https://2ez.dinosaur-banana.ts.net/lrcgen/",    abbr: "LG", col: "#F59E0B", desc: "Synced lyrics generator"    },
+  notifiarr:   { id: "notifiarr",   name: "Notifiarr",      url: "http://2ez.dinosaur-banana.ts.net:5454",        abbr: "NF", col: "#EC4899", desc: "Notifications & integrations" },
+  upsnap:      { id: "upsnap",      name: "UpSnap",         url: "http://2ez.dinosaur-banana.ts.net:8090",        abbr: "UP", col: "#22D3A7", desc: "Wake-on-LAN devices"       },
+  cronicle:    { id: "cronicle",    name: "Cronicle",       url: "http://2ez.dinosaur-banana.ts.net:3012",        abbr: "CR", col: "#3B82F6", desc: "Scheduled jobs"            },
   sonarr:      { id: "sonarr",      name: "Sonarr",         url: "https://2ez.dinosaur-banana.ts.net/sonarr",    abbr: "SN", col: "#3B82F6", desc: "TV show management"   },
   radarr:      { id: "radarr",      name: "Radarr",         url: "https://2ez.dinosaur-banana.ts.net/radarr",    abbr: "RD", col: "#EF4444", desc: "Movie management"       },
   prowlarr:    { id: "prowlarr",    name: "Prowlarr",       url: "https://2ez.dinosaur-banana.ts.net/prowlarr",  abbr: "PW", col: "#F97316", desc: "Indexer manager"        },
@@ -40,35 +47,12 @@ const SVC = {
 
 // ─── SERVICE SEARCH INDEX ────────────────────────────────────────
 const SERVICE_INDEX = [
-  ...["sonarr","radarr","prowlarr","bazarr","beetsflask","slskd","lrcget"].map(id => ({ svcId: id, page: "media-auto", pageLabel: "Media Automation" })),
+  ...["sonarr","radarr","prowlarr","bazarr","beetsflask","slskd","lrcget","audiomuse","lrcgen"].map(id => ({ svcId: id, page: "media-auto", pageLabel: "Media Automation" })),
   ...["jellyfin","navidrome","seerr","immich","nextcloud"].map(id => ({ svcId: id, page: "media-srv", pageLabel: "Media Server" })),
-  ...["cockpit","dockge","speedtest","filebrowser","uptimekuma","wud"].map(id => ({ svcId: id, page: "mgmt", pageLabel: "Management" })),
+  ...["cockpit","dockge","speedtest","filebrowser","uptimekuma","wud","notifiarr","upsnap","cronicle"].map(id => ({ svcId: id, page: "mgmt", pageLabel: "Management" })),
   { svcId: "qbt",     page: "downloads", pageLabel: "Downloads" },
   { svcId: "unmanic", page: "downloads", pageLabel: "Downloads" },
 ].map(e => ({ ...e, name: SVC[e.svcId].name, desc: SVC[e.svcId].desc }));
-
-// ─── HOME GREETINGS ──────────────────────────────────────────────
-const GREETINGS = [
-  "Welcome back, Captain",
-  "What's cooking on 2EZ?",
-  "All systems nominal",
-  "Home sweet homelab",
-  "Your servers missed you",
-  "Ready when you are",
-  "The homelab awaits",
-  "Everything's humming along",
-  "Back at the helm",
-  "Mission control online",
-  "Good to see you again",
-  "Your digital kingdom awaits",
-  "Powered up and ready",
-  "The bits are flowing",
-  "Welcome to the command center",
-  "Rise and shine, sysadmin",
-  "Let's make some magic",
-  "The lab is yours",
-];
-const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
 
 // ─── SERVICE CLICK TRACKING ──────────────────────────────────────
 // Persists { [svcId]: { count, last } } so the Home page can surface
@@ -112,6 +96,11 @@ function timeAgo(ts) {
 
 // ─── SERVICE ICONS ────────────────────────────────────────────────
 const ICON_PATHS = {
+  audiomuse: <><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M3 4v4M1 6h4"/></>,
+  lrcgen: <><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></>,
+  notifiarr: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></>,
+  upsnap: <><path d="M12 2v10M5 5a9 9 0 1 0 14 0"/></>,
+  cronicle: <><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></>,
   // TV monitor + antenna — Sonarr
   sonarr: <><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M12 7V3"/><path d="M9 3l3 4 3-3"/><path d="M7 17h10"/></>,
   // Film clapperboard — Radarr
@@ -268,20 +257,19 @@ const fmt = {
 };
 
 const statusColor = (pct) => {
-  if (pct < 50) return "var(--accent)";
-  if (pct < 75) return "var(--warn)";
-  return "var(--crit)";
+  if (pct < 50) return "var(--ok)";
+  if (pct < 75) return "var(--warning-ink)";
+  return "var(--error-ink)";
 };
 
 const tempColor = (t) => {
-  if (t < 50) return "var(--accent)";
-  if (t < 70) return "var(--warn)";
-  return "var(--crit)";
+  if (t < 50) return "var(--ok)";
+  if (t < 70) return "var(--warning-ink)";
+  return "var(--error-ink)";
 };
 
 // ─── GLOBAL CSS ──────────────────────────────────────────────────
 const GLOBAL_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Outfit:wght@300;400;500;600;700&display=swap');
 
   :root {
     --bg: #080c12;
@@ -298,8 +286,8 @@ const GLOBAL_CSS = `
     --warn: #f59e0b;
     --crit: #ef4444;
     --radius: 20px;
-    --font: 'Outfit', -apple-system, sans-serif;
-    --mono: 'JetBrains Mono', monospace;
+    --font: 'Manrope', system-ui, sans-serif;
+    --mono: 'DM Mono', monospace;
     --row-h: 150px;
   }
 
@@ -827,7 +815,7 @@ const GLOBAL_CSS = `
 const DefaultLogoSvg = ({ size }) => (
   <svg width={size} height={size} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect width="120" height="120" rx="24" fill="var(--accent)" />
-    <text x="60" y="78" textAnchor="middle" fontFamily="'JetBrains Mono', monospace" fontWeight="800" fontSize="52" fill="var(--bg)" letterSpacing="-2">
+    <text x="60" y="78" textAnchor="middle" fontFamily="'DM Mono', monospace" fontWeight="800" fontSize="52" fill="var(--bg)" letterSpacing="-2">
       2EZ
     </text>
   </svg>
@@ -888,6 +876,44 @@ const SearchIcon = () => (
   </svg>
 );
 
+const SearchResultItems = ({ results, query, selectResult, doGoogleSearch }) => (
+  <>
+    {results.map(r => (
+      <button
+        key={r.svcId}
+        className="search-result-item"
+        onClick={() => selectResult(r)}
+      >
+        <div className="search-result-icon" style={{ background: SVC[r.svcId].col + "22", border: `1px solid ${SVC[r.svcId].col}44` }}>
+          <SvcIcon id={r.svcId} color={SVC[r.svcId].col} size={16} />
+        </div>
+        <div>
+          <div className="search-result-name">{r.name}</div>
+          <div className="search-result-page">{r.pageLabel}</div>
+        </div>
+      </button>
+    ))}
+    <button
+      className="search-result-item search-google-item"
+      onClick={doGoogleSearch}
+    >
+      <div className="search-result-icon" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+      </div>
+      <div style={{ flex: 1 }}>
+        <div className="search-result-name" style={{ color: "var(--text-dim)" }}>Search Google</div>
+        <div className="search-result-page">{query.trim()}</div>
+      </div>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4, flexShrink: 0 }}>
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+        <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+      </svg>
+    </button>
+  </>
+);
+
 function SearchBar({ navigate }) {
   const [query, setQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -922,7 +948,7 @@ function SearchBar({ navigate }) {
       const el = document.querySelector(`[data-drag-id="${result.svcId}"], [data-sort-id="${result.svcId}"]`);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
-        const card = el.querySelector(".svc-card, .live-svc-card, .card");
+        const card = el.matches(".svc-card, .live-svc-card, .card") ? el : el.querySelector(".svc-card, .live-svc-card, .card");
         if (card) {
           card.classList.add("card-highlight");
           setTimeout(() => card.classList.remove("card-highlight"), 1600);
@@ -953,45 +979,6 @@ function SearchBar({ navigate }) {
     return () => document.removeEventListener("mousedown", handler);
   }, [focused]);
 
-  const ResultItems = () => (
-    <>
-      {results.map(r => (
-        <button
-          key={r.svcId}
-          className="search-result-item"
-          onMouseDown={(e) => { e.preventDefault(); selectResult(r); }}
-          onTouchEnd={(e) => { e.preventDefault(); selectResult(r); }}
-        >
-          <div className="search-result-icon" style={{ background: SVC[r.svcId].col + "22", border: `1px solid ${SVC[r.svcId].col}44` }}>
-            <SvcIcon id={r.svcId} color={SVC[r.svcId].col} size={16} />
-          </div>
-          <div>
-            <div className="search-result-name">{r.name}</div>
-            <div className="search-result-page">{r.pageLabel}</div>
-          </div>
-        </button>
-      ))}
-      <button
-        className="search-result-item search-google-item"
-        onMouseDown={(e) => { e.preventDefault(); doGoogleSearch(); }}
-        onTouchEnd={(e) => { e.preventDefault(); doGoogleSearch(); }}
-      >
-        <div className="search-result-icon" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-        </div>
-        <div style={{ flex: 1 }}>
-          <div className="search-result-name" style={{ color: "var(--text-dim)" }}>Search Google</div>
-          <div className="search-result-page">{query.trim()}</div>
-        </div>
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4, flexShrink: 0 }}>
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-          <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-        </svg>
-      </button>
-    </>
-  );
 
   return (
     <>
@@ -1008,7 +995,7 @@ function SearchBar({ navigate }) {
         />
         {focused && showDrop && (
           <div className="search-results-drop">
-            <ResultItems />
+            <SearchResultItems results={results} query={query} selectResult={selectResult} doGoogleSearch={doGoogleSearch} />
           </div>
         )}
       </div>
@@ -1034,7 +1021,7 @@ function SearchBar({ navigate }) {
           </div>
           {showDrop && (
             <div className="search-results-drop search-results-drop-mobile">
-              <ResultItems />
+              <SearchResultItems results={results} query={query} selectResult={selectResult} doGoogleSearch={doGoogleSearch} />
             </div>
           )}
         </div>
@@ -1229,127 +1216,16 @@ const DockerItem = ({ name, status, cpu, mem }) => {
   );
 };
 
-// ─── CONTAINER DETAIL ────────────────────────────────────────────
-const parseUptime = (s) => {
-  if (!s || s === "—") return 0;
-  let t = 0;
-  const d = s.match(/(\d+)d/); if (d) t += +d[1] * 86400;
-  const h = s.match(/(\d+)h/); if (h) t += +h[1] * 3600;
-  const m = s.match(/(\d+)m/); if (m) t += +m[1] * 60;
-  return t;
-};
+function fetchService(url, options = {}) {
+  return fetch(url, { ...options, signal: AbortSignal.timeout(8000) });
+}
 
-const SORT_KEYS = {
-  name:   (c) => c.name.toLowerCase(),
-  cpu:    (c) => c.cpu,
-  mem:    (c) => c.mem,
-  net_rx: (c) => c.net_rx,
-  net_tx: (c) => c.net_tx,
-  uptime: (c) => parseUptime(c.uptime),
-};
-
-const ContainerDetail = ({ containers, onClose }) => {
-  const [sortKey, setSortKey] = useState("cpu");
-  const [sortDir, setSortDir] = useState("desc");
-
-  const handleSort = (key) => {
-    if (key === sortKey) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
-    else { setSortKey(key); setSortDir("desc"); }
-  };
-
-  const sorted = [...containers].sort((a, b) => {
-    const av = SORT_KEYS[sortKey](a);
-    const bv = SORT_KEYS[sortKey](b);
-    const cmp = av < bv ? -1 : av > bv ? 1 : 0;
-    return sortDir === "desc" ? -cmp : cmp;
-  });
-
-  const ColHeader = ({ label, id }) => {
-    const active = sortKey === id;
-    return (
-      <span onClick={() => handleSort(id)} className={`ct-col-header${active ? " ct-col-active" : ""}`}>
-        {label}
-        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-          style={{ marginLeft: 4, opacity: active ? 1 : 0, transition: "opacity 0.15s, transform 0.2s", transform: active && sortDir === "asc" ? "rotate(180deg)" : "rotate(0deg)" }}>
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-      </span>
-    );
-  };
-
-  return (
-    <div className="container-detail fade-in">
-      <div className="card" style={{ padding: "20px 24px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div className="card-title" style={{ margin: 0 }}>Containers</div>
-            <span className="label-sm">{containers.filter(c => c.status === "running").length} / {containers.length} running</span>
-          </div>
-          <button className="close-btn" onClick={onClose}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-            Close
-          </button>
-        </div>
-        <div className="ct-header">
-          <ColHeader label="Container" id="name"   />
-          <ColHeader label="CPU"       id="cpu"    />
-          <ColHeader label="Memory"    id="mem"    />
-          <ColHeader label="Net ↓"     id="net_rx" />
-          <ColHeader label="Net ↑"     id="net_tx" />
-          <ColHeader label="Uptime"    id="uptime" />
-        </div>
-        <div>
-          {sorted.map((c) => {
-            const running = c.status === "running";
-            const cpuColor = statusColor(c.cpu);
-            return (
-              <div key={c.name} className="ct-row">
-                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                  <div className={`docker-dot ${running ? "dot-live" : "dot-dead"}`} style={{ flexShrink: 0 }} />
-                  <span className="mono" style={{ fontSize: 12, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden", minWidth: 44 }}>
-                    <div style={{ height: "100%", width: `${Math.min(100, c.cpu * 5)}%`, background: cpuColor, borderRadius: 2, transition: "width 0.6s cubic-bezier(0.22,1,0.36,1)" }} />
-                  </div>
-                  <span className="mono" style={{ fontSize: 11, color: cpuColor, width: 38, textAlign: "right" }}>{c.cpu.toFixed(1)}%</span>
-                </div>
-                <span className="mono label-sm">{fmt.bytes(c.mem)}</span>
-                <span className="mono label-sm" style={{ color: "var(--accent)" }}>↓ {fmt.speed(c.net_rx)}</span>
-                <span className="mono label-sm" style={{ color: "var(--warn)" }}>↑ {fmt.speed(c.net_tx)}</span>
-                <span className="label-sm">{c.uptime || "—"}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─── USE POLLING HOOK ────────────────────────────────────────────
-function usePolling(fetcher, ms = 30000) {
-  const [state, setState] = useState({ data: null, loading: true, err: null });
-  const ref = useRef(null);
-  useEffect(() => { ref.current = fetcher; });
-  useEffect(() => {
-    let alive = true;
-    async function run() {
-      try {
-        const data = await ref.current();
-        if (alive && data != null) setState({ data, loading: false, err: null });
-        else if (alive) setState(s => ({ ...s, loading: false }));
-      } catch (e) {
-        if (alive) setState(s => ({ ...s, loading: false, err: String(e.message || e) }));
-      }
-    }
-    run();
-    const id = setInterval(run, ms);
-    return () => { alive = false; clearInterval(id); };
-  }, [ms]);
-  return state;
+async function readServiceResponse(response) {
+  if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? "denied" : "error");
+  const data = await response.json();
+  const subsonic = data?.["subsonic-response"];
+  if (subsonic?.status === "failed") throw new Error([40, 50].includes(subsonic.error?.code) ? "denied" : "error");
+  return data;
 }
 
 // ─── DATA CONTEXT ────────────────────────────────────────────────
@@ -1364,9 +1240,12 @@ function DataProvider({ children }) {
     processes: null, fs: null, diskio: null, load: null,
     alert: [],
   });
-  const [connected, setConnected] = useState(true);
+  const [connected, setConnected] = useState(false);
+  const [metricStatus, setMetricStatus] = useState({});
   const [glHistory, setGlHistory]     = useState({ cpu: [], lan: { rx: [], tx: [] }, ts: { rx: [], tx: [] } });
   const [diskHistory, setDiskHistory] = useState({});
+
+  const [serviceStatus, setServiceStatus] = useState({});
 
   // ── qBittorrent ────────────────────────────────────────────────
   const [qbt, setQbt] = useState({ transfer: null, torrents: null });
@@ -1385,53 +1264,72 @@ function DataProvider({ children }) {
 
   // ── Glances main endpoints (2s) ────────────────────────────────
   useEffect(() => {
+    let alive = true;
+    async function readMetric(endpoint) {
+      try {
+        const response = await fetch(`${SYS_API}/${endpoint}`, { signal: AbortSignal.timeout(8000) });
+        if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? "denied" : "error");
+        const data = await response.json();
+        const arrayEndpoints = ["fs", "containers", "network", "sensors", "processlist", "diskio"];
+        if ((arrayEndpoints.includes(endpoint) && !Array.isArray(data)) ||
+            (endpoint === "cpu" && !Number.isFinite(data?.total)) ||
+            (endpoint === "mem" && (!Number.isFinite(data?.percent) || !Number.isFinite(data?.total)))) {
+          throw new Error("error");
+        }
+        if (alive) setMetricStatus(prev => ({ ...prev, [endpoint]: "ready" }));
+        return data;
+      } catch (error) {
+        if (alive) setMetricStatus(prev => ({ ...prev, [endpoint]: error.message === "denied" ? "denied" : "error" }));
+        throw error;
+      }
+    }
     function run() {
       if (!SYS_API) {
         setGlances(prev => generateMockData(prev));
         setConnected(true);
         return;
       }
-      fetch(`${SYS_API}/mem`).then(r => r.json())
+      readMetric("mem")
         .then(mem => { setGlances(prev => ({ ...prev, mem: { percent: mem?.percent || 0, used: mem?.used || 0, total: mem?.total || 0 } })); setConnected(true); })
         .catch(() => setConnected(false));
-      fetch(`${SYS_API}/swap`).then(r => r.json())
+      readMetric("swap")
         .then(swap => setGlances(prev => ({ ...prev, memswap: { percent: swap?.percent || 0, used: swap?.used || 0, total: swap?.total || 0, sin: swap?.sin || 0, sout: swap?.sout || 0 } })))
         .catch(() => {});
-      fetch(`${SYS_API}/sensors`).then(r => r.json())
+      readMetric("sensors")
         .then(sensors => setGlances(prev => ({ ...prev, sensors: (Array.isArray(sensors) ? sensors : []).filter(s => s.type === "temperature_core").slice(0, 5).map(s => ({ label: s.label, value: s.value, unit: "C" })) })))
         .catch(() => {});
-      fetch(`${SYS_API}/uptime`).then(r => r.json())
+      readMetric("uptime")
         .then(uptime => setGlances(prev => ({ ...prev, uptime: typeof uptime === "string" ? uptime : "—" })))
         .catch(() => {});
-      fetch(`${SYS_API}/network`).then(r => r.json())
+      readMetric("network")
         .then(raw => {
           const ifaces = Array.isArray(raw) ? raw : [];
           const pick = (name) => { const n = ifaces.find(i => i.interface_name === name); return n ? { rx: n.bytes_recv_rate_per_sec || 0, tx: n.bytes_sent_rate_per_sec || 0 } : null; };
           setGlances(prev => ({ ...prev, network: { lan: pick("enp3s0"), ts: pick("tailscale0") } }));
         }).catch(() => {});
-      fetch(`${SYS_API}/containers`).then(r => r.json())
+      readMetric("containers")
         .then(docker => setGlances(prev => ({ ...prev, docker: (Array.isArray(docker) ? docker : []).map(c => ({ name: c.name || "unknown", status: c.status || "stopped", cpu: c.cpu_percent || c.cpu?.total || 0, mem: c.memory_usage || c.memory?.usage || 0, net_rx: c.network_rx || c.network?.rx || 0, net_tx: c.network_tx || c.network?.tx || 0, uptime: c.uptime || "—" })) })))
         .catch(() => {});
-      fetch(`${SYS_API}/processlist`).then(r => r.json())
+      readMetric("processlist")
         .then(processlist => setGlances(prev => ({ ...prev, processes: Array.isArray(processlist) ? processlist : [] })))
         .catch(() => {});
-      Promise.all([fetch(`${SYS_API}/fs`).then(r => r.json()).catch(() => null), fetch(`${SYS_API}/diskio`).then(r => r.json()).catch(() => null)])
+      Promise.all([readMetric("fs").catch(() => null), readMetric("diskio").catch(() => null)])
         .then(([fs, diskio]) => setGlances(prev => ({ ...prev, fs: Array.isArray(fs) ? fs : [], diskio: Array.isArray(diskio) ? diskio : [] }))).catch(() => {});
-      fetch(`${SYS_API}/cpu`).then(r => r.json())
+      readMetric("cpu")
         .then(cpu => setGlances(prev => ({ ...prev, cpu: { total: cpu?.total || 0, cores: Array.isArray(cpu?.cores) ? cpu.cores : [], model: cpu?.model || "", freq: cpu?.freq || 0 } }))).catch(() => {});
-      fetch(`${SYS_API}/load`).then(r => r.json())
+      readMetric("load")
         .then(load => setGlances(prev => ({ ...prev, load: { min1: load?.min1 || 0, min5: load?.min5 || 0, min15: load?.min15 || 0, cpucore: load?.cpucore || 0 } }))).catch(() => {});
     }
     run();
     const id = setInterval(run, POLL_INTERVAL);
-    return () => clearInterval(id);
+    return () => { alive = false; clearInterval(id); };
   }, []);
 
   // ── Glances alerts (10s) ───────────────────────────────────────
   useEffect(() => {
     function run() {
-      fetch(`${SYS_API}/alert`).then(r => r.json())
-        .then(alert => setGlances(prev => ({ ...prev, alert: Array.isArray(alert) ? alert : [] }))).catch(() => {});
+      fetch(`${SYS_API}/alert`, { signal: AbortSignal.timeout(8000) }).then(readServiceResponse)
+        .then(alert => { if (!Array.isArray(alert)) throw new Error("error"); setGlances(prev => ({ ...prev, alert })); setMetricStatus(prev => ({ ...prev, alert: "ready" })); }).catch(error => setMetricStatus(prev => ({ ...prev, alert: error.message === "denied" ? "denied" : "error" })));
     }
     run();
     const id = setInterval(run, 10000);
@@ -1471,10 +1369,11 @@ function DataProvider({ children }) {
     let alive = true;
     async function run() {
       try {
-        const [tr, to] = await Promise.all([fetch("/qbt/api/v2/transfer/info"), fetch("/qbt/api/v2/torrents/info?filter=active")]);
-        const [transfer, torrents] = await Promise.all([tr.json(), to.json()]);
-        if (alive) setQbt({ transfer, torrents });
-      } catch {}
+        const [tr, to] = await Promise.all([fetchService("/qbt/api/v2/transfer/info"), fetchService("/qbt/api/v2/torrents/info?filter=active")]);
+        const [transfer, torrents] = await Promise.all([readServiceResponse(tr), readServiceResponse(to)]);
+        if (!Number.isFinite(transfer?.dl_info_speed) || !Array.isArray(torrents)) throw new Error("error");
+        if (alive) { setQbt({ transfer, torrents }); setServiceStatus(prev => ({ ...prev, qbt: "ready" })); }
+      } catch (error) { if (alive) { setQbt({ transfer: null, torrents: null }); setServiceStatus(prev => ({ ...prev, qbt: error.message === "denied" ? "denied" : "error" })); } }
     }
     run();
     const id = setInterval(run, POLL_INTERVAL);
@@ -1486,11 +1385,12 @@ function DataProvider({ children }) {
     async function run() {
       try {
         const [pending, workers] = await Promise.all([
-          fetch("/unmanic/api/v2/pending/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start: 0, length: 1 }) }).then(r => r.json()),
-          fetch("/unmanic/api/v2/workers/status").then(r => r.json()),
+          fetchService("/unmanic/api/v2/pending/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start: 0, length: 1 }) }).then(readServiceResponse),
+          fetchService("/unmanic/api/v2/workers/status").then(readServiceResponse),
         ]);
-        setUnmanic({ pending, workers });
-      } catch {}
+        if (!Number.isFinite(pending?.total_count) || !Array.isArray(workers?.workers_status)) throw new Error("error");
+        setUnmanic({ pending, workers }); setServiceStatus(prev => ({ ...prev, unmanic: "ready" }));
+      } catch (error) { setUnmanic({ pending: null, workers: null }); setServiceStatus(prev => ({ ...prev, unmanic: error.message === "denied" ? "denied" : "error" })); }
     }
     run();
     const id = setInterval(run, POLL_INTERVAL);
@@ -1499,32 +1399,32 @@ function DataProvider({ children }) {
 
   // ── Jellyfin sessions (15s) + counts (60s) ────────────────────
   useEffect(() => {
-    function run() { fetch(`/jellyfin/Sessions?api_key=${JF_KEY}`).then(r => r.json()).then(sessions => setJellyfin(prev => ({ ...prev, sessions: Array.isArray(sessions) ? sessions : null }))).catch(() => {}); }
+    function run() { fetchService(`/jellyfin/Sessions?api_key=${JF_KEY}`).then(readServiceResponse).then(sessions => { if (!Array.isArray(sessions)) throw new Error("error"); setJellyfin(prev => ({ ...prev, sessions })); setServiceStatus(prev => ({ ...prev, jellyfin: "ready" })); }).catch(error => { setJellyfin({ sessions: null, counts: null }); setServiceStatus(prev => ({ ...prev, jellyfin: error.message === "denied" ? "denied" : "error" })); }); }
     run(); const id = setInterval(run, 15000); return () => clearInterval(id);
   }, []);
   useEffect(() => {
-    function run() { fetch(`/jellyfin/Items/Counts?api_key=${JF_KEY}`).then(r => r.json()).then(counts => setJellyfin(prev => ({ ...prev, counts }))).catch(() => {}); }
+    function run() { fetchService(`/jellyfin/Items/Counts?api_key=${JF_KEY}`).then(readServiceResponse).then(counts => setJellyfin(prev => ({ ...prev, counts }))).catch(() => {}); }
     run(); const id = setInterval(run, 60000); return () => clearInterval(id);
   }, []);
 
   // ── Navidrome now-playing (10s) · artists (120s) · albums (60s)
   useEffect(() => {
     function run() {
-      fetch(`/navidrome/rest/getNowPlaying.view?${NAV_PARAMS}`).then(r => r.json())
-        .then(d => { const entry = d["subsonic-response"]?.nowPlaying?.entry || []; setNavidrome(prev => ({ ...prev, nowPlaying: Array.isArray(entry) ? entry : [entry].filter(Boolean) })); }).catch(() => {});
+      fetchService(`/navidrome/rest/getNowPlaying.view?${NAV_PARAMS}`).then(readServiceResponse)
+        .then(d => { if (!d["subsonic-response"]?.nowPlaying) throw new Error("error"); const entry = d["subsonic-response"].nowPlaying.entry || []; setNavidrome(prev => ({ ...prev, nowPlaying: Array.isArray(entry) ? entry : [entry].filter(Boolean) })); setServiceStatus(prev => ({ ...prev, navidrome: "ready" })); }).catch(error => { setNavidrome({ nowPlaying: null, artistCount: null, recentAlbums: null }); setServiceStatus(prev => ({ ...prev, navidrome: error.message === "denied" ? "denied" : "error" })); });
     }
     run(); const id = setInterval(run, 10000); return () => clearInterval(id);
   }, []);
   useEffect(() => {
     function run() {
-      fetch(`/navidrome/rest/getArtists.view?${NAV_PARAMS}`).then(r => r.json())
+      fetchService(`/navidrome/rest/getArtists.view?${NAV_PARAMS}`).then(readServiceResponse)
         .then(d => { const idx = Array.isArray(d["subsonic-response"]?.artists?.index) ? d["subsonic-response"].artists.index : []; setNavidrome(prev => ({ ...prev, artistCount: idx.reduce((n, i) => n + (i.artist?.length || 0), 0) })); }).catch(() => {});
     }
     run(); const id = setInterval(run, 120000); return () => clearInterval(id);
   }, []);
   useEffect(() => {
     function run() {
-      fetch(`/navidrome/rest/getAlbumList2.view?type=newest&size=3&${NAV_PARAMS}`).then(r => r.json())
+      fetchService(`/navidrome/rest/getAlbumList2.view?type=newest&size=3&${NAV_PARAMS}`).then(readServiceResponse)
         .then(d => { const album = d["subsonic-response"]?.albumList2?.album; setNavidrome(prev => ({ ...prev, recentAlbums: Array.isArray(album) ? album : [] })); }).catch(() => {});
     }
     run(); const id = setInterval(run, 60000); return () => clearInterval(id);
@@ -1533,14 +1433,14 @@ function DataProvider({ children }) {
   // ── Speedtest (5 min) ─────────────────────────────────────────
   useEffect(() => {
     function run() {
-      fetch("/speedtest/api/v1/results/latest", { headers: { Authorization: `Bearer ${ST_TOKEN}` } }).then(r => r.json())
-        .then(d => setSpeedtest({ result: d?.data ?? null })).catch(() => {});
+      fetchService("/speedtest/api/v1/results/latest", { headers: { Authorization: `Bearer ${ST_TOKEN}` } }).then(readServiceResponse)
+        .then(d => { setSpeedtest({ result: d?.data ?? null }); setServiceStatus(prev => ({ ...prev, speedtest: "ready" })); }).catch(error => { setSpeedtest({ result: null }); setServiceStatus(prev => ({ ...prev, speedtest: error.message === "denied" ? "denied" : "error" })); });
     }
     run(); const id = setInterval(run, 300000); return () => clearInterval(id);
   }, []);
 
   return (
-    <DataContext.Provider value={{ glances, connected, glHistory, diskHistory, qbt, unmanic, jellyfin, navidrome, speedtest }}>
+    <DataContext.Provider value={{ glances, connected, metricStatus, serviceStatus, glHistory, diskHistory, qbt, unmanic, jellyfin, navidrome, speedtest }}>
       {children}
     </DataContext.Provider>
   );
@@ -1563,14 +1463,19 @@ function SvcCard({ id }) {
 }
 
 // ─── LIVE CHIP ───────────────────────────────────────────────────
-const LiveChip = () => (
-  <div className="live-badge">
-    <div className="live-dot" />LIVE
-  </div>
-);
+const LiveChip = ({ status, label = "Live" }) => <span className={`service-live-chip ${status || "loading"}`}><span className="state-dot" />{status === "ready" ? label : status === "denied" ? "Access needed" : status === "error" ? "Unavailable" : "Connecting"}</span>;
+
+function ServiceFeedback({ status, name, empty }) {
+  return <div className={`service-feedback ${status || "loading"}`}>
+    <p>{status === "denied" ? `Access to ${name} was denied. Check the service credentials.` : status === "error" ? `${name} did not respond. Check the service; retrying automatically.` : status !== "ready" ? `Connecting to ${name}…` : empty || "Readings are up to date."}</p>
+    <span className="service-open">Open {name} <span aria-hidden="true">↗</span></span>
+  </div>;
+}
 
 // ─── JELLYFIN WIDGET ─────────────────────────────────────────────
 function JellyfinWidget() {
+  const { serviceStatus } = useData();
+  const status = serviceStatus.jellyfin;
   const s = SVC.jellyfin;
   const { jellyfin: { sessions, counts } } = useData();
 
@@ -1579,7 +1484,7 @@ function JellyfinWidget() {
   const nowPlaying   = sessArr.filter(s => s.NowPlayingItem);
 
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
+    <a data-sort-id={s.id} href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${status === "ready" && activeStreams > 0 ? " has-media-playing" : ""}${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1588,7 +1493,7 @@ function JellyfinWidget() {
           <div className="live-svc-name">{s.name}</div>
           <div className="live-svc-desc">{s.desc}</div>
         </div>
-        <LiveChip />
+        <LiveChip status={status} />
       </div>
 
       <div className="live-stats-row">
@@ -1623,12 +1528,15 @@ function JellyfinWidget() {
           ))}
         </div>
       )}
+      <ServiceFeedback status={status} name={s.name} empty={activeStreams === 0 ? "Nothing playing right now. Open Jellyfin to choose something." : null} />
     </a>
   );
 }
 
 // ─── QBITTORRENT WIDGET ──────────────────────────────────────────
 function QBittorrentWidget() {
+  const { serviceStatus } = useData();
+  const status = serviceStatus.qbt;
   const s = SVC.qbt;
   const { qbt } = useData();
 
@@ -1636,7 +1544,7 @@ function QBittorrentWidget() {
   const activeTorrents = Array.isArray(torrents) ? torrents : [];
 
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
+    <a data-sort-id={s.id} href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1645,7 +1553,7 @@ function QBittorrentWidget() {
           <div className="live-svc-name">{s.name}</div>
           <div className="live-svc-desc">{s.desc}</div>
         </div>
-        <LiveChip />
+        <LiveChip status={status} />
       </div>
 
       <div className="live-stats-row">
@@ -1681,12 +1589,15 @@ function QBittorrentWidget() {
         </div>
       )}
 
+      <ServiceFeedback status={status} name={s.name} empty={activeTorrents.length === 0 ? "No active transfers. Open qBittorrent to manage your downloads." : null} />
     </a>
   );
 }
 
 // ─── NAVIDROME WIDGET ────────────────────────────────────────────
 function NavidromeWidget() {
+  const { serviceStatus } = useData();
+  const status = serviceStatus.navidrome;
   const s = SVC.navidrome;
 
   const { navidrome: { nowPlaying, artistCount, recentAlbums } } = useData();
@@ -1695,7 +1606,7 @@ function NavidromeWidget() {
   const recent  = Array.isArray(recentAlbums) ? recentAlbums : [];
 
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
+    <a data-sort-id={s.id} href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1704,7 +1615,7 @@ function NavidromeWidget() {
           <div className="live-svc-name">{s.name}</div>
           <div className="live-svc-desc">{s.desc}</div>
         </div>
-        <LiveChip />
+        <LiveChip status={status} />
       </div>
 
       <div className="live-stats-row">
@@ -1742,6 +1653,7 @@ function NavidromeWidget() {
           ))}
         </div>
       )}
+      <ServiceFeedback status={status} name={s.name} empty={playing.length === 0 ? "Nothing playing right now. Open Navidrome to listen." : null} />
     </a>
   );
 }
@@ -1754,6 +1666,8 @@ function parseEncSpeed(logTail) {
 }
 
 function UnmanicWidget() {
+  const { serviceStatus } = useData();
+  const status = serviceStatus.unmanic;
   const s = SVC.unmanic;
 
   const { unmanic: { pending, workers } } = useData();
@@ -1766,7 +1680,7 @@ function UnmanicWidget() {
   const encSpeed      = parseEncSpeed(activeWorker?.worker_log_tail);
 
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
+    <a data-sort-id={s.id} href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1775,7 +1689,7 @@ function UnmanicWidget() {
           <div className="live-svc-name">{s.name}</div>
           <div className="live-svc-desc">{s.desc}</div>
         </div>
-        <LiveChip />
+        <LiveChip status={status} />
       </div>
 
       <div className="live-stats-row">
@@ -1807,18 +1721,21 @@ function UnmanicWidget() {
           </div>
         </div>
       )}
+      <ServiceFeedback status={status} name={s.name} empty={pendingCount === 0 && !activeWorker ? "No files waiting. The encoding queue is clear." : null} />
     </a>
   );
 }
 
 // ─── SPEEDTEST WIDGET ────────────────────────────────────────────
 function SpeedtestWidget() {
+  const { serviceStatus } = useData();
+  const status = serviceStatus.speedtest;
   const s = SVC.speedtest;
 
   const { speedtest: { result } } = useData();
 
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
+    <a data-sort-id={s.id} href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1827,7 +1744,7 @@ function SpeedtestWidget() {
           <div className="live-svc-name">{s.name}</div>
           <div className="live-svc-desc">{s.desc}</div>
         </div>
-        <LiveChip />
+        <LiveChip status={status} label="Updated" />
       </div>
 
       <div className="live-stats-row">
@@ -1869,12 +1786,17 @@ function SpeedtestWidget() {
           </span>
         </div>
       )}
+      <ServiceFeedback status={status} name={s.name} empty={!result ? "No speed test results yet. Open Speedtest to run a test." : null} />
     </a>
   );
 }
 
 // ─── THEME SYSTEM ────────────────────────────────────────────────
 const THEMES = [
+  {
+    id: "2ez", name: "2ez",
+    colors: { bg: "#F5F5F3", bg2: "#FFFFFF", text: "#202124", accent: "#7952D8", warn: "#F2BD51", crit: "#EE746B" },
+  },
   {
     id: "default", name: "Default",
     colors: { bg: "#0d1117", bg2: "#161b22", text: "#e6edf3", accent: "#22D3A7", warn: "#F59E0B", crit: "#EF4444" },
@@ -1902,6 +1824,31 @@ const THEMES = [
 ];
 
 const DEFAULT_THEME = THEMES[0].colors;
+const APPEARANCE_MODES = [
+  { id: "light", label: "Light", colors: DEFAULT_THEME },
+  { id: "dark", label: "Dark", colors: { bg: "#141517", bg2: "#202225", text: "#ECEDEF", accent: "#B49AF4", warn: "#F2BD51", crit: "#EE746B" } },
+  { id: "oled", label: "OLED", colors: { bg: "#000000", bg2: "#000000", text: "#ECEDEF", accent: "#B49AF4", warn: "#F2BD51", crit: "#EE746B" } },
+];
+
+function isDarkColor(hex) {
+  const [r, g, b] = [1, 3, 5].map(offset => parseInt(hex.slice(offset, offset + 2), 16));
+  return (r * 299 + g * 587 + b * 114) / 1000 < 128;
+}
+
+function appearanceMode(colors) {
+  if (colors.bg.toLowerCase() === "#000000" && colors.bg2.toLowerCase() === "#000000") return "oled";
+  return isDarkColor(colors.bg) ? "dark" : "light";
+}
+
+function AppearanceToggle({ colors, onChange }) {
+  const mode = appearanceMode(colors);
+  return <div className="appearance-toggle" role="group" aria-label="Appearance">
+    {APPEARANCE_MODES.map(item => <button key={item.id} type="button" aria-pressed={mode === item.id} onClick={() => onChange(item.colors)} title={item.id === "oled" ? "Pure black canvas and panels" : `${item.label} appearance`}>
+      <span className={`appearance-dot appearance-dot-${item.id}`} aria-hidden="true" />{item.label}
+    </button>)}
+  </div>;
+}
+
 
 function hexToRgba(hex, a) {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -1911,18 +1858,42 @@ function hexToRgba(hex, a) {
 }
 
 function buildThemeVars(c) {
+  const dark = isDarkColor(c.bg);
+  const oled = appearanceMode(c) === "oled";
+  const border = dark ? (oled ? "#303035" : "#393C41") : (c.bg === DEFAULT_THEME.bg ? "#E5E5E1" : hexToRgba(c.text, 0.16));
   return `:root {
+    color-scheme: ${dark ? "dark" : "light"};
+    --color-bg: ${c.bg};
+    --color-surface: ${c.bg2};
+    --color-ink: ${c.text};
+    --color-muted: ${dark ? "#A8ABB2" : "#747779"};
+    --color-border: ${border};
+    --color-primary: ${c.accent};
+    --color-rail: ${oled ? "#000000" : dark ? "#191B1E" : "#27292C"};
+    --rail-active: ${oled ? "#19151F" : "#393B40"};
+    --rail-hover: ${oled ? "#111111" : "#34363A"};
+    --rail-border: ${oled ? "#303035" : "#414347"};
+    --on-accent: ${isDarkColor(c.accent) ? "#FFFFFF" : "#17121F"};
+    --ok: ${dark ? "#B5D96C" : "#527410"};
+    --warning-ink: ${dark ? "#F2BD51" : "#996714"};
+    --error-ink: ${dark ? "#FF9F96" : "#B34238"};
+    --success-bg: ${dark ? (oled ? "#000000" : "#222A1C") : "#F4F8EA"};
+    --warning-bg: ${dark ? (oled ? "#000000" : "#2D2619") : "#FFF8E9"};
+    --error-bg: ${dark ? (oled ? "#000000" : "#302020") : "#FFF5F5"};
+    --error-border: ${dark ? "#754A48" : "#EABABA"};
     --bg: ${c.bg};
     --bg2: ${c.bg2};
     --text: ${c.text};
-    --text-dim: ${hexToRgba(c.text, 0.45)};
+    --text-dim: ${hexToRgba(c.text, 0.72)};
+    --card: ${c.bg2};
+    --card-hover: ${c.bg2};
     --accent: ${c.accent};
     --accent-dim: ${hexToRgba(c.accent, 0.15)};
     --warn: ${c.warn};
     --crit: ${c.crit};
     --bar-fill: ${c.accent};
     --card-bg: ${hexToRgba(c.bg2, 0.6)};
-    --card-border: ${hexToRgba(c.text, 0.08)};
+    --card-border: ${border};
   }`;
 }
 
@@ -1941,16 +1912,17 @@ function SettingsPanel({ colors, onChange, onClose, onResetLayout }) {
   );
 
   const [sysInfo, setSysInfo]   = useState(null);
-  const [sysFetch, setSysFetch] = useState(false);
+  const [sysFetch, setSysFetch] = useState(true);
 
   useEffect(() => {
-    if (sysInfo || sysFetch) return;
-    setSysFetch(true);
+    let alive = true;
     fetch(`${SYS_API}/info`).then(r => r.json()).catch(() => null)
       .then(info => {
+        if (!alive) return;
         setSysInfo({ system: info?.system, core: info?.core, ip: info?.ip, backend: info?.backend });
         setSysFetch(false);
       });
+    return () => { alive = false; };
   }, []);
 
   const backend    = sysInfo?.backend ?? null;
@@ -1962,8 +1934,12 @@ function SettingsPanel({ colors, onChange, onClose, onResetLayout }) {
     <div className="settings-panel">
       <div className="settings-panel-header">
         <span className="settings-panel-title">Settings</span>
-        <button className="close-btn" onClick={onClose}>×</button>
+        <button className="close-btn" onClick={onClose} aria-label="Close settings">×</button>
       </div>
+
+      <div className="settings-section-lbl">Appearance</div>
+      <AppearanceToggle colors={colors} onChange={onChange} />
+      <p className="appearance-help">OLED uses a pure black canvas and panels.</p>
 
       <div className="settings-section-lbl">Theme Presets</div>
       <div className="theme-grid">
@@ -2060,16 +2036,16 @@ function NotificationItem({ notif, onDismiss, onClick }) {
   const [offsetX, setOffsetX] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const startX = useRef(null);
-  const dragging = useRef(false);
+  const [dragging, setDragging] = useState(false);
 
-  const onTouchStart = (e) => { startX.current = e.touches[0].clientX; dragging.current = true; };
+  const onTouchStart = (e) => { startX.current = e.touches[0].clientX; setDragging(true); };
   const onTouchMove  = (e) => {
-    if (!dragging.current) return;
+    if (!dragging) return;
     const delta = e.touches[0].clientX - startX.current;
     if (delta < 0) setOffsetX(Math.max(delta, -64));
   };
   const onTouchEnd = () => {
-    dragging.current = false;
+    setDragging(false);
     if (offsetX < -32) { setOffsetX(-64); setRevealed(true); }
     else               { setOffsetX(0);   setRevealed(false); }
     startX.current = null;
@@ -2081,7 +2057,7 @@ function NotificationItem({ notif, onDismiss, onClick }) {
     <div className="notif-item">
       <div
         className="notif-item-inner"
-        style={{ transform: `translateX(${offsetX}px)`, transition: dragging.current ? "none" : "transform 0.2s" }}
+        style={{ transform: `translateX(${offsetX}px)`, transition: dragging ? "none" : "transform 0.2s" }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
@@ -2270,7 +2246,7 @@ function useMobileOrder(pageKey, defaultIds) {
         const added = defaultIds.filter(id => !valid.includes(id));
         return [...valid, ...added];
       }
-    } catch {}
+    } catch { /* Invalid saved layout: fall back to the defaults below. */ }
     return [...defaultIds];
   });
   useEffect(() => {
@@ -2410,7 +2386,7 @@ function useLongPressTouch(containerRef, callbacks, longPressMs = 400, enabled =
       el.removeEventListener("touchend",    onTouchEnd);
       el.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, [enabled]); // eslint-disable-line react-hooks/exhaustive-deps — containerRef is stable; enabled is constant per session
+  }, [enabled, containerRef, longPressMs]);
 }
 
 // ─── DRAG SORT ───────────────────────────────────────────────────
@@ -2557,7 +2533,7 @@ function useDraggableGrid(pageKey, ids, defaultSizes, defaultPositions, onAutoRe
       const saved = JSON.parse(localStorage.getItem(`2ez-positions-${pageKey}`) || "null");
       if (saved && typeof saved === "object" && !Array.isArray(saved))
         return { ...defaultPositions, ...saved };
-    } catch {}
+    } catch { /* Invalid saved layout: fall back to the defaults below. */ }
     return defaultPositions;
   });
   useEffect(() => {
@@ -2569,7 +2545,7 @@ function useDraggableGrid(pageKey, ids, defaultSizes, defaultPositions, onAutoRe
       const saved = JSON.parse(localStorage.getItem(`2ez-sizes-${pageKey}`) || "null");
       if (saved && typeof saved === "object" && !Array.isArray(saved))
         return { ...defaultSizes, ...saved };
-    } catch {}
+    } catch { /* Invalid saved layout: fall back to the defaults below. */ }
     return { ...defaultSizes };
   });
   useEffect(() => {
@@ -2606,9 +2582,8 @@ function useDraggableGrid(pageKey, ids, defaultSizes, defaultPositions, onAutoRe
 
   const checkConflict = useCallback((cardId, pos, spans) => {
     const { cols, rows } = spans;
-    const numCols = gridRef.current
-      ? (getComputedStyle(gridRef.current).gridTemplateColumns.split(' ').filter(Boolean).length || 4)
-      : 4;
+    // Manual placement is enabled only for the four-column desktop grid.
+    const numCols = 4;
     if (pos.col + cols - 1 > numCols) return true;
     for (const [otherId, otherPos] of Object.entries(positions)) {
       if (otherId === cardId) continue;
@@ -2863,6 +2838,8 @@ const NAV_ITEMS = [
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><polyline points="6 10 9 12 12 8 15 11 18 7"/></svg> },
   { id: "docker",     label: "Docker",                shortLabel: "Docker",    abbr: "DK", col: "#2496ED",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="10" width="4" height="4"/><rect x="8" y="10" width="4" height="4"/><rect x="13" y="10" width="4" height="4"/><rect x="8" y="5" width="4" height="4"/><path d="M2 14h18a4 4 0 0 0 1.5-3c.5 1 .8 2 .5 3"/><path d="M5 18a2 2 0 0 0 2 2h6a5 5 0 0 0 5-4"/></svg> },
+  { id: "stacks", label: "Stack Manager", shortLabel: "Stacks", abbr: "SM", col: "#7952D8",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3 10 5-10 5L2 8l10-5Z"/><path d="m2 12 10 5 10-5M2 16l10 5 10-5"/></svg> },
   { id: "media-auto", label: "Media Automation",       shortLabel: "Automate",  abbr: "MA", col: "#A855F7",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="8" width="20" height="14" rx="2"/><path d="M2 13h20"/><path d="M4 8V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/><path d="M7 6l2 2M13 5l2 3"/></svg> },
   { id: "media-srv",  label: "Media Server",           shortLabel: "Media",     abbr: "MS", col: "#00A4DC",
@@ -2888,31 +2865,27 @@ function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onTh
         <div className="nav-header">
           <Logo size={32} onClick={() => { onNavigate("home"); onClose(); }} />
           <div>
-            <div className="nav-header-title">2EZ</div>
-            <div style={{ fontSize: 10, color: "var(--text-dim)" }}>2ez.dinosaur-banana.ts.net</div>
+            <div className="nav-header-title">2ez<span className="brand-period">.</span></div>
+            <div style={{ fontSize: 10, color: "var(--text-dim)" }}>Your homelab, in view.</div>
           </div>
         </div>
 
-        <div className="nav-section-lbl">Navigation</div>
+        <div className="nav-section-lbl">Workspace</div>
 
         {NAV_ITEMS.map((item) => (
           <button
             key={item.id}
             className={`nav-item${activePage === item.id ? " active" : ""}`}
+            aria-current={activePage === item.id ? "page" : undefined}
             onClick={() => onNavigate(item.id)}
           >
-            <div className="nav-item-icon" style={{
-              background: activePage === item.id ? item.col + "22" : "rgba(255,255,255,0.04)",
-              border: `1px solid ${activePage === item.id ? item.col + "44" : "rgba(255,255,255,0.06)"}`,
-              color: activePage === item.id ? item.col : "var(--text-dim)",
-            }}>
-              {item.abbr}
-            </div>
+            <span className="nav-item-icon" aria-hidden="true">{item.icon}</span>
             {item.label}
           </button>
         ))}
 
         <div className="nav-footer">
+          <AppearanceToggle colors={themeColors} onChange={onThemeChange} />
           <button className="alerts-nav-btn" onClick={() => { setAlertsOpen(o => !o); setSettingsOpen(false); }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -2963,32 +2936,25 @@ const SettingsCogIcon = () => (
 );
 
 function BottomTabBar({ activePage, onNavigate, settingsOpen, onSettingsToggle }) {
-  const tabs = NAV_ITEMS;
-  return (
-    <nav className="bottom-tab-bar">
-      {tabs.map((item) => (
-        <button
-          key={item.id}
-          className={`tab-item${activePage === item.id ? " active" : ""}`}
-          onClick={() => onNavigate(item.id)}
-          aria-label={item.label}
-          style={activePage === item.id ? { color: item.col } : {}}
-        >
-          {item.icon}
-          <span className="tab-item-label">{item.shortLabel}</span>
-        </button>
-      ))}
-      <button
-        className={`tab-item${settingsOpen ? " active" : ""}`}
-        onClick={onSettingsToggle}
-        aria-label="Settings"
-        style={settingsOpen ? { color: "var(--text)" } : {}}
-      >
-        <SettingsCogIcon />
-        <span className="tab-item-label">Settings</span>
+  const [moreOpen, setMoreOpen] = useState(false);
+  const primary = ["home", "main", "media-srv", "downloads"];
+  const tabs = NAV_ITEMS.filter(item => primary.includes(item.id));
+  const navigate = page => { setMoreOpen(false); onNavigate(page); };
+  return <>
+    {moreOpen && <div className="mobile-more" id="mobile-more" onKeyDown={event => { if (event.key === "Escape") { setMoreOpen(false); document.getElementById("mobile-more-toggle")?.focus(); } }}>
+      <div className="mobile-more-heading">Workspace <button onClick={() => setMoreOpen(false)} aria-label="Close more navigation">×</button></div>
+      {NAV_ITEMS.filter(item => !primary.includes(item.id)).map(item => <button key={item.id} onClick={() => navigate(item.id)} aria-current={activePage === item.id ? "page" : undefined}>{item.icon}{item.label}</button>)}
+      <button onClick={() => { setMoreOpen(false); onSettingsToggle(); }}><SettingsCogIcon />Settings</button>
+    </div>}
+    <nav className="bottom-tab-bar" aria-label="Primary navigation">
+      {tabs.map(item => <button key={item.id} className={`tab-item${activePage === item.id ? " active" : ""}`} onClick={() => navigate(item.id)} aria-label={item.label} aria-current={activePage === item.id ? "page" : undefined}>
+        {item.icon}<span className="tab-item-label">{item.shortLabel}</span>
+      </button>)}
+      <button id="mobile-more-toggle" className={`tab-item${moreOpen || settingsOpen || !primary.includes(activePage) ? " active" : ""}`} onClick={() => setMoreOpen(open => !open)} aria-expanded={moreOpen} aria-controls="mobile-more">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg><span className="tab-item-label">More</span>
       </button>
     </nav>
-  );
+  </>;
 }
 
 // ─── GRID LAYOUT CONSTANTS ────────────────────────────────────────
@@ -3047,7 +3013,7 @@ function Skeleton() {
 // needs to know (MainPage grid spanning), else internal state (Home).
 function SystemMetricCard({ id, renderSize = "medium", controls,
   containerView: cvProp, onContainerView, processView: pvProp, onProcessView }) {
-  const { glances: data, glHistory: history, diskHistory: diskioHistory } = useData();
+  const { glances: data, glHistory: history, diskHistory: diskioHistory, metricStatus } = useData();
   const [cvLocal, setCvLocal] = useState(false);
   const [pvLocal, setPvLocal] = useState(false);
   const containerView   = cvProp !== undefined ? cvProp : cvLocal;
@@ -3057,6 +3023,15 @@ function SystemMetricCard({ id, renderSize = "medium", controls,
 
   const runningCount = data.docker ? data.docker.filter(d => d.status === "running").length : 0;
   const sortedDocker = data.docker ? [...data.docker].sort((a, b) => b.cpu - a.cpu) : [];
+
+  const source = { memswap: "swap", temps: "sensors", storage: "fs", processes: "processlist" }[id] || id;
+  const state = metricStatus[source];
+  if (state === "error" || state === "denied") return <Card title={SYS_WIDGET_LABELS[id] || id} controls={controls}><div className="metric-unavailable"><span className="metric-state-symbol" aria-hidden="true">—</span><strong>{state === "denied" ? "Access needed" : "Reading unavailable"}</strong><p>{state === "denied" ? "Check monitoring permissions for this source." : "Check the monitoring service. Retrying automatically."}</p></div></Card>;
+  if (!state) return <Card title={SYS_WIDGET_LABELS[id] || id} controls={controls}><Skeleton /><p className="metric-waiting">Waiting for a reading…</p></Card>;
+
+  const emptySources = { temps: data.sensors, storage: data.fs, containers: data.docker, processes: data.processes, diskio: data.diskio, alert: data.alert };
+  const emptyCopy = { temps: "No temperature sensors reported by this host.", storage: "No mounted disks reported. Check the host’s storage configuration.", containers: "No containers reported. Open Docker to check the host.", processes: "No processes reported by the monitoring service.", diskio: "No disk activity sources reported.", alert: "No alerts reported by the monitoring service." };
+  if (Array.isArray(emptySources[id]) && emptySources[id].length === 0) return <Card title={SYS_WIDGET_LABELS[id] || id} controls={controls}><p className="metric-empty">{emptyCopy[id]}</p></Card>;
 
   let node;
   switch (id) {
@@ -3286,12 +3261,12 @@ function SystemMetricCard({ id, renderSize = "medium", controls,
               <div className="label-xs" style={{ marginBottom: renderSize === "compact" ? 2 : 5, textTransform: "uppercase", letterSpacing: 1, opacity: 0.5 }}>{label}</div>
               <div style={{ display: "flex", gap: 16, marginBottom: renderSize !== "compact" ? 6 : 0 }}>
                 <div className="net-row" style={renderSize === "compact" ? { marginBottom: 0 } : {}}>
-                  <span className="net-arrow" style={{ color: "var(--accent)" }}>↓</span>
-                  <span className="net-val" style={{ color: "var(--accent)", fontSize: renderSize === "compact" ? 13 : undefined }}><AnimNum value={iface ? Math.abs(iface.rx) : 0} format="speed" /></span>
+                  <span className="net-arrow" style={{ color: "var(--color-blue)" }}>↓</span>
+                  <span className="net-val" style={{ color: "var(--color-blue)", fontSize: renderSize === "compact" ? 13 : undefined }}><AnimNum value={iface ? Math.abs(iface.rx) : 0} format="speed" /></span>
                 </div>
                 <div className="net-row" style={renderSize === "compact" ? { marginBottom: 0 } : {}}>
-                  <span className="net-arrow" style={{ color: "var(--warn)" }}>↑</span>
-                  <span className="net-val" style={{ color: "var(--warn)", fontSize: renderSize === "compact" ? 13 : undefined }}><AnimNum value={iface ? Math.abs(iface.tx) : 0} format="speed" /></span>
+                  <span className="net-arrow" style={{ color: "var(--text-dim)" }}>↑</span>
+                  <span className="net-val" style={{ color: "var(--text-dim)", fontSize: renderSize === "compact" ? 13 : undefined }}><AnimNum value={iface ? Math.abs(iface.tx) : 0} format="speed" /></span>
                 </div>
               </div>
               {renderSize !== "compact" && (
@@ -3367,7 +3342,7 @@ function SystemMetricCard({ id, renderSize = "medium", controls,
         node = (
           <Card title="Containers" controls={controls}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <span className="big-num" style={{ color: "var(--accent)" }}>{runningCount}</span>
+              <span className="big-num" style={{ color: "var(--ok)" }}>{runningCount}</span>
               <span className="label-sm">/ {data.docker.length} running</span>
             </div>
           </Card>
@@ -3391,11 +3366,11 @@ function SystemMetricCard({ id, renderSize = "medium", controls,
                   )}
                 </div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
-                  <span className="big-num" style={{ color: "var(--accent)" }}>{runningCount}</span>
+                  <span className="big-num" style={{ color: "var(--ok)" }}>{runningCount}</span>
                   <span className="label-sm">/ {data.docker.length} running</span>
                 </div>
                 <div style={{ marginTop: 10 }}>
-                  <Bar value={(runningCount / data.docker.length) * 100} color="var(--accent)" height={4} />
+                  <Bar value={(runningCount / data.docker.length) * 100} color="var(--ok)" height={4} />
                 </div>
                 <div className="stat-row" style={{ marginTop: 4 }}>
                   <span className="label-sm">Total CPU</span>
@@ -3420,11 +3395,11 @@ function SystemMetricCard({ id, renderSize = "medium", controls,
         node = (
           <Card title="Containers" controls={controls} onClick={() => setContainerView(true)}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
-              <span className="big-num" style={{ color: "var(--accent)" }}>{runningCount}</span>
+              <span className="big-num" style={{ color: "var(--ok)" }}>{runningCount}</span>
               <span className="label-sm">/ {data.docker.length} running</span>
             </div>
             <div style={{ marginTop: 10 }}>
-              <Bar value={(runningCount / data.docker.length) * 100} color="var(--accent)" height={4} />
+              <Bar value={(runningCount / data.docker.length) * 100} color="var(--ok)" height={4} />
             </div>
             <div className="stat-row" style={{ marginTop: 4 }}>
               <span className="label-sm">Total CPU</span>
@@ -3509,9 +3484,7 @@ function SystemMetricCard({ id, renderSize = "medium", controls,
 }
 
 // ─── MAIN PAGE (system dashboard) ────────────────────────────────
-function MainPage({ onMenuToggle, onNavigate, bellProps, layoutResetKey }) {
-  const { glances: data, connected, glHistory: history, diskHistory: diskioHistory } = useData();
-  const [time, setTime] = useState(new Date());
+function MainPage({ onMenuToggle, onNavigate, bellProps }) {
   const [containerView, setContainerView] = useState(false);
   const [processView,   setProcessView]   = useState(false);
   const [editLayoutOpen, setEditLayoutOpen] = useState(false);
@@ -3542,7 +3515,7 @@ function MainPage({ onMenuToggle, onNavigate, bellProps, layoutResetKey }) {
       if (saved && typeof saved === "object" && !Array.isArray(saved)) {
         return { ...DEFAULT_POSITIONS, ...saved };
       }
-    } catch {}
+    } catch { /* Invalid saved layout: fall back to the defaults below. */ }
     return DEFAULT_POSITIONS;
   });
 
@@ -3561,15 +3534,9 @@ function MainPage({ onMenuToggle, onNavigate, bellProps, layoutResetKey }) {
       const saved = JSON.parse(localStorage.getItem("2ez-card-sizes") || "null");
       if (saved && typeof saved === "object" && !Array.isArray(saved))
         return { ...DEFAULT_CARD_SIZES, ...saved };
-    } catch {}
+    } catch { /* Invalid saved layout: fall back to the defaults below. */ }
     return { ...DEFAULT_CARD_SIZES };
   });
-
-  useEffect(() => {
-    if (layoutResetKey === 0) return;
-    setCardPositions(RESET_POSITIONS);
-    setCardSizes(RESET_SIZES);
-  }, [layoutResetKey]);
 
   const setSize = (id, s) => {
     const { cols } = CARD_SIZE_SPANS[s];
@@ -3599,9 +3566,8 @@ function MainPage({ onMenuToggle, onNavigate, bellProps, layoutResetKey }) {
 
   const checkConflict = useCallback((cardId, pos, spans) => {
     const { cols, rows } = spans;
-    const numCols = gridRef.current
-      ? (getComputedStyle(gridRef.current).gridTemplateColumns.split(' ').filter(Boolean).length || 4)
-      : 4;
+    // Manual placement is enabled only for the four-column desktop grid.
+    const numCols = 4;
     if (pos.col + cols - 1 > numCols) return true;
     for (const [otherId, otherPos] of Object.entries(cardPositions)) {
       if (otherId === cardId) continue;
@@ -3701,45 +3667,18 @@ function MainPage({ onMenuToggle, onNavigate, bellProps, layoutResetKey }) {
   }, 400, mainTouchEnabled);
 
   useEffect(() => {
-    const id = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
     localStorage.setItem("2ez-card-sizes", JSON.stringify(cardSizes));
   }, [cardSizes]);
 
   return (
-    <div className="shell">
-      <header className="header">
-        <div className="header-left">
-          <button className="hamburger-btn" onClick={onMenuToggle} aria-label="Open menu">
-            <HamburgerIcon />
-          </button>
-          <Logo size={38} />
-        </div>
-        <div className="header-right">
-          <SearchBar navigate={onNavigate} />
-          {data.uptime && (
-            <div className="uptime-strip">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              {data.uptime}
-            </div>
-          )}
-          <span className="header-clock">{time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
-          <button className="edit-layout-btn" onClick={() => setEditLayoutOpen(true)} aria-label="Edit layout">
-            <PencilIcon />
-          </button>
-          <TerminalButton />
-          {bellProps && <NotificationBell {...bellProps} />}
-          <div className="live-badge">
-            <div className="live-dot" style={{ background: connected ? "var(--accent)" : "var(--crit)" }} />
-            <span className="live-label">{connected ? "LIVE" : "OFFLINE"}</span>
-          </div>
-        </div>
-      </header>
+    <div className="shell system-page">
+      <PageHeader title="System" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
 
       <div className="page-content">
+      <PageIntro title="Inside your homelab." description="Machine load, storage and the processes behind your services." eyebrow="2EZ / SYSTEM">
+        <button className="surface-button" onClick={() => setEditLayoutOpen(true)}><PencilIcon />Arrange cards</button>
+      </PageIntro>
+      <MonitoringSummary />
       <div className="grid" ref={gridRef}
         onDragOver={isAutoLayout ? (e) => e.preventDefault() : handleGridDragOver}
         onDrop={isAutoLayout ? (e) => e.preventDefault() : handleGridDrop}
@@ -3859,6 +3798,78 @@ function MainPage({ onMenuToggle, onNavigate, bellProps, layoutResetKey }) {
   );
 }
 
+function PageIntro({ title, description, eyebrow = "2EZ / WORKSPACE", children }) {
+  return <div className="page-intro">
+    <div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p className="page-intro-description">{description}</p></div>
+    {children && <div className="page-intro-actions">{children}</div>}
+  </div>;
+}
+
+function MonitoringSummary() {
+  const { metricStatus, glances } = useData();
+  const keys = ["cpu", "mem", "swap", "sensors", "fs", "network", "containers", "processlist"];
+  const unavailable = keys.filter(key => ["error", "denied"].includes(metricStatus[key]));
+  const loading = keys.some(key => !metricStatus[key]);
+  const denied = unavailable.some(key => metricStatus[key] === "denied");
+  return <div className={`monitor-summary ${unavailable.length ? "has-issue" : ""}`} role="status">
+    <div><span className={`state-dot ${unavailable.length ? "error" : loading ? "pending" : "ready"}`} /><strong>{denied ? "Monitoring access needed" : unavailable.length ? "Some readings are unavailable" : loading ? "Connecting to your host" : "Receiving system readings"}</strong></div>
+    <span>{unavailable.length ? `${unavailable.length} source${unavailable.length === 1 ? "" : "s"} unavailable. ${denied ? "Check monitoring permissions." : "Check the monitoring service; retrying automatically."}` : loading ? "Waiting for the first readings." : glances.uptime ? `Host uptime ${glances.uptime} · refreshes every 2s` : "Refreshes every 2 seconds"}</span>
+  </div>;
+}
+
+const SERVICE_GROUPS = {
+  "media-auto": [
+    { title: "Film & television", description: "Find, request and organize your next watch.", ids: ["sonarr", "radarr", "prowlarr", "bazarr"] },
+    { title: "Music & lyrics", description: "Discover, tag and complete your music library.", ids: ["beetsflask", "slskd", "lrcget", "audiomuse", "lrcgen"] },
+  ],
+  "media-srv": [{ title: "Your libraries", description: "Requests, photos and personal files.", ids: ["seerr", "immich", "nextcloud"] }],
+  mgmt: [
+    { title: "Host & storage", description: "Manage the machine and its files.", ids: ["cockpit", "dockge", "filebrowser", "upsnap"] },
+    { title: "Monitoring & jobs", description: "Track availability, updates and scheduled work.", ids: ["uptimekuma", "wud", "notifiarr", "cronicle"] },
+  ],
+};
+
+function ServiceDirectory({ groups, query }) {
+  const { glances: { docker }, metricStatus } = useData();
+  const matches = groups.map(group => ({ ...group, ids: group.ids.filter(id => `${SVC[id].name} ${SVC[id].desc}`.toLowerCase().includes(query.trim().toLowerCase())) })).filter(group => group.ids.length);
+  if (!matches.length) return <div className="directory-empty"><strong>No services match “{query}”.</strong><p>Try a service name, or clear the filter to see all services.</p></div>;
+  return <div className="service-directory">{matches.map(group => <section className="directory-group" key={group.title}>
+    <div className="directory-group-heading"><div><h2>{group.title}</h2><p>{group.description}</p></div><span className="directory-count">{group.ids.length}</span></div>
+    {group.ids.map(id => {
+      const service = SVC[id];
+      const container = metricStatus.containers === "ready" ? docker?.find(item => item.name.toLowerCase() === id) : null;
+      return <a key={id} data-sort-id={id} className="directory-row svc-card" href={service.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(id)}>
+        <span className="directory-glyph"><SvcIcon id={id} color="currentColor" /></span>
+        <span className="directory-copy"><strong>{service.name}</strong><span>{service.desc}</span></span>
+        <span className={`directory-state ${container?.status === "running" ? "running" : ""}`}>{container?.status || "Open"}</span><span className="directory-arrow" aria-hidden="true">↗</span>
+      </a>;
+    })}
+  </section>)}</div>;
+}
+
+function ServiceWorkspace({ pageKey, title, description, activity, children, onEditLayout }) {
+  const [layout, setLayout] = useState(() => {
+    try { return localStorage.getItem(`2ez-view-${pageKey}`) === "cards" ? "cards" : "directory"; } catch { return "directory"; }
+  });
+  const [query, setQuery] = useState("");
+  const chooseLayout = value => {
+    setLayout(value);
+    try { localStorage.setItem(`2ez-view-${pageKey}`, value); } catch { /* The view still works without storage. */ }
+  };
+  return <>
+    <PageIntro title={title} description={description} eyebrow="2EZ / SERVICES">
+      <div className="view-switch" aria-label="Service view">{["directory", "cards"].map(value => <button key={value} aria-pressed={layout === value} onClick={() => chooseLayout(value)}>{value === "directory" ? "Directory" : "Card layout"}</button>)}</div>
+      {layout === "cards" && <button className="surface-button" onClick={onEditLayout}><PencilIcon />Arrange cards</button>}
+    </PageIntro>
+    {layout === "cards" ? children : <>
+      {activity && <div className={`service-activity activity-${pageKey}`}>{activity}</div>}
+      <div className="directory-toolbar"><p className="eyebrow">SERVICE DIRECTORY</p><label className="directory-filter"><SearchIcon /><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Filter services…" aria-label="Filter services" />{query && <button onClick={() => setQuery("")} aria-label="Clear service filter">×</button>}</label></div>
+      <ServiceDirectory groups={SERVICE_GROUPS[pageKey]} query={query} />
+      <p className="directory-note">Services open in a new tab. Running labels reflect reported container state.</p>
+    </>}
+  </>;
+}
+
 // ─── PAGE HEADER (non-main pages) ────────────────────────────────
 function PageHeader({ title, onMenuToggle, onNavigate, bellProps, onEditLayout }) {
   const [time, setTime] = useState(new Date());
@@ -3875,10 +3886,7 @@ function PageHeader({ title, onMenuToggle, onNavigate, bellProps, onEditLayout }
         <button className="hamburger-btn" onClick={onMenuToggle} aria-label="Open menu">
           <HamburgerIcon />
         </button>
-        <Logo size={38} onClick={() => onNavigate("home")} />
-        <div>
-          <div className="header-sub" style={{ color: "var(--accent)", fontWeight: 500 }}>{title}</div>
-        </div>
+        <span className="overview-breadcrumb">Workspace <span>/</span> {title}</span>
       </div>
       <div className="header-right">
         <SearchBar navigate={onNavigate} />
@@ -3903,7 +3911,7 @@ function PageHeader({ title, onMenuToggle, onNavigate, bellProps, onEditLayout }
 
 // ─── MEDIA AUTOMATION PAGE ───────────────────────────────────────
 function MediaAutomationPage({ onMenuToggle, onNavigate, bellProps }) {
-  const defaultIds = ["sonarr", "radarr", "prowlarr", "bazarr", "beetsflask", "slskd", "lrcget"];
+  const defaultIds = ["sonarr", "radarr", "prowlarr", "bazarr", "beetsflask", "slskd", "lrcget", "audiomuse", "lrcgen"];
   const [mobileOrder, setMobileOrder] = useMobileOrder("media-auto", defaultIds);
   const [editOpen, setEditOpen] = useState(false);
   const items = defaultIds.map(id => ({ id, node: <SvcCard id={id} /> }));
@@ -3912,13 +3920,16 @@ function MediaAutomationPage({ onMenuToggle, onNavigate, bellProps }) {
   const defaultPositions = {
     sonarr: {col:1,row:1}, radarr: {col:2,row:1}, prowlarr: {col:3,row:1}, bazarr: {col:4,row:1},
     beetsflask: {col:1,row:2}, slskd: {col:2,row:2}, lrcget: {col:3,row:2},
+    audiomuse: {col:4,row:2}, lrcgen: {col:1,row:3},
   };
   return (
     <div className="shell">
-      <PageHeader title="Media Automation" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} onEditLayout={() => setEditOpen(true)} />
+      <PageHeader title="Media Automation" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
       <div className="page-content">
-        <p className="page-section">Arr Apps &amp; Tools</p>
+        <ServiceWorkspace pageKey="media-auto" title="Media automation." description="Find your next watch. Keep your music and lyrics in order." onEditLayout={() => setEditOpen(true)}>
+
         <DraggableGrid pageKey="media-auto" items={items} resizable={new Set()} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} className="half-mobile" onReorder={setMobileOrder} />
+        </ServiceWorkspace>
       </div>
       {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
     </div>
@@ -3945,10 +3956,12 @@ function MediaServerPage({ onMenuToggle, onNavigate, bellProps }) {
   };
   return (
     <div className="shell">
-      <PageHeader title="Media Server" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} onEditLayout={() => setEditOpen(true)} />
+      <PageHeader title="Media Server" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
       <div className="page-content">
-        <p className="page-section">Streaming &amp; Libraries</p>
+        <ServiceWorkspace pageKey="media-srv" title="Your media, at home." description="See what’s playing and open the libraries you come back to." onEditLayout={() => setEditOpen(true)} activity={<><JellyfinWidget /><NavidromeWidget /></>}>
+
         <DraggableGrid pageKey="media-srv" items={items} resizable={new Set(["jellyfin","navidrome"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} onReorder={setMobileOrder} />
+        </ServiceWorkspace>
       </div>
       {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
     </div>
@@ -3957,7 +3970,7 @@ function MediaServerPage({ onMenuToggle, onNavigate, bellProps }) {
 
 // ─── MANAGEMENT PAGE ─────────────────────────────────────────────
 function ManagementPage({ onMenuToggle, onNavigate, bellProps }) {
-  const defaultIds = ["cockpit", "dockge", "speedtest", "filebrowser", "uptimekuma", "wud"];
+  const defaultIds = ["cockpit", "dockge", "speedtest", "filebrowser", "uptimekuma", "wud", "notifiarr", "upsnap", "cronicle"];
   const [mobileOrder, setMobileOrder] = useMobileOrder("mgmt", defaultIds);
   const [editOpen, setEditOpen] = useState(false);
   const items = [
@@ -3967,18 +3980,22 @@ function ManagementPage({ onMenuToggle, onNavigate, bellProps }) {
     { id: "filebrowser", node: <SvcCard id="filebrowser" /> },
     { id: "uptimekuma",  node: <SvcCard id="uptimekuma" /> },
     { id: "wud",         node: <SvcCard id="wud" /> },
+    ...["notifiarr", "upsnap", "cronicle"].map(id => ({ id, node: <SvcCard id={id} /> })),
   ];
   const modalItems = defaultIds.map(id => ({ id, label: SVC[id]?.name ?? id }));
-  const defaultSizes = { cockpit: "compact", dockge: "compact", speedtest: "medium", filebrowser: "compact", uptimekuma: "compact", wud: "compact" };
+  const defaultSizes = { cockpit: "compact", dockge: "compact", speedtest: "medium", filebrowser: "compact", uptimekuma: "compact", wud: "compact", notifiarr: "compact", upsnap: "compact", cronicle: "compact" };
   const defaultPositions = {
     cockpit: {col:1,row:1}, dockge: {col:1,row:2}, speedtest: {col:2,row:1}, filebrowser: {col:3,row:1}, uptimekuma: {col:4,row:1}, wud: {col:4,row:2},
+    notifiarr: {col:3,row:2}, upsnap: {col:1,row:3}, cronicle: {col:2,row:3},
   };
   return (
     <div className="shell">
-      <PageHeader title="Management" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} onEditLayout={() => setEditOpen(true)} />
+      <PageHeader title="Management" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
       <div className="page-content">
-        <p className="page-section">System &amp; Infrastructure</p>
+        <ServiceWorkspace pageKey="mgmt" title="Keep the lab running." description="Host controls, files, monitoring and the jobs that connect them." onEditLayout={() => setEditOpen(true)} activity={<><SpeedtestWidget /></>}>
+
         <DraggableGrid pageKey="mgmt" items={items} resizable={new Set(["speedtest"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} onReorder={setMobileOrder} />
+        </ServiceWorkspace>
       </div>
       {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
     </div>
@@ -3995,13 +4012,13 @@ function DownloadsPage({ onMenuToggle, onNavigate, bellProps }) {
     { id: "unmanic",     node: <UnmanicWidget /> },
   ];
   const modalItems = defaultIds.map(id => ({ id, label: SVC[id]?.name ?? id }));
-  const defaultSizes = { qbittorrent: "medium", unmanic: "medium" };
-  const defaultPositions = { qbittorrent: {col:1,row:1}, unmanic: {col:2,row:1} };
+  const defaultSizes = { qbittorrent: "large", unmanic: "large" };
+  const defaultPositions = { qbittorrent: {col:1,row:1}, unmanic: {col:3,row:1} };
   return (
-    <div className="shell">
-      <PageHeader title="Downloads &amp; Transcodes" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} onEditLayout={() => setEditOpen(true)} />
+    <div className="shell downloads-page">
+      <PageHeader title="Downloads" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
       <div className="page-content">
-        <p className="page-section">Active transfers &amp; encoding queue</p>
+        <PageIntro title="On the way." description="Follow active downloads and the files being prepared for your library." eyebrow="2EZ / DOWNLOADS"><button className="surface-button" onClick={() => setEditOpen(true)}><PencilIcon />Arrange cards</button></PageIntro>
         <DraggableGrid pageKey="downloads" items={items} resizable={new Set(["qbittorrent","unmanic"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} onReorder={setMobileOrder} />
       </div>
       {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
@@ -4029,7 +4046,7 @@ function TerminalView() {
   const hostRef = useRef(null);
   useEffect(() => {
     const term = new Terminal({
-      fontFamily: '"JetBrains Mono", "Fira Code", ui-monospace, monospace',
+      fontFamily: '"DM Mono", ui-monospace, monospace',
       fontSize: 13, cursorBlink: true, theme: TERM_THEME, allowProposedApi: true,
     });
     const fit = new FitAddon();
@@ -4221,15 +4238,16 @@ function DockerPage({ onMenuToggle, onNavigate, bellProps }) {
   const [details, setDetails] = useState({});
   const [busy, setBusy] = useState({});
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [actionError, setActionError] = useState(null);
   const expandedRef = useRef(null);
-  expandedRef.current = expandedId;
+  useEffect(() => { expandedRef.current = expandedId; }, [expandedId]);
 
-  const refresh = useCallback(async () => {
-    try {
-      const list = await fetch("/sys-api/docker/containers").then(r => r.json());
-      if (Array.isArray(list)) { setContainers(list); setErr(null); }
-      else { setContainers([]); setErr(list?.error || "Docker socket unavailable"); }
-    } catch { setErr("Docker socket unavailable"); }
+  const refresh = useCallback(() => {
+    return fetch("/sys-api/docker/containers", { signal: AbortSignal.timeout(8000) }).then(r => { if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Docker access denied. Check Docker permissions and refresh." : "Docker is unavailable. Check the host connection and refresh."); return r.json(); })
+      .then(list => {
+        if (Array.isArray(list)) { setContainers(list); setErr(null); }
+        else { setContainers([]); setErr(list?.error || "Docker socket unavailable"); }
+      }).catch(error => setErr(error.message.startsWith("Docker") ? error.message : "Docker is unavailable. Check the host connection and refresh."));
   }, []);
 
   useEffect(() => {
@@ -4246,18 +4264,33 @@ function DockerPage({ onMenuToggle, onNavigate, bellProps }) {
 
   const doAction = async (cid, verb) => {
     setBusy(b => ({ ...b, [cid]: verb }));
-    try { await fetch(`/sys-api/docker/${cid}/${verb}`, { method: "POST" }); } catch {}
-    await refresh();
-    setBusy(b => { const n = { ...b }; delete n[cid]; return n; });
+    setActionError(null);
+    try {
+      const response = await fetch(`/sys-api/docker/${cid}/${verb}`, { method: "POST" });
+      if (!response.ok) throw new Error("Container action failed");
+      await refresh();
+    } catch {
+      setActionError(`Could not ${verb} the container. Check Docker access and try again.`);
+    } finally {
+      setBusy(b => { const next = { ...b }; delete next[cid]; return next; });
+    }
   };
 
   const doDelete = async (cid) => {
     setBusy(b => ({ ...b, [cid]: "delete" }));
-    try { await fetch(`/sys-api/docker/${cid}`, { method: "DELETE" }); } catch {}
-    setDeleteTarget(null);
-    if (expandedId === cid) setExpandedId(null);
-    await refresh();
-    setBusy(b => { const n = { ...b }; delete n[cid]; return n; });
+    setActionError(null);
+    try {
+      const response = await fetch(`/sys-api/docker/${cid}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Container deletion failed");
+      setDeleteTarget(null);
+      if (expandedId === cid) setExpandedId(null);
+      await refresh();
+    } catch {
+      setDeleteTarget(null);
+      setActionError("Could not delete the container. Check Docker access and try again.");
+    } finally {
+      setBusy(b => { const next = { ...b }; delete next[cid]; return next; });
+    }
   };
 
   const toggleExpand = async (cid) => {
@@ -4290,9 +4323,10 @@ function DockerPage({ onMenuToggle, onNavigate, bellProps }) {
   const runningCount = list.filter(c => c.state === "running").length;
 
   return (
-    <div className="shell">
+    <div className="shell docker-page">
       <PageHeader title="Docker" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
       <div className="page-content">
+        <PageIntro title="Every container, in view." description="Check what’s running, inspect logs and manage individual services." eyebrow="2EZ / DOCKER"><button className="surface-button" onClick={refresh}>Refresh containers <span aria-hidden="true">↻</span></button></PageIntro>
         <div className="dk-toolbar">
           <div className="dk-summary">
             <span className="big-num" style={{ fontSize: 24, color: "var(--accent)" }}>{runningCount}</span>
@@ -4301,7 +4335,7 @@ function DockerPage({ onMenuToggle, onNavigate, bellProps }) {
           <div className="dk-controls">
             <div className="dk-seg">
               {DOCKER_FILTERS.map(f => (
-                <button key={f.id} className={`dk-seg-btn${filter === f.id ? " active" : ""}`} onClick={() => setFilter(f.id)}>{f.label}</button>
+                <button key={f.id} className={`dk-seg-btn${filter === f.id ? " active" : ""}`} aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>{f.label}</button>
               ))}
             </div>
             <div className="dk-seg">
@@ -4315,6 +4349,7 @@ function DockerPage({ onMenuToggle, onNavigate, bellProps }) {
         </div>
 
         {err && <div className="dk-error">⚠ {err}</div>}
+        {actionError && <div className="dk-error" role="alert">{actionError}</div>}
         {containers === null && !err ? (
           <div className="dk-empty">Loading containers…</div>
         ) : sorted.length === 0 && !err ? (
@@ -4339,7 +4374,7 @@ function DockerPage({ onMenuToggle, onNavigate, bellProps }) {
                 <div key={c.id} className={`dk-item${open ? " open" : ""}`}>
                   <div className="dk-row dk-body-row" onClick={() => toggleExpand(c.id)}>
                     <span className="dk-dot-cell"><span className={`docker-dot ${running ? "dot-live" : "dot-dead"}`} /></span>
-                    <span className="dk-name mono">{c.name}</span>
+                    <button className="dk-name" aria-expanded={open} onClick={event => { event.stopPropagation(); toggleExpand(c.id); }}><span>{c.name}</span><span className="dk-expand-hint">{open ? "Close details −" : "Inspect +"}</span></button>
                     <span className="dk-col-img label-xs dim" title={c.image}>{c.image}</span>
                     <span className="label-xs dk-status">{c.status || (running ? "running" : "stopped")}</span>
                     <span className="r mono label-sm" style={{ color: running ? statusColor(c.cpu_percent || 0) : "var(--text-dim)" }}>{running ? (c.cpu_percent || 0).toFixed(1) + "%" : "—"}</span>
@@ -4347,13 +4382,13 @@ function DockerPage({ onMenuToggle, onNavigate, bellProps }) {
                     <span className="dk-col-act dk-actions" onClick={e => e.stopPropagation()}>
                       {running ? (
                         <>
-                          <button className="dk-act dk-stop" disabled={!!b} onClick={() => doAction(c.id, "stop")} title="Stop">{b === "stop" ? <DkSpinner /> : <DkStop />}</button>
-                          <button className="dk-act" disabled={!!b} onClick={() => doAction(c.id, "restart")} title="Restart">{b === "restart" ? <DkSpinner /> : <DkRestart />}</button>
+                          <button className="dk-act dk-stop" disabled={!!b} onClick={() => doAction(c.id, "stop")} title="Stop">{b === "stop" ? <DkSpinner /> : <DkStop />}<span>Stop</span></button>
+                          <button className="dk-act" disabled={!!b} onClick={() => doAction(c.id, "restart")} title="Restart">{b === "restart" ? <DkSpinner /> : <DkRestart />}<span>Restart</span></button>
                         </>
                       ) : (
-                        <button className="dk-act dk-start" disabled={!!b} onClick={() => doAction(c.id, "start")} title="Start">{b === "start" ? <DkSpinner /> : <DkStart />}</button>
+                        <button className="dk-act dk-start" disabled={!!b} onClick={() => doAction(c.id, "start")} title="Start">{b === "start" ? <DkSpinner /> : <DkStart />}<span>Start</span></button>
                       )}
-                      <button className="dk-act dk-del" disabled={!!b} onClick={() => setDeleteTarget(c)} title="Delete">{b === "delete" ? <DkSpinner /> : <DkTrash />}</button>
+                      <button className="dk-act dk-del" disabled={!!b} onClick={() => setDeleteTarget(c)} title="Delete">{b === "delete" ? <DkSpinner /> : <DkTrash />}<span>Delete</span></button>
                     </span>
                   </div>
                   {open && (
@@ -4404,10 +4439,10 @@ function linePath(pts) {
 }
 
 const NET_SERIES = [
-  { key: "lanRx", label: "LAN ↓",       color: "var(--accent)", dash: false },
-  { key: "lanTx", label: "LAN ↑",       color: "var(--warn)",   dash: false },
-  { key: "tsRx",  label: "Tailscale ↓", color: "var(--accent)", dash: true  },
-  { key: "tsTx",  label: "Tailscale ↑", color: "var(--warn)",   dash: true  },
+  { key: "lanRx", label: "LAN ↓",       color: "var(--color-blue)", dash: false },
+  { key: "lanTx", label: "LAN ↑",       color: "var(--text-dim)",   dash: false },
+  { key: "tsRx",  label: "Tailscale ↓", color: "var(--color-blue)", dash: true  },
+  { key: "tsTx",  label: "Tailscale ↑", color: "var(--text-dim)",   dash: true  },
 ];
 
 function NetworkGraph({ series, times, stepMs }) {
@@ -4533,18 +4568,19 @@ const NET_RANGES = [
 ];
 
 function HomeNetworkWidget() {
-  const { glHistory } = useData();
+  const { glHistory, metricStatus, glances: { network } } = useData();
+  const [historyError, setHistoryError] = useState(null);
   const [range, setRange] = useState("live");
   const [hist, setHist] = useState(null);
 
   // Fetch server-side history for the longer ranges; poll while active.
   useEffect(() => {
-    if (range === "live") { setHist(null); return; }
+    if (range === "live") return;
     let alive = true;
     const load = () => {
-      fetch(`/sys-api/network/history?range=${range}`).then(r => r.json())
-        .then(pts => { if (alive) setHist(Array.isArray(pts) ? pts : []); })
-        .catch(() => { if (alive) setHist([]); });
+      fetch(`/sys-api/network/history?range=${range}`, { signal: AbortSignal.timeout(8000) }).then(r => { if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "denied" : "error"); return r.json(); })
+        .then(pts => { if (alive) { setHist(Array.isArray(pts) ? pts : []); setHistoryError(null); } })
+        .catch(error => { if (alive) { setHist([]); setHistoryError(error.message); } });
     };
     load();
     const id = setInterval(load, range === "1h" ? 10000 : 60000);
@@ -4579,13 +4615,17 @@ function HomeNetworkWidget() {
         </div>
         <div className="home-range-selector">
           {NET_RANGES.map(r => (
-            <button key={r.id} className={`home-range-btn${range === r.id ? " active" : ""}`} onClick={() => setRange(r.id)}>
+            <button key={r.id} className={`home-range-btn${range === r.id ? " active" : ""}`} aria-pressed={range === r.id} onClick={() => { if (r.id === range) return; setRange(r.id); setHist(null); setHistoryError(null); }}>
               {r.id === "live" && <span className="home-range-dot" />}{r.label}
             </button>
           ))}
         </div>
       </div>
-      <NetworkGraph key={range} series={series} times={times} stepMs={stepMs} />
+      {(range === "live" && metricStatus.network === "denied") || historyError === "denied" ? <div className="home-net-empty">Network access denied. Check your monitoring permissions.</div>
+        : (range === "live" && metricStatus.network === "error") || historyError ? <div className="home-net-empty">Network data unavailable. Check the monitoring connection; retrying automatically.</div>
+        : range === "live" && metricStatus.network === "ready" && !network?.lan && !network?.ts ? <div className="home-net-empty">No monitored interfaces found. Check the network settings on your host.</div>
+        : range !== "live" && hist?.length === 0 ? <div className="home-net-empty">No history for this period. Choose Live to see incoming traffic.</div>
+        : <NetworkGraph key={range} series={series} times={times} stepMs={stepMs} />}
       <NetLegend />
     </div>
   );
@@ -4628,7 +4668,7 @@ const SYS_WIDGET_LABELS = {
 };
 // Services that have dedicated live-data widgets (vs. plain quick links).
 const SVC_LIVE_WIDGETS = ["jellyfin", "qbt", "unmanic", "speedtest", "navidrome"];
-const LINK_WIDGETS = ["sonarr", "radarr", "prowlarr", "bazarr", "seerr", "nextcloud", "immich", "cockpit", "dockge", "filebrowser", "slskd", "beetsflask", "lrcget", "uptimekuma", "wud"];
+const LINK_WIDGETS = ["sonarr", "radarr", "prowlarr", "bazarr", "seerr", "nextcloud", "immich", "cockpit", "dockge", "filebrowser", "slskd", "beetsflask", "lrcget", "uptimekuma", "wud", "audiomuse", "lrcgen", "notifiarr", "upsnap", "cronicle"];
 
 const TOOL_WIDGET_LABELS = { terminal: "Terminal" };
 
@@ -4699,7 +4739,7 @@ function AddWidgetDrawer({ active, onToggle, onClose }) {
                   const col = widgetColor(wid);
                   return (
                     <button key={wid} className={`widget-chip${added ? " added" : ""}`}
-                      onClick={() => onToggle(wid)}
+                      onClick={() => onToggle(wid)} aria-pressed={added}
                       style={added ? { borderColor: col + "66", background: col + "1a" } : undefined}>
                       <span className="widget-chip-dot" style={{ background: col }} />
                       <span className="widget-chip-label">{label}</span>
@@ -4759,7 +4799,7 @@ function HomeWidgetGrid({ widgets, onRemove, onReorder }) {
               <circle cx="2.5" cy="14" r="1.5"/><circle cx="7.5" cy="14" r="1.5"/>
             </svg>
           </div>
-          <button className="home-widget-remove" onClick={() => onRemove(wid)} aria-label="Remove widget">
+          <button className="home-widget-remove" onClick={() => onRemove(wid)} aria-label={`Remove ${widgetLabel(wid)} widget`}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
@@ -4771,10 +4811,73 @@ function HomeWidgetGrid({ widgets, onRemove, onReorder }) {
   );
 }
 
+// Home summarizes actual readings; unavailable readings never become healthy zeroes.
+function HomeOverview({ onNavigate }) {
+  const { glances, metricStatus } = useData();
+  const { cpu, mem, fs, docker, network } = glances;
+  const endpoints = ["cpu", "mem", "fs", "containers"];
+  const denied = endpoints.some(key => metricStatus[key] === "denied");
+  const failed = endpoints.some(key => metricStatus[key] === "error");
+  const loading = endpoints.some(key => !metricStatus[key]);
+  const running = docker?.filter(item => item.status === "running").length ?? 0;
+  const stopped = (docker?.length ?? 0) - running;
+  const fullest = fs?.reduce((result, disk) => !result || disk.percent > result.percent ? disk : result, null);
+  const pressure = (cpu?.total ?? 0) >= 90 || (mem?.percent ?? 0) >= 90 || (fullest?.percent ?? 0) >= 90;
+  const state = denied ? "Access needed" : failed ? "Monitoring unavailable" : loading ? "Connecting to your homelab" : stopped || pressure ? "Your homelab needs attention" : "System readings are up to date";
+  const note = denied ? "Check your monitoring permissions to restore readings." : failed ? "Check the monitoring service. Retrying automatically." : loading ? "Waiting for the first system readings." : stopped ? `${stopped} container${stopped === 1 ? " is" : "s are"} stopped. Open Docker to inspect.` : pressure ? "A system resource is above 90%. Inspect system for details." : "CPU, memory, storage and containers · refreshed every 2 seconds";
+  const metrics = [
+    { name: "Processor", key: "cpu", value: cpu ? fmt.pct(cpu.total) : "—", note: cpu?.model || "CPU utilization", percent: cpu?.total },
+    { name: "Memory", key: "mem", value: mem ? fmt.pct(mem.percent) : "—", note: mem ? `${fmt.bytes(mem.used)} of ${fmt.bytes(mem.total)}` : "Memory utilization", percent: mem?.percent },
+    { name: "Storage", key: "fs", value: fullest ? fmt.pct(fullest.percent) : "—", note: fullest ? `${fullest.mnt_point} · ${fmt.bytes(fullest.used)} used` : "No mounted disks reported", percent: fullest?.percent },
+    { name: "Containers", key: "containers", value: docker ? `${running} / ${docker.length}` : "—", note: stopped ? `${stopped} stopped · inspect in Docker` : "Running / total", percent: docker?.length ? running / docker.length * 100 : 0 },
+  ];
+  return <>
+    <div className={`overview-state ${denied || failed ? "is-error" : loading ? "is-loading" : stopped || pressure ? "is-warning" : "is-ready"}`} role="status">
+      <span className="state-dot" /><div><strong>{state}</strong><p>{note}</p></div>
+      <span className="state-host">2ez / host</span>
+    </div>
+    <section className="overview-metrics" aria-label="System snapshot">
+      {metrics.map(metric => {
+        const status = metricStatus[metric.key];
+        const ready = status === "ready";
+        return <button className="overview-metric" key={metric.key} onClick={() => onNavigate(metric.key === "containers" ? "docker" : "main")}>
+          <span className="metric-label">{metric.name}<span aria-hidden="true">↗</span></span>
+          <strong className={!status ? "metric-loading" : ""}>{ready ? metric.value : "—"}</strong>
+          <span className="metric-track"><span style={{ width: ready ? `${Math.max(0, Math.min(100, metric.percent ?? 0))}%` : "0%", background: metric.key === "containers" ? "var(--color-live)" : (metric.percent ?? 0) >= 90 ? "var(--color-amber)" : "var(--color-primary)" }} /></span>
+          <span className="metric-note">{!status ? "Waiting for reading…" : status === "denied" ? "Permission required" : status === "error" ? "Unavailable · retrying" : metric.note}</span>
+        </button>;
+      })}
+    </section>
+    <div className="overview-workbench">
+      <section className="overview-services overview-panel">
+        <div className="overview-panel-head"><div><p className="eyebrow">YOUR SERVICES</p><h2>The daily rotation</h2></div><button className="overview-text-button" onClick={() => onNavigate("mgmt")}>Manage <span aria-hidden="true">↗</span></button></div>
+        {["jellyfin", "navidrome", "sonarr", "radarr", "nextcloud", "qbt"].map(id => {
+          const service = SVC[id];
+          const container = docker?.find(item => item.name.toLowerCase() === (id === "qbt" ? "qbittorrent" : id));
+          const status = metricStatus.containers === "ready" && container ? container.status : null;
+          return <a key={id} className="overview-service" href={service.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(id)}>
+            <span className="overview-service-icon"><SvcIcon id={id} size={20} color="currentColor" /></span>
+            <span className="overview-service-copy"><strong>{service.name}</strong><span>{service.desc}</span></span>
+            <span className={`service-state ${status === "running" ? "running" : status ? "stopped" : ""}`}>{status || "Open"}</span><span className="service-arrow" aria-hidden="true">↗</span>
+          </a>;
+        })}
+        <div className="service-footnote">Container state shown where available.</div>
+      </section>
+      <div className="overview-activity">
+        <section className="overview-panel overview-transfer">
+          <div className="overview-panel-head"><div><p className="eyebrow">ON THE WIRE</p><h2>Traffic through your lab</h2></div><span className="transfer-icon" aria-hidden="true">↓↑</span></div>
+          <div className="overview-transfer-values"><div><span>LAN receiving</span><strong>{metricStatus.network === "ready" && network?.lan ? fmt.speed(network.lan.rx) : "—"}</strong></div><div><span>LAN sending</span><strong>{metricStatus.network === "ready" && network?.lan ? fmt.speed(network.lan.tx) : "—"}</strong></div></div>
+          <button className="overview-text-button" onClick={() => onNavigate("downloads")}>Open downloads & transcodes <span aria-hidden="true">↗</span></button>
+        </section>
+        <HomeNetworkWidget />
+      </div>
+    </div>
+  </>;
+}
+
 // ─── HOME PAGE ───────────────────────────────────────────────────
 function HomePage({ onMenuToggle, onNavigate, bellProps }) {
   const { connected, glances: { uptime } } = useData();
-  const [greeting] = useState(randomGreeting);
   const [time, setTime] = useState(new Date());
   useEffect(() => {
     const id = setInterval(() => setTime(new Date()), 1000);
@@ -4805,8 +4908,8 @@ function HomePage({ onMenuToggle, onNavigate, bellProps }) {
   }, [widgets]);
   const toggleWidget = useCallback((wid) => {
     setWidgets(prev => prev.includes(wid) ? prev.filter(w => w !== wid) : [...prev, wid]);
-  }, []);
-  const removeWidget = useCallback((wid) => setWidgets(prev => prev.filter(w => w !== wid)), []);
+  }, [setWidgets]);
+  const removeWidget = useCallback((wid) => setWidgets(prev => prev.filter(w => w !== wid)), [setWidgets]);
 
   return (
     <div className="shell">
@@ -4815,7 +4918,7 @@ function HomePage({ onMenuToggle, onNavigate, bellProps }) {
           <button className="hamburger-btn" onClick={onMenuToggle} aria-label="Open menu">
             <HamburgerIcon />
           </button>
-          <Logo size={38} onClick={() => onNavigate("home")} />
+          <span className="overview-breadcrumb">Workspace <span>/</span> Overview</span>
         </div>
         <div className="header-right">
           <SearchBar navigate={onNavigate} />
@@ -4829,21 +4932,20 @@ function HomePage({ onMenuToggle, onNavigate, bellProps }) {
           <TerminalButton />
           {bellProps && <NotificationBell {...bellProps} />}
           <div className="live-badge">
-            <div className="live-dot" style={{ background: connected ? "var(--accent)" : "var(--crit)" }} />
+            <div className="live-dot" style={{ background: connected ? "var(--color-live)" : "var(--color-red)" }} />
             <span className="live-label">{connected ? "LIVE" : "OFFLINE"}</span>
           </div>
         </div>
       </header>
 
       <div className="page-content">
-        <div className="home-greeting">
-          <div className="home-greeting-text">{greeting}</div>
-          <div className="home-greeting-sub">
-            {time.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
-          </div>
+        <div className="overview-heading">
+          <div><p className="eyebrow">2EZ / HOMELAB</p><h1>At home, in control.</h1><p className="overview-date">{time.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}</p></div>
+          <button className="overview-primary" onClick={() => onNavigate("main")}>Inspect system <span aria-hidden="true">↗</span></button>
         </div>
+        <HomeOverview onNavigate={onNavigate} />
 
-        <div className="home-columns">
+        <div className="home-columns" hidden={!recent.length && !frequent.length}>
           <section>
             <p className="page-section">Recently Used</p>
             {recent.length > 0 ? (
@@ -4863,20 +4965,16 @@ function HomePage({ onMenuToggle, onNavigate, bellProps }) {
           </section>
         </div>
 
-        <section className="home-net-section">
-          <HomeNetworkWidget />
-        </section>
-
         <section className="home-widgets-section">
           <div className="home-widgets-head">
-            <p className="page-section" style={{ margin: 0 }}>Your Widgets</p>
+            <p className="page-section" style={{ margin: 0 }}>Your workspace</p>
             <div className="home-widgets-actions">
               {widgets.length > 1 && (
                 <button className="home-edit-order-btn" onClick={() => setEditOrderOpen(true)}>Edit order</button>
               )}
               <button className="home-add-widget-btn" onClick={() => setDrawerOpen(true)}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add Widget
+                Add widget
               </button>
             </div>
           </div>
@@ -4931,12 +5029,14 @@ function AppInner() {
       if (!saved) return DEFAULT_THEME;
       const parsed = JSON.parse(saved);
       return (parsed && typeof parsed === "object" && !Array.isArray(parsed))
-        ? parsed : DEFAULT_THEME;
+        ? { ...DEFAULT_THEME, ...parsed } : DEFAULT_THEME;
     } catch { return DEFAULT_THEME; }
   });
 
   useEffect(() => {
-    localStorage.setItem("2ez-theme", JSON.stringify(themeColors));
+    try { localStorage.setItem("2ez-theme", JSON.stringify(themeColors)); } catch { /* Keep appearance usable when browser storage is unavailable. */ }
+    document.documentElement.style.setProperty("--startup-bg", themeColors.bg);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", themeColors.bg);
   }, [themeColors]);
 
   useEffect(() => {
@@ -4999,8 +5099,11 @@ function AppInner() {
 
   // ── Navigation ────────────────────────────────────────────────
   const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
+  const stackDirty = useRef(false);
+  const onStackDirtyChange = useCallback(value => { stackDirty.current = value; }, []);
 
   const navigate = useCallback((page) => {
+    if (page !== "stacks" && stackDirty.current && !window.confirm("Discard unsaved Compose edits?")) return;
     setActivePage(page);
     setMenuOpen(false);
     setMobileSettingsOpen(false);
@@ -5023,7 +5126,11 @@ function AppInner() {
   }, [activePage]);
 
   const [layoutResetKey, setLayoutResetKey] = useState(0);
-  const resetLayout = useCallback(() => setLayoutResetKey(k => k + 1), []);
+  const resetLayout = useCallback(() => {
+    localStorage.setItem("2ez-positions-main", JSON.stringify(RESET_POSITIONS));
+    localStorage.setItem("2ez-card-sizes", JSON.stringify(RESET_SIZES));
+    setLayoutResetKey(k => k + 1);
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => { appMounted = true; }, 800);
@@ -5035,6 +5142,7 @@ function AppInner() {
   return (
     <>
       <style>{GLOBAL_CSS}</style>
+      <style>{TWOEZ_CSS}</style>
       <style>{buildThemeVars(themeColors)}</style>
 
       <NavSidebar
@@ -5049,7 +5157,8 @@ function AppInner() {
       />
 
       {activePage === "home"       && <HomePage            onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
-      {activePage === "main"       && <MainPage            onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} layoutResetKey={layoutResetKey} />}
+      {activePage === "main"       && <MainPage key={layoutResetKey} onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
+      {activePage === "stacks" && <div className="shell"><PageHeader title="Stack Manager" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><StackManager onNavigate={navigate} onDirtyChange={onStackDirtyChange} /></div>}
       {activePage === "docker"     && <DockerPage          onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "media-auto" && <MediaAutomationPage onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "media-srv"  && <MediaServerPage     onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}

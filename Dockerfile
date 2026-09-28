@@ -3,7 +3,7 @@ WORKDIR /app
 
 # Runtime tools: coreutils gives GNU df (busybox df lacks `-B1` used by
 # /sys-api/fs); bash is the shell spawned by the /terminal WebSocket.
-RUN apk add --no-cache coreutils bash
+RUN apk add --no-cache coreutils bash docker-cli docker-cli-compose
 
 # Install production dependencies only. node-pty is a native addon, so a
 # build toolchain is needed to compile it — installed as a virtual
@@ -15,7 +15,7 @@ RUN apk add --no-cache --virtual .build-deps python3 make g++ linux-headers \
 
 # Copy pre-built frontend and the server
 COPY dist/ ./dist/
-COPY server.js sys-metrics.js ./
+COPY server.js sys-metrics.js stack-manager.js ./
 
 EXPOSE 3080
 CMD ["node", "server.js"]
