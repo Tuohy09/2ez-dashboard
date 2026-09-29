@@ -25,8 +25,25 @@ It follows the dashboard's Light, Dark, and OLED appearance settings.
 The list merges incremental `sync/maindata` updates every 2.5 seconds. Selection
 survives updates. Details refresh every five seconds. A connection failure leaves
 last-known data visible and disables the main mutation controls until recovery.
-Below desktop widths the details panel follows the list; selecting a torrent
-scrolls it into view.
+Choose a view at the top of the workspace; the choice is saved in this browser.
+Filters, sort order, bulk selection, and the inspected torrent survive view changes.
+
+- **Transfer desk:** full-width sortable table; selecting a torrent opens a side
+  drawer. Escape or the close button returns to the table. The drawer supports
+  nested action forms such as location and limits.
+- **Split workspace:** scrollable table above a full-width selected-torrent panel.
+  On mobile, selecting a torrent scrolls to its details.
+- **Status board:** cards grouped by Downloading, Seeding, and Stopped & attention.
+  Both group headings and torrent names open/close their content. Checkboxes are
+  independent of inspection; bulk actions and page selection work in every view.
+  A selected torrent outside the visible page/filter can be revealed with
+  **Show selected transfer**.
+
+Transfer history sits below the selected torrent's details in all three views.
+It shows that torrent's download/upload speeds, sampled every 2.5 seconds while
+selected, for up to five minutes. Changing the inspected torrent starts a new
+history; switching layouts preserves the current history. Samples are held only
+in memory and are not qBittorrent's persistent session history.
 
 ## Connection configuration
 
@@ -63,3 +80,11 @@ removal operations. It was removed afterward; existing torrents were retained.
 
 API references: [qBittorrent 5.x](https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-%28qBittorrent-5.0%29),
 [qBittorrent 4.x](https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-%28qBittorrent-4.1%29).
+
+The layout browser regression uses mocked qBittorrent responses and mutations:
+`node tests/qbt-layouts.browser.mjs` with Vite running. It requires Playwright;
+optionally set `PLAYWRIGHT_MODULE`, `CHROMIUM_PATH`, and `DASHBOARD_TEST_URL` for
+local tool installations. It checks layout persistence, independent selection,
+per-torrent history, group/card expansion, nested dialogs, bulk targeting,
+pagination, themes, mobile widths, errors, and empty states. Screenshots in
+`artifacts/2ez-qbittorrent-layout-*-built.png` use sample data.
