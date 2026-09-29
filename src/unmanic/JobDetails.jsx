@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { bytes, duration } from '../qbittorrent/api';
 import { date, encodingSpeed, filename, logText, number, progress, unmanicRequest, workerState } from './api';
 
-export default function JobDetails({ item, kind, workers, disabled, onAction, onClose, layout }) {
+export default function JobDetails({ item, kind, workers, disabled, onAction, onClose }) {
   const [tab, setTab] = useState('Overview');
   const [historyLog, setHistoryLog] = useState(null);
   const [error, setError] = useState('');
   const panel = useRef(null);
   const worker = kind === 'workers' ? workers.find(w => w.id === item.id) : kind === 'queue' ? workers.find(w => w.current_task === item.id) : null;
-  useEffect(() => { if (layout === 'bottom' && matchMedia('(max-width: 800px)').matches) panel.current?.scrollIntoView({ block: 'start' }); }, [layout]);
+  useEffect(() => { if (matchMedia('(max-width: 800px)').matches) panel.current?.scrollIntoView({ block: 'start' }); }, []);
   useEffect(() => {
     if (kind !== 'history' || tab !== 'Logs') return;
     const controller = new AbortController();

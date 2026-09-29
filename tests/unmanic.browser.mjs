@@ -42,6 +42,7 @@ const button = name => page.getByRole('button', { name, exact: true });
 const nav = name => page.locator('.um-sections').getByRole('button', { name, exact: true });
 const refresh = () => button('Refresh ↻').click();
 try {
+  await page.addInitScript(() => localStorage.setItem('2ez-unmanic-layout', 'dense'));
   await page.goto(process.env.DASHBOARD_TEST_URL || 'http://127.0.0.1:5173');
   await page.locator('.nav-item').filter({ hasText: /^Unmanic$/ }).click();
   await button('Big Buck Bunny.mkv').waitFor();
@@ -56,11 +57,14 @@ try {
   assert.deepEqual(writes.at(-1), { endpoint: 'workers/worker/pause', method: 'POST', data: { worker_id: 'local-0' } });
   await button('Resume worker').click(); await button('Pause worker').waitFor();
   await button('Stop current job').click(); await page.getByRole('dialog').waitFor(); assert.ok((await page.getByRole('dialog').textContent()).includes('work in progress may be lost')); await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
-  await button('Processing desk').click(); await page.getByRole('dialog', { name: 'Selected Unmanic item' }).waitFor(); await page.keyboard.press('Escape');
-  await button('Status board').click(); await button('Big Buck Bunny.mkv').click(); assert.ok(await page.locator('.um-card.expanded .um-detail').isVisible());
+  for (const name of ['Processing desk', 'Split workspace', 'Status board']) assert.equal(await button(name).count(), 0);
+  assert.equal(await page.locator('.um-card .um-detail').count(), 0, 'Details span the workspace below the board');
+  assert.ok(await page.locator('.um-detail').isVisible());
   await button('Big Buck Bunny.mkv').click(); assert.equal(await page.locator('.um-detail').count(), 0);
-  await button('Big Buck Bunny.mkv').click(); await page.locator('.um-group-toggle').filter({ hasText: 'Processing' }).click(); assert.equal(await page.locator('.um-detail').isVisible(), false);
-  await page.locator('.um-group-toggle').filter({ hasText: 'Processing' }).click(); assert.ok(await page.locator('.um-card.expanded .um-detail').isVisible());
+  await button('Big Buck Bunny.mkv').click(); assert.ok(await page.locator('.um-detail').isVisible());
+  const group = page.locator('.um-group-toggle').filter({ hasText: 'Processing' });
+  await group.click(); assert.equal(await button('Big Buck Bunny.mkv').isVisible(), false); assert.ok(await page.locator('.um-detail').isVisible(), 'Group collapse is independent of selected-job details');
+  await group.click(); assert.ok(await button('Big Buck Bunny.mkv').isVisible());
   await page.getByRole('checkbox', { name: 'Select Sintel.mkv', exact: true }).check(); await page.locator('.qb-bulk').getByRole('button', { name: 'Move to top', exact: true }).click(); await page.getByRole('status').filter({ hasText: 'Queue order updated.' }).waitFor(); assert.deepEqual(writes.at(-1).data, { id_list: [8], position: 'top' });
   await button('Remove from queue').click(); const removal = page.getByRole('dialog'); assert.ok((await removal.textContent()).includes('Local source files are kept')); await removal.getByRole('button', { name: 'Remove queued jobs', exact: true }).click(); await page.getByRole('status').filter({ hasText: 'queue entries removed' }).waitFor(); assert.deepEqual(writes.at(-1), { endpoint: 'pending/tasks', method: 'DELETE', data: { id_list: [8] } });
   await button('+ Add file').click(); await page.getByLabel('File path', { exact: true }).fill('/library/movies/new.mkv'); await page.getByRole('dialog').getByLabel('Library', { exact: true }).selectOption('2'); await page.getByRole('dialog').getByRole('button', { name: 'Add a file', exact: true }).click(); await page.getByRole('status').filter({ hasText: 'File queued.' }).waitFor(); assert.deepEqual(writes.at(-1).data, { path: '/library/movies/new.mkv', library_id: 2 });
@@ -72,13 +76,10 @@ try {
   await nav('Workers').click(); await button('Worker 1').waitFor();
   for (const mode of ['Light', 'Dark', 'OLED']) {
     await page.locator('.nav-footer').getByRole('button', { name: mode, exact: true }).click();
-    for (const layout of ['Processing desk', 'Split workspace', 'Status board']) {
-      await button(layout).click(); if (await page.getByRole('dialog').count()) await page.keyboard.press('Escape');
-      for (const width of [1920, 1440, 768, 390, 320]) { await page.setViewportSize({ width, height: 1080 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${mode} ${layout} overflow ${width}`); }
-      await page.setViewportSize({ width: 1920, height: 1080 });
-    }
+    for (const width of [1920, 1440, 768, 390, 320]) { await page.setViewportSize({ width, height: 1080 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${mode} workspace overflow ${width}`); }
+    await page.setViewportSize({ width: 1920, height: 1080 });
   }
-  await button('Status board').click(); await page.reload(); await page.locator('.nav-item').filter({ hasText: /^Unmanic$/ }).click(); assert.equal(await button('Status board').getAttribute('aria-pressed'), 'true');
+  await page.reload(); await page.locator('.nav-item').filter({ hasText: /^Unmanic$/ }).click(); assert.equal(await page.getByRole('group', { name: 'Unmanic layout' }).count(), 0, 'Old saved layout does not restore removed views');
   await button('Big Buck Bunny.mkv').waitFor(); await page.setViewportSize({ width: 390, height: 844 }); await button('Big Buck Bunny.mkv').click(); await page.evaluate(() => window.scrollTo(0, 0)); await page.screenshot({ path: resolve('artifacts/2ez-unmanic-mobile.png'), fullPage: false });
   await page.setViewportSize({ width: 1920, height: 1080 });
   for (let i = 0; i < 30; i++) queue.push({ ...queue[0], id: 1000 + i, abspath: `/library/movies/Sample-${i}.mkv`, status: 'pending' });
@@ -87,6 +88,11 @@ try {
   await page.getByRole('searchbox', { name: 'Search Unmanic items', exact: true }).fill('');
   fail = true; await refresh(); await page.getByRole('alert').filter({ hasText: 'Unmanic is unavailable.' }).first().waitFor(); assert.equal(await button('+ Add file').isDisabled(), true);
   fail = false; queue = []; await button('Retry').click(); await page.getByText('The queue is clear. Add a file or scan your libraries.', { exact: true }).waitFor();
-  await page.locator('.nav-item').filter({ hasText: 'Downloads & Transcodes' }).click(); await page.locator('a[data-sort-id="unmanic"]').click(); await page.locator('.um-page').waitFor(); assert.equal(page.context().pages().length, 1, 'Existing widget opens native page');
-  assert.deepEqual(errors, []); console.log('Unmanic layouts, controls, confirmations, selection targeting, logs, filters, pagination, errors, themes, mobile and native navigation passed. All writes mocked.');
+  assert.equal(await page.getByText('Downloads & Transcodes', { exact: true }).count(), 0);
+  await page.locator('.nav-item').filter({ hasText: /^Home$/ }).click(); await button('Open Unmanic').click(); await page.locator('.um-page').waitFor();
+  await page.locator('.nav-item').filter({ hasText: /^Home$/ }).click(); await button('Open qBittorrent').click(); await page.locator('.qb-page:not(.um-page)').waitFor();
+  await page.setViewportSize({ width: 390, height: 844 }); await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'qBittorrent', exact: true }).click();
+  await button('More').click(); assert.equal(await page.locator('.mobile-more').getByText('Downloads & Transcodes', { exact: true }).count(), 0); await page.locator('.mobile-more').getByRole('button', { name: 'Unmanic', exact: true }).click(); await page.locator('.um-page').waitFor();
+  assert.equal(page.context().pages().length, 1, 'Direct links open native pages');
+  assert.deepEqual(errors, []); console.log('Unmanic combined workspace, removed views/page, controls, confirmations, selection targeting, logs, filters, pagination, errors, themes, mobile and native navigation passed. All writes mocked.');
 } finally { await browser.close(); }

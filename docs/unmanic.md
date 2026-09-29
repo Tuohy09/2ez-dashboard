@@ -2,7 +2,7 @@
 
 Open **Unmanic** in the sidebar, or click its existing dashboard widget. The native page keeps the dashboard typography and Light, Dark, and OLED themes.
 
-Three saved layouts are available: **Processing desk** with a details drawer, **Split workspace** with details below the list, and **Status board** with expandable groups and jobs. Queue, Workers, History, and Libraries share these layouts. Queue and history use server-side search and 25-item pagination; history can be filtered by result and the queue by library.
+One combined workspace uses collapsible status groups and cards above a full-width selected-job details panel. Clicking the selected card again closes its details. Group controls collapse the cards independently. Queue, Workers, History, and Libraries share this view; there is no layout selector. The former Downloads & Transcodes page has been removed, with direct links to qBittorrent and Unmanic instead. Queue and history use server-side search and 25-item pagination; history can be filtered by result and the queue by library.
 
 Workers show their current file, progress, encoding speed when reported, resource usage, plugin steps, command, and recent log output. Completed jobs expose processing times and saved logs. Counts and state refresh every four seconds. Logs are rendered as text, including any HTML supplied by Unmanic.
 
@@ -23,4 +23,4 @@ Implemented against the installed Unmanic **0.4.1~1c324b8** API, including `pend
 - `node --test tests/*.test.js`
 - `node tests/unmanic.browser.mjs` against Vite (defaults to port 5173).
 
-The browser script accepts `DASHBOARD_TEST_URL`, `PLAYWRIGHT_MODULE`, and `CHROMIUM_PATH`. It intercepts every native Unmanic request, including all writes, and checks layouts, confirmations, worker/queue/scan controls, logs, filters, pagination, failure and empty states, layout persistence, native navigation, and overflow at 320–1920px across all themes. Preview screenshots use fictional sample jobs. Live verification must use GET and the read-only POST endpoints only, preserving worker and queue state.
+The browser script accepts `DASHBOARD_TEST_URL`, `PLAYWRIGHT_MODULE`, and `CHROMIUM_PATH`. It intercepts every native Unmanic request, including all writes, and checks the combined workspace, confirmations, worker/queue/scan controls, logs, filters, pagination, failure and empty states, legacy layout preferences, native navigation, and overflow at 320–1920px across all themes. Preview screenshots use fictional sample jobs. Live verification must use GET and the read-only POST endpoints only, preserving worker and queue state.

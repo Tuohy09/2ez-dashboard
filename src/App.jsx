@@ -2865,8 +2865,7 @@ const NAV_ITEMS = [
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg> },
   { id: "mgmt",       label: "Management",             shortLabel: "Manage",    abbr: "MG", col: "#EF4444",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> },
-  { id: "downloads",  label: "Downloads & Transcodes", shortLabel: "Downloads", abbr: "DL", col: "#2979FF",
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> },
+
 ];
 
 function NavSidebar({ isOpen, activePage, onNavigate, onClose, themeColors, onThemeChange, alerts, onResetLayout }) {
@@ -2956,8 +2955,8 @@ const SettingsCogIcon = () => (
 
 function BottomTabBar({ activePage, onNavigate, settingsOpen, onSettingsToggle }) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const primary = ["home", "main", "media-srv", "downloads"];
-  const tabs = NAV_ITEMS.filter(item => primary.includes(item.id));
+  const primary = ["home", "main", "media-srv", "qbittorrent"];
+  const tabs = primary.map(id => NAV_ITEMS.find(item => item.id === id));
   const navigate = page => { setMoreOpen(false); onNavigate(page); };
   return <>
     {moreOpen && <div className="mobile-more" id="mobile-more" onKeyDown={event => { if (event.key === "Escape") { setMoreOpen(false); document.getElementById("mobile-more-toggle")?.focus(); } }}>
@@ -4021,30 +4020,6 @@ function ManagementPage({ onMenuToggle, onNavigate, bellProps }) {
   );
 }
 
-// ─── DOWNLOADS & TRANSCODES PAGE ─────────────────────────────────
-function DownloadsPage({ onMenuToggle, onNavigate, bellProps }) {
-  const defaultIds = ["qbittorrent", "unmanic"];
-  const [mobileOrder, setMobileOrder] = useMobileOrder("downloads", defaultIds);
-  const [editOpen, setEditOpen] = useState(false);
-  const items = [
-    { id: "qbittorrent", node: <QBittorrentWidget /> },
-    { id: "unmanic",     node: <UnmanicWidget /> },
-  ];
-  const modalItems = defaultIds.map(id => ({ id, label: SVC[id]?.name ?? id }));
-  const defaultSizes = { qbittorrent: "large", unmanic: "large" };
-  const defaultPositions = { qbittorrent: {col:1,row:1}, unmanic: {col:3,row:1} };
-  return (
-    <div className="shell downloads-page">
-      <PageHeader title="Downloads" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
-      <div className="page-content">
-        <PageIntro title="On the way." description="Follow active downloads and the files being prepared for your library." eyebrow="2EZ / DOWNLOADS"><button className="surface-button" onClick={() => setEditOpen(true)}><PencilIcon />Arrange cards</button></PageIntro>
-        <DraggableGrid pageKey="downloads" items={items} resizable={new Set(["qbittorrent","unmanic"])} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} onReorder={setMobileOrder} />
-      </div>
-      {editOpen && <LayoutEditModal items={modalItems} order={mobileOrder} onSave={o => { setMobileOrder(o); setEditOpen(false); }} onCancel={() => setEditOpen(false)} />}
-    </div>
-  );
-}
-
 // ─── TERMINAL ────────────────────────────────────────────────────
 // xterm.js front-end wired to the /terminal WebSocket (node-pty shell).
 const TERM_THEME = {
@@ -4886,7 +4861,7 @@ function HomeOverview({ onNavigate }) {
         <section className="overview-panel overview-transfer">
           <div className="overview-panel-head"><div><p className="eyebrow">ON THE WIRE</p><h2>Traffic through your lab</h2></div><span className="transfer-icon" aria-hidden="true">↓↑</span></div>
           <div className="overview-transfer-values"><div><span>LAN receiving</span><strong>{metricStatus.network === "ready" && network?.lan ? fmt.speed(network.lan.rx) : "—"}</strong></div><div><span>LAN sending</span><strong>{metricStatus.network === "ready" && network?.lan ? fmt.speed(network.lan.tx) : "—"}</strong></div></div>
-          <button className="overview-text-button" onClick={() => onNavigate("downloads")}>Open downloads & transcodes <span aria-hidden="true">↗</span></button>
+          <div className="overview-media-links"><button className="overview-text-button" onClick={() => onNavigate("qbittorrent")}>Open qBittorrent <span aria-hidden="true">↗</span></button><button className="overview-text-button" onClick={() => onNavigate("unmanic")}>Open Unmanic <span aria-hidden="true">↗</span></button></div>
         </section>
         <HomeNetworkWidget />
       </div>
@@ -5190,7 +5165,6 @@ function AppInner() {
       {activePage === "media-auto" && <MediaAutomationPage onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "media-srv"  && <MediaServerPage     onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "mgmt"       && <ManagementPage      onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
-      {activePage === "downloads"  && <DownloadsPage        onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
 
       <BottomTabBar
         activePage={activePage}

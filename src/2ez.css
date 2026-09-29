@@ -357,7 +357,6 @@ button { touch-action: manipulation; }
   .service-activity.activity-mgmt .live-svc-card { display: flex; }
   .live-stat { padding: 0 12px; }
   .live-stat-val { font-size: 21px; }
-  .downloads-page .grid { grid-template-columns: 1fr; }
   .dk-toolbar { align-items: flex-start; }
   .dk-controls { width: 100%; }
   .dk-head { display: none; }
@@ -371,7 +370,6 @@ button { touch-action: manipulation; }
 }
 .live-stat { box-shadow: none; backdrop-filter: none; }
 .system-page { --row-h: 168px; }
-.downloads-page { --row-h: 112px; }
 .metric-empty { color: var(--text-dim); font-size: 12px; line-height: 1.7; padding: 16px 0; }
 .dot-live { background: var(--color-live); }
 .dk-item.open { border-color: var(--card-border); }
@@ -389,3 +387,5 @@ button { touch-action: manipulation; }
 .nav-footer .appearance-toggle { margin-bottom: 16px; }
 .nav-footer .appearance-toggle button[aria-pressed="true"] { color: #D0BBFF; }
 .theme-tile:hover { border-color: var(--card-border); }
+
+.overview-media-links { display: flex; flex-wrap: wrap; gap: 8px 24px; }
