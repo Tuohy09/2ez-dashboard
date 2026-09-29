@@ -6,12 +6,14 @@ import path from 'path'
 import sysApi from './sys-metrics.js'
 import stackManager from './stack-manager.js'
 import { createQbtProxy } from './qbt-proxy.js'
+import { createUnmanicProxy } from './unmanic-proxy.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // ── Express app ──────────────────────────────────────────────────
 const app = express()
 app.use('/qbt', createQbtProxy())
+app.use('/um-api', createUnmanicProxy())
 
 // System metrics — read straight from the Linux kernel (replaces Glances)
 app.use('/sys-api', sysApi)

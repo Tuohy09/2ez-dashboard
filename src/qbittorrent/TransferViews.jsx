@@ -12,7 +12,7 @@ export function Activity({ history, name }) {
   </section>;
 }
 
-export function InspectorDrawer({ children, onClose }) {
+export function InspectorDrawer({ children, onClose, label = 'Selected transfer' }) {
   const ref = useRef(null);
   useEffect(() => {
     const dialog = ref.current;
@@ -20,7 +20,7 @@ export function InspectorDrawer({ children, onClose }) {
     dialog.showModal();
     return () => { dialog.close(); previous?.focus(); };
   }, []);
-  return <dialog ref={ref} className="qb-drawer" aria-label="Selected transfer" onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) { const rect = event.currentTarget.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose(); } }}>{children}</dialog>;
+  return <dialog ref={ref} className="qb-drawer" aria-label={label} onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) { const rect = event.currentTarget.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose(); } }}>{children}</dialog>;
 }
 
 function Progress({ item }) {

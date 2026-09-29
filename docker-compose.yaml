@@ -22,6 +22,7 @@ services:
     environment:
       # Host user the terminal logs in as; root gets a plain `bash -l`.
       TERMINAL_USER: root
+      UNMANIC_BASE: ${UNMANIC_BASE:-http://127.0.0.1:8888/unmanic}
       QBT_BASE: ${QBT_BASE:-http://127.0.0.1:8080}
       QBT_USERNAME: ${QBT_USERNAME:-}
       QBT_PASSWORD: ${QBT_PASSWORD:-}

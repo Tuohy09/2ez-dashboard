@@ -6,6 +6,8 @@ import "@xterm/xterm/css/xterm.css";
 import TWOEZ_CSS from "./2ez.css?raw";
 import StackManager from "./StackManager";
 import QBittorrentPage from "./qbittorrent/QBittorrentPage";
+import UnmanicPage from "./unmanic/UnmanicPage";
+import { unmanicRequest } from "./unmanic/api";
 
 // ─── ANIMATION GATE ──────────────────────────────────────────────
 let appMounted = false;
@@ -52,14 +54,14 @@ const SERVICE_INDEX = [
   ...["jellyfin","navidrome","seerr","immich","nextcloud"].map(id => ({ svcId: id, page: "media-srv", pageLabel: "Media Server" })),
   ...["cockpit","dockge","speedtest","filebrowser","uptimekuma","wud","notifiarr","upsnap","cronicle"].map(id => ({ svcId: id, page: "mgmt", pageLabel: "Management" })),
   { svcId: "qbt",     page: "qbittorrent", pageLabel: "qBittorrent" },
-  { svcId: "unmanic", page: "downloads", pageLabel: "Downloads" },
+  { svcId: "unmanic", page: "unmanic", pageLabel: "Unmanic" },
 ].map(e => ({ ...e, name: SVC[e.svcId].name, desc: SVC[e.svcId].desc }));
 
 function openService(event, id) {
   recordServiceClick(id);
-  if (id === "qbt" && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+  if (["qbt", "unmanic"].includes(id) && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
     event.preventDefault();
-    window.dispatchEvent(new CustomEvent("2ez-navigate", { detail: "qbittorrent" }));
+    window.dispatchEvent(new CustomEvent("2ez-navigate", { detail: id === "qbt" ? "qbittorrent" : "unmanic" }));
   }
 }
 
@@ -1391,19 +1393,23 @@ function DataProvider({ children }) {
 
   // ── Unmanic (2s) ──────────────────────────────────────────────
   useEffect(() => {
+    const controller = new AbortController(); let pendingRequest = false;
     async function run() {
+      if (pendingRequest) return; pendingRequest = true;
       try {
         const [pending, workers] = await Promise.all([
-          fetchService("/unmanic/api/v2/pending/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start: 0, length: 1 }) }).then(readServiceResponse),
-          fetchService("/unmanic/api/v2/workers/status").then(readServiceResponse),
+          unmanicRequest("pending/tasks", { method: "POST", data: { start: 0, length: 1 }, signal: controller.signal }),
+          unmanicRequest("workers/status", { signal: controller.signal }),
         ]);
-        if (!Number.isFinite(pending?.total_count) || !Array.isArray(workers?.workers_status)) throw new Error("error");
+        if (controller.signal.aborted) return;
+        if (!Number.isFinite(pending?.recordsTotal) || !Array.isArray(workers?.workers_status)) throw new Error("error");
         setUnmanic({ pending, workers }); setServiceStatus(prev => ({ ...prev, unmanic: "ready" }));
-      } catch (error) { setUnmanic({ pending: null, workers: null }); setServiceStatus(prev => ({ ...prev, unmanic: error.message === "denied" ? "denied" : "error" })); }
+      } catch (error) { if (!controller.signal.aborted) { setUnmanic({ pending: null, workers: null }); setServiceStatus(prev => ({ ...prev, unmanic: /denied|403/.test(error.message) ? "denied" : "error" })); } }
+      finally { pendingRequest = false; }
     }
     run();
     const id = setInterval(run, POLL_INTERVAL);
-    return () => clearInterval(id);
+    return () => { controller.abort(); clearInterval(id); };
   }, []);
 
   // ── Jellyfin sessions (15s) + counts (60s) ────────────────────
@@ -1681,7 +1687,7 @@ function UnmanicWidget() {
 
   const { unmanic: { pending, workers } } = useData();
 
-  const pendingCount  = pending?.total_count ?? null;
+  const pendingCount  = pending?.recordsTotal ?? null;
   const workerList    = Array.isArray(workers?.workers_status) ? workers.workers_status : [];
   const activeWorker  = workerList.find(w => !w.idle) ?? null;
   const progress      = activeWorker?.subprocess?.percent ?? null;
@@ -2851,6 +2857,8 @@ const NAV_ITEMS = [
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3 10 5-10 5L2 8l10-5Z"/><path d="m2 12 10 5 10-5M2 16l10 5 10-5"/></svg> },
   { id: "qbittorrent", label: "qBittorrent", shortLabel: "Torrents", abbr: "QB", col: "#3986E8",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg> },
+  { id: "unmanic", label: "Unmanic", shortLabel: "Unmanic", abbr: "UM", col: "#3986E8",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h17m-4-4 4 4-4 4M21 16H4m4-4-4 4 4 4"/></svg> },
   { id: "media-auto", label: "Media Automation",       shortLabel: "Automate",  abbr: "MA", col: "#A855F7",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="8" width="20" height="14" rx="2"/><path d="M2 13h20"/><path d="M4 8V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/><path d="M7 6l2 2M13 5l2 3"/></svg> },
   { id: "media-srv",  label: "Media Server",           shortLabel: "Media",     abbr: "MS", col: "#00A4DC",
@@ -5121,7 +5129,7 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
-    const open = event => { if (event.detail === "qbittorrent") navigate("qbittorrent"); };
+    const open = event => { if (["qbittorrent", "unmanic"].includes(event.detail)) navigate(event.detail); };
     window.addEventListener("2ez-navigate", open);
     return () => window.removeEventListener("2ez-navigate", open);
   }, [navigate]);
@@ -5176,6 +5184,7 @@ function AppInner() {
       {activePage === "home"       && <HomePage            onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "main"       && <MainPage key={layoutResetKey} onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "qbittorrent" && <div className="shell"><PageHeader title="qBittorrent" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><QBittorrentPage /></div>}
+      {activePage === "unmanic" && <div className="shell"><PageHeader title="Unmanic" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><UnmanicPage /></div>}
       {activePage === "stacks" && <div className="shell"><PageHeader title="Stack Manager" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><StackManager onNavigate={navigate} onDirtyChange={onStackDirtyChange} /></div>}
       {activePage === "docker"     && <DockerPage          onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "media-auto" && <MediaAutomationPage onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}

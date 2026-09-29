@@ -15,7 +15,7 @@ RUN apk add --no-cache --virtual .build-deps python3 make g++ linux-headers \
 
 # Copy pre-built frontend and the server
 COPY dist/ ./dist/
-COPY server.js sys-metrics.js stack-manager.js qbt-proxy.js ./
+COPY server.js sys-metrics.js stack-manager.js qbt-proxy.js unmanic-proxy.js ./
 
 EXPOSE 3080
 CMD ["node", "server.js"]
