@@ -1,9 +1,16 @@
+/* Dashboard-wide visual weight mapping, matching the approved typography preview.
+ * Keep existing CSS/inline weight roles and inheritance, but select the next
+ * bundled face: Manrope 400→500, 500→600, 600→700, 700→800; 800 stays 800.
+ * DM Mono regular uses its 500 face; existing medium/bold rendering is unchanged.
+ * Mapping at the font boundary covers font shorthands, dialogs and the terminal
+ * without blanket overrides that would flatten the type hierarchy.
+ */
 @font-face {
   font-family: 'DM Mono';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url(/fonts/dm-mono-400.ttf) format('truetype');
+  src: url(/fonts/dm-mono-500.ttf) format('truetype');
 }
 @font-face {
   font-family: 'DM Mono';
@@ -17,28 +24,28 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url(/fonts/manrope-400.ttf) format('truetype');
+  src: url(/fonts/manrope-500.ttf) format('truetype');
 }
 @font-face {
   font-family: 'Manrope';
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url(/fonts/manrope-500.ttf) format('truetype');
+  src: url(/fonts/manrope-600.ttf) format('truetype');
 }
 @font-face {
   font-family: 'Manrope';
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url(/fonts/manrope-600.ttf) format('truetype');
+  src: url(/fonts/manrope-700.ttf) format('truetype');
 }
 @font-face {
   font-family: 'Manrope';
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url(/fonts/manrope-700.ttf) format('truetype');
+  src: url(/fonts/manrope-800.ttf) format('truetype');
 }
 @font-face {
   font-family: 'Manrope';
