@@ -22,6 +22,9 @@ services:
     environment:
       # Host user the terminal logs in as; root gets a plain `bash -l`.
       TERMINAL_USER: root
+      QBT_BASE: ${QBT_BASE:-http://127.0.0.1:8080}
+      QBT_USERNAME: ${QBT_USERNAME:-}
+      QBT_PASSWORD: ${QBT_PASSWORD:-}
       STACKS_DIR: /opt/stacks
       STACK_HOST_ROOT: /host-root
     volumes:

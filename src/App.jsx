@@ -5,6 +5,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import TWOEZ_CSS from "./2ez.css?raw";
 import StackManager from "./StackManager";
+import QBittorrentPage from "./qbittorrent/QBittorrentPage";
 
 // ─── ANIMATION GATE ──────────────────────────────────────────────
 let appMounted = false;
@@ -50,9 +51,17 @@ const SERVICE_INDEX = [
   ...["sonarr","radarr","prowlarr","bazarr","beetsflask","slskd","lrcget","audiomuse","lrcgen"].map(id => ({ svcId: id, page: "media-auto", pageLabel: "Media Automation" })),
   ...["jellyfin","navidrome","seerr","immich","nextcloud"].map(id => ({ svcId: id, page: "media-srv", pageLabel: "Media Server" })),
   ...["cockpit","dockge","speedtest","filebrowser","uptimekuma","wud","notifiarr","upsnap","cronicle"].map(id => ({ svcId: id, page: "mgmt", pageLabel: "Management" })),
-  { svcId: "qbt",     page: "downloads", pageLabel: "Downloads" },
+  { svcId: "qbt",     page: "qbittorrent", pageLabel: "qBittorrent" },
   { svcId: "unmanic", page: "downloads", pageLabel: "Downloads" },
 ].map(e => ({ ...e, name: SVC[e.svcId].name, desc: SVC[e.svcId].desc }));
+
+function openService(event, id) {
+  recordServiceClick(id);
+  if (id === "qbt" && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+    event.preventDefault();
+    window.dispatchEvent(new CustomEvent("2ez-navigate", { detail: "qbittorrent" }));
+  }
+}
 
 // ─── SERVICE CLICK TRACKING ──────────────────────────────────────
 // Persists { [svcId]: { count, last } } so the Home page can surface
@@ -1450,7 +1459,7 @@ function DataProvider({ children }) {
 function SvcCard({ id }) {
   const s = SVC[id];
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`svc-card${appMounted ? "" : " fade-in"}`}>
+    <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={event => openService(event, s.id)} className={`svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
         <SvcIcon id={s.id} color={s.col} />
       </div>
@@ -1484,7 +1493,7 @@ function JellyfinWidget() {
   const nowPlaying   = sessArr.filter(s => s.NowPlayingItem);
 
   return (
-    <a data-sort-id={s.id} href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${status === "ready" && activeStreams > 0 ? " has-media-playing" : ""}${appMounted ? "" : " fade-in"}`}>
+    <a data-sort-id={s.id} href={s.url} target="_blank" rel="noopener noreferrer" onClick={event => openService(event, s.id)} className={`live-svc-card${status === "ready" && activeStreams > 0 ? " has-media-playing" : ""}${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1544,7 +1553,7 @@ function QBittorrentWidget() {
   const activeTorrents = Array.isArray(torrents) ? torrents : [];
 
   return (
-    <a data-sort-id={s.id} href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
+    <a data-sort-id={s.id} href={s.url} target="_blank" rel="noopener noreferrer" onClick={event => openService(event, s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1606,7 +1615,7 @@ function NavidromeWidget() {
   const recent  = Array.isArray(recentAlbums) ? recentAlbums : [];
 
   return (
-    <a data-sort-id={s.id} href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
+    <a data-sort-id={s.id} href={s.url} target="_blank" rel="noopener noreferrer" onClick={event => openService(event, s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1680,7 +1689,7 @@ function UnmanicWidget() {
   const encSpeed      = parseEncSpeed(activeWorker?.worker_log_tail);
 
   return (
-    <a data-sort-id={s.id} href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
+    <a data-sort-id={s.id} href={s.url} target="_blank" rel="noopener noreferrer" onClick={event => openService(event, s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -1735,7 +1744,7 @@ function SpeedtestWidget() {
   const { speedtest: { result } } = useData();
 
   return (
-    <a data-sort-id={s.id} href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
+    <a data-sort-id={s.id} href={s.url} target="_blank" rel="noopener noreferrer" onClick={event => openService(event, s.id)} className={`live-svc-card${appMounted ? "" : " fade-in"}`}>
       <div className="live-svc-top">
         <div className="svc-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
           <SvcIcon id={s.id} color={s.col} />
@@ -2840,6 +2849,8 @@ const NAV_ITEMS = [
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="10" width="4" height="4"/><rect x="8" y="10" width="4" height="4"/><rect x="13" y="10" width="4" height="4"/><rect x="8" y="5" width="4" height="4"/><path d="M2 14h18a4 4 0 0 0 1.5-3c.5 1 .8 2 .5 3"/><path d="M5 18a2 2 0 0 0 2 2h6a5 5 0 0 0 5-4"/></svg> },
   { id: "stacks", label: "Stack Manager", shortLabel: "Stacks", abbr: "SM", col: "#7952D8",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3 10 5-10 5L2 8l10-5Z"/><path d="m2 12 10 5 10-5M2 16l10 5 10-5"/></svg> },
+  { id: "qbittorrent", label: "qBittorrent", shortLabel: "Torrents", abbr: "QB", col: "#3986E8",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg> },
   { id: "media-auto", label: "Media Automation",       shortLabel: "Automate",  abbr: "MA", col: "#A855F7",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="8" width="20" height="14" rx="2"/><path d="M2 13h20"/><path d="M4 8V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/><path d="M7 6l2 2M13 5l2 3"/></svg> },
   { id: "media-srv",  label: "Media Server",           shortLabel: "Media",     abbr: "MS", col: "#00A4DC",
@@ -3838,7 +3849,7 @@ function ServiceDirectory({ groups, query }) {
     {group.ids.map(id => {
       const service = SVC[id];
       const container = metricStatus.containers === "ready" ? docker?.find(item => item.name.toLowerCase() === id) : null;
-      return <a key={id} data-sort-id={id} className="directory-row svc-card" href={service.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(id)}>
+      return <a key={id} data-sort-id={id} className="directory-row svc-card" href={service.url} target="_blank" rel="noopener noreferrer" onClick={event => openService(event, id)}>
         <span className="directory-glyph"><SvcIcon id={id} color="currentColor" /></span>
         <span className="directory-copy"><strong>{service.name}</strong><span>{service.desc}</span></span>
         <span className={`directory-state ${container?.status === "running" ? "running" : ""}`}>{container?.status || "Open"}</span><span className="directory-arrow" aria-hidden="true">↗</span>
@@ -4636,7 +4647,7 @@ function ServiceMiniCard({ id, subtitle, badge }) {
   const s = SVC[id];
   if (!s) return null;
   return (
-    <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(s.id)} className="home-mini-card">
+    <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={event => openService(event, s.id)} className="home-mini-card">
       <div className="svc-icon home-mini-icon" style={{ background: s.col + "22", border: `1px solid ${s.col}44` }}>
         <SvcIcon id={s.id} color={s.col} size={18} />
       </div>
@@ -4855,7 +4866,7 @@ function HomeOverview({ onNavigate }) {
           const service = SVC[id];
           const container = docker?.find(item => item.name.toLowerCase() === (id === "qbt" ? "qbittorrent" : id));
           const status = metricStatus.containers === "ready" && container ? container.status : null;
-          return <a key={id} className="overview-service" href={service.url} target="_blank" rel="noopener noreferrer" onClick={() => recordServiceClick(id)}>
+          return <a key={id} className="overview-service" href={service.url} target="_blank" rel="noopener noreferrer" onClick={event => openService(event, id)}>
             <span className="overview-service-icon"><SvcIcon id={id} size={20} color="currentColor" /></span>
             <span className="overview-service-copy"><strong>{service.name}</strong><span>{service.desc}</span></span>
             <span className={`service-state ${status === "running" ? "running" : status ? "stopped" : ""}`}>{status || "Open"}</span><span className="service-arrow" aria-hidden="true">↗</span>
@@ -5109,6 +5120,12 @@ function AppInner() {
     setMobileSettingsOpen(false);
   }, []);
 
+  useEffect(() => {
+    const open = event => { if (event.detail === "qbittorrent") navigate("qbittorrent"); };
+    window.addEventListener("2ez-navigate", open);
+    return () => window.removeEventListener("2ez-navigate", open);
+  }, [navigate]);
+
   const toggleMenu = useCallback(() => setMenuOpen(o => !o), []);
 
   useEffect(() => {
@@ -5158,6 +5175,7 @@ function AppInner() {
 
       {activePage === "home"       && <HomePage            onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "main"       && <MainPage key={layoutResetKey} onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
+      {activePage === "qbittorrent" && <div className="shell"><PageHeader title="qBittorrent" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><QBittorrentPage /></div>}
       {activePage === "stacks" && <div className="shell"><PageHeader title="Stack Manager" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><StackManager onNavigate={navigate} onDirtyChange={onStackDirtyChange} /></div>}
       {activePage === "docker"     && <DockerPage          onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "media-auto" && <MediaAutomationPage onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}

@@ -5,3 +5,8 @@ vite.config.js
 eslint.config.js
 README.md
 .git
+.env
+.env.*
+artifacts
+tests
+docs
