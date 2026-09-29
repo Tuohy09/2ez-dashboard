@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { bytes, mergeSync, modern, qbtRequest, torrentGroup } from './api';
 import { ActionForm, AddTorrent, Organisation, Preferences } from './Forms';
 import Details from './Details';
+import { advanceOpening } from './opening';
 import { Activity, InspectorDrawer, StatusBoard, TorrentTable } from './TransferViews';
 import './qbittorrent.css';
 
@@ -10,6 +11,7 @@ const empty = () => ({ torrents: {}, categories: {}, tags: [], server_state: {},
 const filters = [['all', 'All torrents'], ['downloading', 'Downloading'], ['seeding', 'Seeding'], ['paused', 'Stopped'], ['checking', 'Checking'], ['error', 'Errored']];
 export default function QBittorrentPage() {
   const [snapshot, setSnapshot] = useState(null);
+  const [opening, setOpening] = useState(null);
   const [version, setVersion] = useState('');
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
@@ -48,6 +50,10 @@ export default function QBittorrentPage() {
         if (controller.signal.aborted) return;
         cache.current = mergeSync(cache.current, update);
         setSnapshot(cache.current); setError(''); setLastUpdate(Date.now());
+        const observed = cache.current.torrents;
+        const observedAt = Date.now();
+        const variant = Math.random();
+        setOpening(previous => advanceOpening(previous, observed, observedAt, () => variant));
         const current = cache.current.torrents[inspectedRef.current];
         if (current) setHistory(previous => [...previous.filter(point => point.time > Date.now() - 300000).slice(-119), { time: Date.now(), down: current.dlspeed || 0, up: current.upspeed || 0 }]);
       } catch (err) { if (!controller.signal.aborted) setError(err.message); }
@@ -143,8 +149,8 @@ export default function QBittorrentPage() {
   const inspectorInCard = layout === 'cards' && visible.some(item => item.hash === inspected) && !collapsed[cardGroup];
   return <div className={`page-content qb-page qb-layout-${layout}`}>
     <div className="qb-layout-picker"><div role="group" aria-label="Transfer layout">{layouts.map(([id, label]) => <button key={id} aria-pressed={layout === id} onClick={() => changeLayout(id)}>{label}</button>)}</div><span>{layout === 'dense' ? 'Full-width transfers · details in a drawer' : layout === 'bottom' ? 'Transfers above · selected torrent below' : 'Grouped transfers · open or close groups and details'}</span></div>
-    <div className="qb-intro"><div><p className="eyebrow">2EZ / QBITTORRENT</p><h1>Your downloads, in motion.</h1><p>Every transfer. Every detail. Right here.</p></div><div className="qb-top-actions"><button className="qb-button" disabled={disabled} onClick={() => open({ kind: 'speed' })}>⇵ Speed limits</button><button className="qb-button" disabled={disabled} onClick={() => open({ kind: 'settings' })}>Settings</button><button className="qb-button qb-primary" disabled={disabled} onClick={() => open({ kind: 'add' })}>+ Add torrent</button></div></div>
-    <div className="qb-stats"><div><strong className="qb-down">↓ {snapshot ? bytes(transfer.dl_info_speed) : '—'}/s</strong><span>downloading</span></div><div><strong className="qb-up">↑ {snapshot ? bytes(transfer.up_info_speed) : '—'}/s</strong><span>uploading</span></div><div><strong>{counts.downloading || 0}</strong><span>downloading</span></div><div><strong>{counts.seeding || 0}</strong><span>seeding</span></div><span className="qb-connection"><i className={error ? 'qb-dot-error' : transfer.connection_status === 'connected' ? 'qb-dot-live' : ''} />{error ? 'Connection lost · showing last update' : !snapshot ? 'Connecting…' : transfer.connection_status === 'connected' ? 'Connected' : transfer.connection_status === 'firewalled' ? 'Connected · firewalled' : 'Disconnected'}{snapshot && ` · ${bytes(transfer.free_space_on_disk)} free`}</span></div>
+    <div className="qb-intro"><div><p className="eyebrow">2EZ / QBITTORRENT</p><h1>{error ? 'Lost touch with qBittorrent. Trying again…' : opening?.title || 'Let’s see what’s downloading…'}</h1><p className="qb-opening-summary">{error ? `Last known counts · ${opening?.summary || 'Waiting for the first update'}` : opening?.summary || 'Reading your transfer queue…'}</p></div><div className="qb-top-actions"><button className="qb-button" disabled={disabled} onClick={() => open({ kind: 'speed' })}>⇵ Speed limits</button><button className="qb-button" disabled={disabled} onClick={() => open({ kind: 'settings' })}>Settings</button><button className="qb-button qb-primary" disabled={disabled} onClick={() => open({ kind: 'add' })}>+ Add torrent</button></div></div>
+    <div className="qb-stats"><div><strong className="qb-down">↓ {snapshot ? bytes(transfer.dl_info_speed) : '—'}/s</strong><span>downloading</span></div><div><strong className="qb-up">↑ {snapshot ? bytes(transfer.up_info_speed) : '—'}/s</strong><span>uploading</span></div><div><strong>{opening?.counts.downloading || 0}</strong><span>downloading</span></div><div><strong>{opening?.counts.seeding || 0}</strong><span>seeding</span></div><span className="qb-connection"><i className={error ? 'qb-dot-error' : transfer.connection_status === 'connected' ? 'qb-dot-live' : ''} />{error ? 'Connection lost · showing last update' : !snapshot ? 'Connecting…' : transfer.connection_status === 'connected' ? 'Connected' : transfer.connection_status === 'firewalled' ? 'Connected · firewalled' : 'Disconnected'}{snapshot && ` · ${bytes(transfer.free_space_on_disk)} free`}</span></div>
     {error && <div className="qb-error" role="alert">{error} <button className="qb-text-button" onClick={refresh}>Retry</button></div>}
     {snapshot && !version && <div className="qb-error">Could not detect the qBittorrent version. Retrying automatically to enable controls.</div>}
     {actionError && !dialog && <div className="qb-error" role="alert">{actionError}</div>}{notice && <div className="qb-notice" role="status">{notice}<button aria-label="Dismiss message" onClick={() => setNotice('')}>×</button></div>}

@@ -45,6 +45,29 @@ selected, for up to five minutes. Changing the inspected torrent starts a new
 history; switching layouts preserves the current history. Samples are held only
 in memory and are not qBittorrent's persistent session history.
 
+## Queue-aware opening
+
+The headline rotates through 27 playful lines for an idle queue, one download,
+2–5 downloads, 6+ downloads, queued transfers, stalled downloads, completions,
+and seeding. A line changes every 45 seconds while its state stays the same;
+the counts underneath always describe the whole queue, independent of filters.
+Queued and stalled torrents are counted separately from running downloads.
+Completed totals include finished torrents that are still seeding or stopped.
+
+Stalled jokes appear only after all stalled downloads and metadata waits have
+made no progress for 30 seconds, with no running downloads, active metadata
+fetches, or checks. The count summary still distinguishes metadata from stalled
+downloads.
+A newly observed completion takes over for 45 seconds, with nearby completions
+combined into a batch. Initial completed torrents, imports, and file rechecks do
+not trigger a celebration. Reconnects reset these observations. Errors override
+jokes, and connection failures explicitly label the displayed counts as stale.
+
+`node --test tests/qbt-opening.test.js` checks the state transitions and timing.
+`node tests/qbt-opening.browser.mjs` checks the rendered counts, rotation,
+completion expiry, error states and responsive headline wrapping using the same
+Playwright environment settings as the layout browser test.
+
 ## Connection configuration
 
 Copy `.env.example` to `.env` and set `QBT_BASE`, `QBT_USERNAME`, and `QBT_PASSWORD`.

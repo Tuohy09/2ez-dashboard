@@ -257,3 +257,8 @@
 .qb-overview > section + section { margin-top: 20px; }
 .qb-layout-bottom .qb-overview > section + section { margin-top: 0; }
 @media (max-width: 800px) { .qb-layout-bottom .qb-overview > section + section { margin-top: 24px; } }
+
+.qb-intro > div:first-child { flex: 1; min-width: 0; }
+.qb-intro h1 { max-width: 34ch; overflow-wrap: anywhere; text-wrap: balance; }
+.qb-top-actions { flex-shrink: 0; }
+.qb-opening-summary { line-height: 1.8; }
