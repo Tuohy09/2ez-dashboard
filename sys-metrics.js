@@ -318,14 +318,18 @@ function demuxDockerLog(buf) {
 }
 
 async function dockerListDetailed() {
-  if (!fs.existsSync(DOCKER_SOCK)) return []
+  if (!fs.existsSync(DOCKER_SOCK)) throw new Error('Docker socket is unavailable.')
   const list = await dockerReq('/containers/json?all=1')
-  return (Array.isArray(list) ? list : []).map(c => {
+  if (!Array.isArray(list)) throw new Error('Docker inventory is unavailable.')
+  return list.map(c => {
     const st = containerStats.get(c.Id) || {}
     return {
       id: c.Id,
       name: (c.Names?.[0] || '').replace(/^\//, '') || (c.Id || '').slice(0, 12),
       image: c.Image,
+      image_id: c.ImageID,
+      stack: c.Labels?.['com.docker.compose.project'] || '',
+      service: c.Labels?.['com.docker.compose.service'] || '',
       state: c.State || 'exited',          // running | exited | paused | ...
       status: c.Status || '',              // "Up 3 days" / "Exited (0) 2 hours ago"
       created: c.Created,

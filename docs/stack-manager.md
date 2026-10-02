@@ -1,6 +1,6 @@
 # Stack Manager
 
-Open **Stack Manager** in the dashboard sidebar (under **More** on mobile).
+Open **Docker → Stacks** in the dashboard. Stack management is now part of the unified Docker workspace.
 It uses Docker Compose directly and shares `/opt/stacks` with the existing Dockge installation.
 
 - **New stack** validates and saves a Compose file without deploying it.
@@ -25,7 +25,7 @@ Compose file and common `compose.yaml` / `docker-compose.yaml` names are support
 
 Projects outside `/opt/stacks`, projects with inconsistent/multiple Compose file
 labels, linked Compose files, and the dashboard's own project are view-only at
-stack level. The existing Docker tab provides individual container inspection.
+stack level. The Containers tab provides individual container inspection.
 The editor handles the primary Compose file; manage supporting `.env`, build
 contexts, overrides, and profile-specific workflows on the host or in Dockge.
 Concurrent saves are rejected if the file changed since it was loaded. Avoid

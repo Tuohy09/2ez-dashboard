@@ -4,7 +4,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import TWOEZ_CSS from "./2ez.css?raw";
-import StackManager from "./StackManager";
+import DockerManager from "./docker/DockerManager";
 import QBittorrentPage from "./qbittorrent/QBittorrentPage";
 import UnmanicPage from "./unmanic/UnmanicPage";
 import { unmanicRequest } from "./unmanic/api";
@@ -2853,8 +2853,6 @@ const NAV_ITEMS = [
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><polyline points="6 10 9 12 12 8 15 11 18 7"/></svg> },
   { id: "docker",     label: "Docker",                shortLabel: "Docker",    abbr: "DK", col: "#2496ED",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="10" width="4" height="4"/><rect x="8" y="10" width="4" height="4"/><rect x="13" y="10" width="4" height="4"/><rect x="8" y="5" width="4" height="4"/><path d="M2 14h18a4 4 0 0 0 1.5-3c.5 1 .8 2 .5 3"/><path d="M5 18a2 2 0 0 0 2 2h6a5 5 0 0 0 5-4"/></svg> },
-  { id: "stacks", label: "Stack Manager", shortLabel: "Stacks", abbr: "SM", col: "#7952D8",
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3 10 5-10 5L2 8l10-5Z"/><path d="m2 12 10 5 10-5M2 16l10 5 10-5"/></svg> },
   { id: "qbittorrent", label: "qBittorrent", shortLabel: "Torrents", abbr: "QB", col: "#3986E8",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg> },
   { id: "unmanic", label: "Unmanic", shortLabel: "Unmanic", abbr: "UM", col: "#3986E8",
@@ -4158,258 +4156,6 @@ const TerminalButton = () => (
 );
 
 // ─── DOCKER PAGE ─────────────────────────────────────────────────
-const DkSpinner = () => <span className="dk-spinner" />;
-const DkStart   = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 4 20 12 6 20 6 4"/></svg>;
-const DkStop    = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>;
-const DkRestart = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>;
-const DkTrash   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>;
-
-const DOCKER_SORTS = [
-  { id: "name", label: "Name" }, { id: "status", label: "Status" },
-  { id: "cpu", label: "CPU" }, { id: "memory", label: "Memory" },
-];
-const DOCKER_FILTERS = [
-  { id: "all", label: "All" }, { id: "running", label: "Running" }, { id: "stopped", label: "Stopped" },
-];
-
-function ConfirmModal({ title, body, confirmLabel = "Confirm", onConfirm, onCancel }) {
-  return createPortal(
-    <div className="confirm-backdrop" onClick={onCancel}>
-      <div className="confirm-modal" onClick={e => e.stopPropagation()}>
-        <div className="confirm-title">{title}</div>
-        <div className="confirm-body">{body}</div>
-        <div className="confirm-actions">
-          <button className="confirm-cancel" onClick={onCancel}>Cancel</button>
-          <button className="confirm-danger" onClick={onConfirm}>{confirmLabel}</button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
-
-function DockerMetaSection({ title, items, empty, render }) {
-  const arr = Array.isArray(items) ? items : [];
-  return (
-    <div className="dk-meta-section">
-      <div className="dk-meta-title">{title}{arr.length > 0 && <span className="dk-meta-count">{arr.length}</span>}</div>
-      {arr.length === 0
-        ? <div className="label-xs dim">{empty}</div>
-        : <div className="dk-meta-list">{arr.map((it, i) => <div key={i} className="dk-meta-item">{render(it)}</div>)}</div>}
-    </div>
-  );
-}
-
-function DockerDetail({ det }) {
-  const insp = det.inspect || {};
-  const logRef = useRef(null);
-  useEffect(() => {
-    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
-  }, [det.logs]);
-  return (
-    <div className="dk-detail-grid">
-      <div className="dk-detail-logs">
-        <div className="dk-meta-title">Logs <span className="dim" style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>· last 200 lines</span></div>
-        <pre className="dk-logs" ref={logRef}>{det.logs ? det.logs : "(no output)"}</pre>
-      </div>
-      <div className="dk-detail-meta">
-        <DockerMetaSection title="Ports" items={insp.ports} empty="No published ports" render={p => <span className="mono label-xs">{p}</span>} />
-        <DockerMetaSection title="Volumes" items={insp.volumes} empty="No mounts" render={v => <div className="mono label-xs dk-wrap"><span style={{ color: "var(--accent)" }}>{v.dest}</span> <span className="dim">← {v.source} ({v.mode})</span></div>} />
-        <DockerMetaSection title="Networks" items={insp.networks} empty="None" render={n => <span className="mono label-xs">{n.name}{n.ip ? <span className="dim"> · {n.ip}</span> : null}</span>} />
-        <DockerMetaSection title="Environment" items={insp.env} empty="None" render={e => <div className="mono label-xs dk-wrap dk-env">{e}</div>} />
-      </div>
-    </div>
-  );
-}
-
-function DockerPage({ onMenuToggle, onNavigate, bellProps }) {
-  const [containers, setContainers] = useState(null);
-  const [err, setErr] = useState(null);
-  const [sort, setSort] = useState("name");
-  const [dir, setDir] = useState(1);
-  const [filter, setFilter] = useState("all");
-  const [expandedId, setExpandedId] = useState(null);
-  const [details, setDetails] = useState({});
-  const [busy, setBusy] = useState({});
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [actionError, setActionError] = useState(null);
-  const expandedRef = useRef(null);
-  useEffect(() => { expandedRef.current = expandedId; }, [expandedId]);
-
-  const refresh = useCallback(() => {
-    return fetch("/sys-api/docker/containers", { signal: AbortSignal.timeout(8000) }).then(r => { if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Docker access denied. Check Docker permissions and refresh." : "Docker is unavailable. Check the host connection and refresh."); return r.json(); })
-      .then(list => {
-        if (Array.isArray(list)) { setContainers(list); setErr(null); }
-        else { setContainers([]); setErr(list?.error || "Docker socket unavailable"); }
-      }).catch(error => setErr(error.message.startsWith("Docker") ? error.message : "Docker is unavailable. Check the host connection and refresh."));
-  }, []);
-
-  useEffect(() => {
-    refresh();
-    const id = setInterval(() => {
-      refresh();
-      const ex = expandedRef.current;
-      if (ex) fetch(`/sys-api/docker/${ex}/logs`).then(r => r.json())
-        .then(l => setDetails(d => ({ ...d, [ex]: { ...(d[ex] || {}), logs: l?.logs ?? d[ex]?.logs ?? "" } })))
-        .catch(() => {});
-    }, 3000);
-    return () => clearInterval(id);
-  }, [refresh]);
-
-  const doAction = async (cid, verb) => {
-    setBusy(b => ({ ...b, [cid]: verb }));
-    setActionError(null);
-    try {
-      const response = await fetch(`/sys-api/docker/${cid}/${verb}`, { method: "POST" });
-      if (!response.ok) throw new Error("Container action failed");
-      await refresh();
-    } catch {
-      setActionError(`Could not ${verb} the container. Check Docker access and try again.`);
-    } finally {
-      setBusy(b => { const next = { ...b }; delete next[cid]; return next; });
-    }
-  };
-
-  const doDelete = async (cid) => {
-    setBusy(b => ({ ...b, [cid]: "delete" }));
-    setActionError(null);
-    try {
-      const response = await fetch(`/sys-api/docker/${cid}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("Container deletion failed");
-      setDeleteTarget(null);
-      if (expandedId === cid) setExpandedId(null);
-      await refresh();
-    } catch {
-      setDeleteTarget(null);
-      setActionError("Could not delete the container. Check Docker access and try again.");
-    } finally {
-      setBusy(b => { const next = { ...b }; delete next[cid]; return next; });
-    }
-  };
-
-  const toggleExpand = async (cid) => {
-    if (expandedId === cid) { setExpandedId(null); return; }
-    setExpandedId(cid);
-    if (!details[cid]) {
-      const [insp, logs] = await Promise.all([
-        fetch(`/sys-api/docker/${cid}/inspect`).then(r => r.json()).catch(() => null),
-        fetch(`/sys-api/docker/${cid}/logs`).then(r => r.json()).catch(() => null),
-      ]);
-      setDetails(d => ({ ...d, [cid]: { inspect: insp, logs: logs?.logs || "" } }));
-    }
-  };
-
-  const setSortKey = (k) => {
-    if (sort === k) setDir(d => -d);
-    else { setSort(k); setDir(k === "name" ? 1 : -1); }
-  };
-
-  const list = containers || [];
-  const filtered = list.filter(c => filter === "all" ? true : filter === "running" ? c.state === "running" : c.state !== "running");
-  const sorted = [...filtered].sort((a, b) => {
-    let r;
-    if (sort === "name") r = a.name.localeCompare(b.name);
-    else if (sort === "status") r = String(a.state).localeCompare(String(b.state));
-    else if (sort === "cpu") r = (a.cpu_percent || 0) - (b.cpu_percent || 0);
-    else r = (a.memory_usage || 0) - (b.memory_usage || 0);
-    return r * dir;
-  });
-  const runningCount = list.filter(c => c.state === "running").length;
-
-  return (
-    <div className="shell docker-page">
-      <PageHeader title="Docker" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
-      <div className="page-content">
-        <PageIntro title="Every container, in view." description="Check what’s running, inspect logs and manage individual services." eyebrow="2EZ / DOCKER"><button className="surface-button" onClick={refresh}>Refresh containers <span aria-hidden="true">↻</span></button></PageIntro>
-        <div className="dk-toolbar">
-          <div className="dk-summary">
-            <span className="big-num" style={{ fontSize: 24, color: "var(--accent)" }}>{runningCount}</span>
-            <span className="label-sm">/ {list.length} running</span>
-          </div>
-          <div className="dk-controls">
-            <div className="dk-seg">
-              {DOCKER_FILTERS.map(f => (
-                <button key={f.id} className={`dk-seg-btn${filter === f.id ? " active" : ""}`} aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>{f.label}</button>
-              ))}
-            </div>
-            <div className="dk-seg">
-              {DOCKER_SORTS.map(s => (
-                <button key={s.id} className={`dk-seg-btn${sort === s.id ? " active" : ""}`} onClick={() => setSortKey(s.id)}>
-                  {s.label}{sort === s.id ? (dir > 0 ? " ↑" : " ↓") : ""}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {err && <div className="dk-error">⚠ {err}</div>}
-        {actionError && <div className="dk-error" role="alert">{actionError}</div>}
-        {containers === null && !err ? (
-          <div className="dk-empty">Loading containers…</div>
-        ) : sorted.length === 0 && !err ? (
-          <div className="dk-empty">No containers match this filter.</div>
-        ) : (
-          <div className="dk-list">
-            <div className="dk-row dk-head">
-              <span />
-              <span>Name</span>
-              <span className="dk-col-img">Image</span>
-              <span>Status</span>
-              <span className="r">CPU</span>
-              <span className="r">Memory</span>
-              <span className="dk-col-act">Actions</span>
-            </div>
-            {sorted.map(c => {
-              const running = c.state === "running";
-              const b = busy[c.id];
-              const det = details[c.id];
-              const open = expandedId === c.id;
-              return (
-                <div key={c.id} className={`dk-item${open ? " open" : ""}`}>
-                  <div className="dk-row dk-body-row" onClick={() => toggleExpand(c.id)}>
-                    <span className="dk-dot-cell"><span className={`docker-dot ${running ? "dot-live" : "dot-dead"}`} /></span>
-                    <button className="dk-name" aria-expanded={open} onClick={event => { event.stopPropagation(); toggleExpand(c.id); }}><span>{c.name}</span><span className="dk-expand-hint">{open ? "Close details −" : "Inspect +"}</span></button>
-                    <span className="dk-col-img label-xs dim" title={c.image}>{c.image}</span>
-                    <span className="label-xs dk-status">{c.status || (running ? "running" : "stopped")}</span>
-                    <span className="r mono label-sm" style={{ color: running ? statusColor(c.cpu_percent || 0) : "var(--text-dim)" }}>{running ? (c.cpu_percent || 0).toFixed(1) + "%" : "—"}</span>
-                    <span className="r mono label-sm" style={running ? undefined : { color: "var(--text-dim)" }}>{running ? fmt.bytes(c.memory_usage || 0) : "—"}</span>
-                    <span className="dk-col-act dk-actions" onClick={e => e.stopPropagation()}>
-                      {running ? (
-                        <>
-                          <button className="dk-act dk-stop" disabled={!!b} onClick={() => doAction(c.id, "stop")} title="Stop">{b === "stop" ? <DkSpinner /> : <DkStop />}<span>Stop</span></button>
-                          <button className="dk-act" disabled={!!b} onClick={() => doAction(c.id, "restart")} title="Restart">{b === "restart" ? <DkSpinner /> : <DkRestart />}<span>Restart</span></button>
-                        </>
-                      ) : (
-                        <button className="dk-act dk-start" disabled={!!b} onClick={() => doAction(c.id, "start")} title="Start">{b === "start" ? <DkSpinner /> : <DkStart />}<span>Start</span></button>
-                      )}
-                      <button className="dk-act dk-del" disabled={!!b} onClick={() => setDeleteTarget(c)} title="Delete">{b === "delete" ? <DkSpinner /> : <DkTrash />}<span>Delete</span></button>
-                    </span>
-                  </div>
-                  {open && (
-                    <div className="dk-detail">
-                      {!det ? <div className="label-sm dim" style={{ padding: "12px 4px" }}>Loading details…</div> : <DockerDetail det={det} />}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {deleteTarget && (
-        <ConfirmModal
-          title="Delete container?"
-          body={<>Force-remove <b style={{ color: "var(--text)" }}>{deleteTarget.name}</b> and its writable layer. This cannot be undone.</>}
-          confirmLabel="Delete"
-          onConfirm={() => doDelete(deleteTarget.id)}
-          onCancel={() => setDeleteTarget(null)}
-        />
-      )}
-    </div>
-  );
-}
-
 // ─── NETWORK GRAPH ───────────────────────────────────────────────
 // Smooth multi-line throughput chart. Four series on one shared axis
 // (all bytes/sec): direction is encoded by hue (↓ accent / ↑ warn) and
@@ -5097,7 +4843,7 @@ function AppInner() {
   const onStackDirtyChange = useCallback(value => { stackDirty.current = value; }, []);
 
   const navigate = useCallback((page) => {
-    if (page !== "stacks" && stackDirty.current && !window.confirm("Discard unsaved Compose edits?")) return;
+    if (page !== "docker" && stackDirty.current && !window.confirm("Discard unsaved Compose edits?")) return;
     setActivePage(page);
     setMenuOpen(false);
     setMobileSettingsOpen(false);
@@ -5160,8 +4906,7 @@ function AppInner() {
       {activePage === "main"       && <MainPage key={layoutResetKey} onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "qbittorrent" && <div className="shell"><PageHeader title="qBittorrent" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><QBittorrentPage /></div>}
       {activePage === "unmanic" && <div className="shell"><PageHeader title="Unmanic" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><UnmanicPage /></div>}
-      {activePage === "stacks" && <div className="shell"><PageHeader title="Stack Manager" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><StackManager onNavigate={navigate} onDirtyChange={onStackDirtyChange} /></div>}
-      {activePage === "docker"     && <DockerPage          onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
+      {activePage === "docker"     && <div className="shell"><PageHeader title="Docker" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><DockerManager onDirtyChange={onStackDirtyChange} /></div>}
       {activePage === "media-auto" && <MediaAutomationPage onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "media-srv"  && <MediaServerPage     onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "mgmt"       && <ManagementPage      onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}

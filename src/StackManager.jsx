@@ -18,14 +18,14 @@ async function api(url, options = {}) {
 }
 const statusLabel = status => ({ running: 'Running', stopped: 'Stopped', partial: 'Partly running', attention: 'Needs attention', undeployed: 'Not deployed' }[status] || status);
 
-function StackWorkspace({ name, snapshot, onRefresh, onDirtyChange, onNavigate, composeAvailable }) {
+function StackWorkspace({ name, snapshot, onRefresh, onDirtyChange, onNavigate, composeAvailable, initialTab = 'services' }) {
   const [detail, setStack] = useState(null);
   const stack = detail && { ...detail, ...(snapshot ? { containers: snapshot.containers, running: snapshot.running, total: snapshot.total, status: snapshot.status } : {}) };
   const [content, setContent] = useState('');
   const [saved, setSaved] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [tab, setTab] = useState('services');
+  const [tab, setTab] = useState(initialTab);
   const [busy, setBusy] = useState(false);
   const [job, setJob] = useState(null);
   const [confirm, setConfirm] = useState(null);
@@ -101,7 +101,7 @@ function StackWorkspace({ name, snapshot, onRefresh, onDirtyChange, onNavigate, 
     setConfirm(null); setBusy(true); setError(''); setNotice('');
     try {
       if (container) {
-        const response = await fetch(`/sys-api/docker/${container.id}/${action}`, { method: 'POST', signal: AbortSignal.timeout(45000) });
+        const response = await fetch(`/docker-api/containers/${container.id}/${action}`, { method: 'POST', headers: { 'X-2ez-docker': '1' }, signal: AbortSignal.timeout(45000) });
         const result = await response.json();
         if (!response.ok || result.error) throw new Error(result.error || `Could not ${action} ${container.name}.`);
         const data = await api(`/stacks/${encodeURIComponent(name)}`);
@@ -158,11 +158,11 @@ function NewStack({ onCreated, onCancel, onDirtyChange }) {
   return <form className="sm-panel sm-new" onSubmit={create}><p className="eyebrow">NEW COMPOSE PROJECT</p><h2>Give your next service a home.</h2><p>Save a stack, review it, then deploy when you’re ready.</p><label htmlFor="sm-name">Stack name</label><input id="sm-name" autoFocus required pattern="[a-z0-9][a-z0-9_-]{0,62}" maxLength="63" placeholder="my-stack" value={name} disabled={busy} onChange={event => setName(event.target.value)} /><label htmlFor="sm-new-compose">Compose configuration</label><textarea id="sm-new-compose" spellCheck="false" required value={content} disabled={busy} onChange={event => setContent(event.target.value)} />{error && <div className="sm-error" role="alert">{error}</div>}<div className="sm-editor-actions"><button className="surface-button sm-primary" disabled={busy}>{busy ? 'Validating…' : 'Create stack'}</button><button type="button" className="surface-button" disabled={busy} onClick={onCancel}>Cancel</button></div></form>;
 }
 
-export default function StackManager({ onNavigate, onDirtyChange }) {
+export default function StackManager({ onNavigate, onDirtyChange, embedded = false, initialStack = null, initialCreating = false, initialTab = 'services' }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
-  const [selected, setSelected] = useState(null);
-  const [creating, setCreating] = useState(false);
+  const [selected, setSelected] = useState(initialStack);
+  const [creating, setCreating] = useState(initialCreating);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const dirtyRef = useRef(false);
@@ -188,12 +188,12 @@ export default function StackManager({ onNavigate, onDirtyChange }) {
   const stacks = data?.stacks || [];
   const visible = stacks.filter(stack => stack.name.toLowerCase().includes(query.toLowerCase()) && (filter === 'all' || (filter === 'attention' ? ['partial', 'attention'].includes(stack.status) : stack.status === filter)));
   const activeName = selected || stacks.find(stack => stack.manageable)?.name || stacks[0]?.name;
-  return <div className="page-content sm-page"><div className="sm-intro"><div><p className="eyebrow">2EZ / STACK MANAGER</p><h1>Your stacks, under control.</h1><p>Compose files, container controls and logs, together.</p></div><button className="surface-button sm-primary" disabled={!data?.composeVersion} onClick={() => select(null, true)}>+ New stack</button></div>
+  return <div className={`${embedded ? 'dm-stacks' : 'page-content'} sm-page`}>{!embedded && <div className="sm-intro"><div><p className="eyebrow">2EZ / STACK MANAGER</p><h1>Your stacks, under control.</h1><p>Compose files, container controls and logs, together.</p></div><button className="surface-button sm-primary" disabled={!data?.composeVersion} onClick={() => select(null, true)}>+ New stack</button></div>}
     <div className="sm-summary"><span><i className={`sm-dot ${data && !error ? 'sm-dot-live' : ''}`} />{error ? 'Connection issue' : data ? `${stacks.length} stacks · ${stacks.filter(stack => stack.status === 'running').length} running` : 'Connecting to Docker…'}</span><span className="sm-path">{data?.root || '/opt/stacks'}{data?.composeVersion ? ` · Compose ${data.composeVersion}` : ''}</span><button className="sm-text-button" onClick={refresh}>Refresh ↻</button></div>
     {error && <div className="sm-error" role="alert">{error} <button className="sm-text-button" onClick={refresh}>Retry</button></div>}
     {data && !data.composeVersion && <div className="sm-error" role="alert">Docker Compose is unavailable. Check the dashboard’s Docker CLI installation to enable stack actions.</div>}
     {!data && !error ? <div className="sm-panel sm-loading">Discovering Compose projects…</div> : data && <div className="sm-layout"><aside className="sm-panel sm-stack-list" aria-label="Compose stacks"><div className="sm-list-tools"><label htmlFor="sm-search">STACKS</label><input id="sm-search" type="search" placeholder="Find a stack…" value={query} onChange={event => setQuery(event.target.value)} /><select aria-label="Filter stack status" value={filter} onChange={event => setFilter(event.target.value)}><option value="all">All stacks</option><option value="running">Running</option><option value="stopped">Stopped</option><option value="attention">Needs attention</option><option value="undeployed">Not deployed</option></select></div><select className="sm-mobile-picker" aria-label="Choose stack" value={creating ? '' : activeName || ''} onChange={event => select(event.target.value)}><option value="" disabled>Select a stack</option>{visible.map(stack => <option key={stack.name} value={stack.name}>{stack.name} · {statusLabel(stack.status)}</option>)}</select><div className="sm-stack-scroll">{visible.map(stack => <button className={`sm-stack-row ${!creating && activeName === stack.name ? 'is-selected' : ''}`} key={stack.name} aria-pressed={!creating && activeName === stack.name} onClick={() => select(stack.name)}><span className="sm-stack-name">{stack.name}</span><span><i className={`sm-dot ${stack.status === 'running' ? 'sm-dot-live' : stack.status === 'attention' || stack.status === 'partial' ? 'sm-dot-warn' : ''}`} />{stack.job ? 'Working…' : statusLabel(stack.status)}<small>{stack.running}/{stack.total}</small></span>{!stack.manageable && <small>View only</small>}</button>)}{!visible.length && <p className="sm-loading">{stacks.length ? 'No stacks match this filter.' : 'No stacks found. Create your first Compose project.'}</p>}</div></aside>
-      {creating ? <NewStack onCreated={name => { setCreating(false); setSelected(name); refresh(); }} onCancel={() => select(activeName)} onDirtyChange={setDirty} /> : activeName ? <StackWorkspace key={activeName} name={activeName} snapshot={stacks.find(stack => stack.name === activeName)} onRefresh={refresh} onDirtyChange={setDirty} onNavigate={onNavigate} composeAvailable={Boolean(data.composeVersion) && !error} /> : <section className="sm-panel sm-loading">Create a stack to get started.</section>}
+      {creating ? <NewStack onCreated={name => { setCreating(false); setSelected(name); refresh(); }} onCancel={() => select(activeName)} onDirtyChange={setDirty} /> : activeName ? <StackWorkspace key={activeName} name={activeName} snapshot={stacks.find(stack => stack.name === activeName)} onRefresh={refresh} onDirtyChange={setDirty} onNavigate={onNavigate} initialTab={initialTab} composeAvailable={Boolean(data.composeVersion) && !error} /> : <section className="sm-panel sm-loading">Create a stack to get started.</section>}
     </div>}
   </div>;
 }

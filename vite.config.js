@@ -6,6 +6,7 @@ export default defineConfig({
   build: { sourcemap: true },
   server: {
     proxy: {
+      '/docker-api': { target: process.env.DOCKER_PROXY_TARGET || 'http://127.0.0.1:3080', changeOrigin: false },
       '/um-api': { target: process.env.UNMANIC_PROXY_TARGET || 'http://127.0.0.1:3080', changeOrigin: false },
       '/qbt': { target: process.env.QBT_PROXY_TARGET || 'http://127.0.0.1:3080', changeOrigin: false },
       '/stack-api': { target: 'http://127.0.0.1:3080', changeOrigin: false },
