@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import './stack-manager.css';
 
+const ComposeEditor = lazy(() => import('./docker/ComposeEditor'));
 const API = '/stack-api';
 const starter = 'services:\n  app:\n    image: nginx:alpine\n    restart: unless-stopped\n    ports:\n      - "8088:80"\n';
 const actionLabels = { deploy: 'Deploy', start: 'Start', stop: 'Stop', restart: 'Restart', pull: 'Pull images', down: 'Take down' };
@@ -38,11 +39,13 @@ function StackWorkspace({ name, snapshot, onRefresh, onDirtyChange, onNavigate, 
   const locked = busy || runningJob;
 
   const reload = useCallback(async () => {
+    setBusy(true); setNotice('');
     try {
       const data = await api(`/stacks/${encodeURIComponent(name)}`);
       setStack(data); setContent(data.content || ''); setSaved(data.content || ''); setError('');
       if (data.job) setJob(await api(`/jobs/${data.job}`));
     } catch (err) { setError(err.message); }
+    finally { setBusy(false); }
   }, [name]);
   useEffect(() => { let active = true; api(`/stacks/${encodeURIComponent(name)}`).then(async data => {
     if (!active) return;
@@ -89,11 +92,13 @@ function StackWorkspace({ name, snapshot, onRefresh, onDirtyChange, onNavigate, 
   }, [name, tab, follow, canManage]);
 
   async function save(validateOnly = false) {
+    if (!canManage || locked) return;
+    const submitted = content;
     setBusy(true); setError(''); setNotice('');
     try {
-      const result = await api(`/stacks/${encodeURIComponent(name)}${validateOnly ? '/validate' : ''}`, { method: validateOnly ? 'POST' : 'PUT', body: JSON.stringify({ content, revision: stack.revision }) });
+      const result = await api(`/stacks/${encodeURIComponent(name)}${validateOnly ? '/validate' : ''}`, { method: validateOnly ? 'POST' : 'PUT', body: JSON.stringify({ content: submitted, revision: stack.revision }) });
       if (validateOnly) setNotice(`Compose configuration is valid.${result.output ? '\n' + result.output : ''}`);
-      else { setSaved(content); setStack(previous => ({ ...previous, revision: result.revision })); setNotice(`Saved. Deploy when you’re ready to apply the changes. Backup: ${result.backup}`); onRefresh(); }
+      else { setSaved(submitted); setStack(previous => ({ ...previous, content: submitted, revision: result.revision })); setNotice(`Saved. Deploy when you’re ready to apply the changes. Backup: ${result.backup}`); onRefresh(); }
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
@@ -125,10 +130,10 @@ function StackWorkspace({ name, snapshot, onRefresh, onDirtyChange, onNavigate, 
     <div className="sm-actionbar" aria-label="Stack actions">
       {Object.entries(actionLabels).map(([action, label]) => <button key={action} className={`surface-button ${action === 'deploy' ? 'sm-primary' : ''} ${action === 'down' ? 'sm-danger' : ''}`} disabled={!canManage || locked || dirty} onClick={() => requestAction(action)}>{label}</button>)}
     </div>
-    {dirty && <p className="sm-notice">Unsaved changes. Save or reload the Compose file before running a stack action.</p>}
+    {dirty && <p className="sm-notice">Unsaved changes. Save or discard your edits before running a stack action.</p>}
     {confirm && <div className="sm-confirm" role="alertdialog" aria-labelledby="sm-confirm-title" aria-describedby="sm-confirm-description"><h3 id="sm-confirm-title">{actionLabels[confirm.action]} {confirm.container?.name || name}?</h3><p id="sm-confirm-description">{confirm.container ? `This will ${confirm.action} only ${confirm.container.name}.` : actionCopy[confirm.action]}</p><div><button autoFocus className="surface-button" onClick={() => setConfirm(null)}>Cancel</button><button className={`surface-button ${confirm.action === 'down' || confirm.action === 'stop' ? 'sm-danger' : 'sm-primary'}`} onClick={() => execute(confirm.action, confirm.container)}>Confirm {actionLabels[confirm.action].toLowerCase()}</button></div></div>}
-    {error && <div className="sm-error" role="alert">{error}</div>}
-    {notice && <div className="sm-notice" role="status">{notice}</div>}
+    {error && (tab !== 'compose' || stack.content === null) && <div className="sm-error" role="alert">{error}</div>}
+    {notice && (tab !== 'compose' || stack.content === null) && <div className="sm-notice" role="status">{notice}</div>}
     <div className="sm-tabs" role="tablist" aria-label="Stack details">{['services', 'compose', 'logs'].map(value => <button key={value} role="tab" aria-selected={tab === value} aria-controls={`sm-panel-${value}`} id={`sm-tab-${value}`} onKeyDown={event => {
       const tabs = ['services', 'compose', 'logs'];
       const next = event.key === 'ArrowRight' ? (tabs.indexOf(tab) + 1) % 3 : event.key === 'ArrowLeft' ? (tabs.indexOf(tab) + 2) % 3 : event.key === 'Home' ? 0 : event.key === 'End' ? 2 : -1;
@@ -136,7 +141,10 @@ function StackWorkspace({ name, snapshot, onRefresh, onDirtyChange, onNavigate, 
     }} tabIndex={tab === value ? 0 : -1} onClick={() => setTab(value)}>{value === 'services' ? `Containers · ${stack.total}` : value === 'compose' ? `Compose${dirty ? ' •' : ''}` : 'Logs'}</button>)}</div>
     <div role="tabpanel" id={`sm-panel-${tab}`} aria-labelledby={`sm-tab-${tab}`}>
       {tab === 'services' && <div className="sm-services">{stack.containers.length ? stack.containers.map(container => <div className="sm-container" key={container.id}><span className={`sm-dot ${container.state === 'running' ? 'sm-dot-live' : ''}`} /><div className="sm-container-info"><h3>{container.name}</h3><p>{container.image}</p><span>{container.status || container.state}</span></div><div className="sm-container-actions">{(container.state === 'running' ? ['stop', 'restart'] : ['start']).map(action => <button key={action} className="surface-button" disabled={locked || !stack.manageable} onClick={() => requestAction(action, container)}>{actionLabels[action]}</button>)}</div></div>) : <div className="sm-loading">No containers yet. Review the Compose file, then deploy this stack.</div>}</div>}
-      {tab === 'compose' && <div className="sm-editor"><div className="sm-editor-toolbar"><label htmlFor="sm-compose">Compose configuration</label><span>{dirty ? 'Unsaved changes' : stack.content === null ? 'Unavailable' : 'Saved on disk'}</span></div>{stack.content === null ? <div className="sm-loading">The Compose file cannot be opened here. Check the file paths and permissions on the host.</div> : <textarea id="sm-compose" spellCheck="false" autoCapitalize="off" autoComplete="off" value={content} readOnly={!canManage || locked} onChange={event => { setContent(event.target.value); setNotice(''); setConfirm(null); }} />}<div className="sm-editor-actions"><button className="surface-button" disabled={!canManage || locked} onClick={() => save(true)}>Validate</button><button className="surface-button sm-primary" disabled={!canManage || locked || !dirty} onClick={() => save()}>Save Compose</button><button className="surface-button" disabled={locked} onClick={() => { if (!dirty || window.confirm('Discard your unsaved Compose edits and reload from disk?')) reload(); }}>Reload from disk</button></div><p className="sm-footnote">Saving validates the configuration and creates a backup. Deploy applies the saved file.</p></div>}
+      {tab === 'compose' && <div className="sm-editor">{stack.content === null ? <div className="sm-loading">The Compose file cannot be opened here. Check the file paths and permissions on the host. <button className="surface-button" disabled={locked} onClick={reload}>Reload</button></div> : <Suspense fallback={<p className="sm-loading">Loading editor…</p>}><ComposeEditor value={content} savedValue={saved} filename={stack.files[0]?.split('/').pop() || 'compose.yaml'} dirty={dirty} readOnly={!canManage} busy={locked} canSave={dirty} error={error} notice={notice}
+        onChange={value => { setContent(value); setNotice(''); setConfirm(null); }} onSave={() => save()} onValidate={() => save(true)}
+        onDiscard={() => { if (window.confirm('Discard unsaved edits and restore the last saved version?')) { setContent(saved); setError(''); setConfirm(null); setNotice('Draft discarded. Restored the last saved version.'); } }}
+        onReload={() => { if (!dirty || window.confirm('Discard your unsaved Compose edits and reload from disk?')) reload(); }} /></Suspense>}<p className="sm-footnote">Saving validates the configuration and creates a backup. Deploy applies the saved file.</p></div>}
       {tab === 'logs' && <div className="sm-logs"><div className="sm-editor-toolbar"><span>Latest 100 lines per service</span><label><input type="checkbox" checked={follow} onChange={event => setFollow(event.target.checked)} /> Refresh every 4s</label></div>{logsError && <p className="sm-error" role="alert">{logsError}</p>}<pre tabIndex="0" aria-label="Stack logs">{!canManage ? 'Stack logs are unavailable here. Open Docker for individual container logs.' : logs === null ? 'Loading logs…' : logs || 'No logs reported yet.'}</pre></div>}
     </div>
     {job && <div className="sm-operation" aria-label="Operation output"><div className="sm-editor-toolbar"><strong>{actionLabels[job.action]} · {job.status}</strong><span>{new Date(job.startedAt).toLocaleTimeString()}</span></div><pre tabIndex="0" aria-label="Operation output log">{job.output || (runningJob ? 'Waiting for Docker Compose…' : 'Operation completed without output.')}</pre><p role="status" className="sm-footnote">{runningJob ? 'Operation in progress. You can switch tabs; it will keep running.' : job.status === 'failed' ? 'Operation failed. Review the output above before retrying.' : job.status === 'unknown' ? 'Connection lost. Refresh the stack to check its current state.' : 'Operation completed.'}</p></div>}
@@ -144,6 +152,7 @@ function StackWorkspace({ name, snapshot, onRefresh, onDirtyChange, onNavigate, 
 }
 
 function NewStack({ onCreated, onCancel, onDirtyChange }) {
+  const form = useRef(null);
   const [name, setName] = useState('');
   const [content, setContent] = useState(starter);
   const [error, setError] = useState('');
@@ -155,7 +164,7 @@ function NewStack({ onCreated, onCancel, onDirtyChange }) {
     catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
-  return <form className="sm-panel sm-new" onSubmit={create}><p className="eyebrow">NEW COMPOSE PROJECT</p><h2>Give your next service a home.</h2><p>Save a stack, review it, then deploy when you’re ready.</p><label htmlFor="sm-name">Stack name</label><input id="sm-name" autoFocus required pattern="[a-z0-9][a-z0-9_-]{0,62}" maxLength="63" placeholder="my-stack" value={name} disabled={busy} onChange={event => setName(event.target.value)} /><label htmlFor="sm-new-compose">Compose configuration</label><textarea id="sm-new-compose" spellCheck="false" required value={content} disabled={busy} onChange={event => setContent(event.target.value)} />{error && <div className="sm-error" role="alert">{error}</div>}<div className="sm-editor-actions"><button className="surface-button sm-primary" disabled={busy}>{busy ? 'Validating…' : 'Create stack'}</button><button type="button" className="surface-button" disabled={busy} onClick={onCancel}>Cancel</button></div></form>;
+  return <form ref={form} className="sm-panel sm-new" onSubmit={create}><p className="eyebrow">NEW COMPOSE PROJECT</p><h2>Give your next service a home.</h2><p>Save a stack, review it, then deploy when you’re ready.</p><label htmlFor="sm-name">Stack name</label><input id="sm-name" autoFocus required pattern="[a-z0-9][a-z0-9_-]{0,62}" maxLength="63" placeholder="my-stack" value={name} disabled={busy} onChange={event => setName(event.target.value)} /><Suspense fallback={<p className="sm-loading">Loading editor…</p>}><ComposeEditor isNew value={content} savedValue={starter} onChange={setContent} dirty={Boolean(name) || content !== starter} busy={busy} canSave={Boolean(name.trim() && content.trim())} saveLabel="Create stack" error={error} onSave={() => form.current.requestSubmit()} onDiscard={() => { if (window.confirm('Discard this draft and restore the starter configuration?')) { setName(''); setContent(starter); setError(''); } }} /></Suspense><p className="sm-footnote">Creating a stack validates and saves the Compose file. Deploy it separately when ready.</p><div className="sm-editor-actions"><button type="button" className="surface-button" disabled={busy} onClick={onCancel}>Cancel</button></div></form>;
 }
 
 export default function StackManager({ onNavigate, onDirtyChange, embedded = false, initialStack = null, initialCreating = false, initialTab = 'services' }) {

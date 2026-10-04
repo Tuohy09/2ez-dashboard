@@ -1,0 +1,61 @@
+.compose-editor { border: 1px solid var(--card-border); border-radius: 14px; overflow: hidden; background: var(--bg); color: var(--text); min-width: 0; }
+.ce-filebar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; background: var(--card); border-bottom: 1px solid var(--card-border); flex-wrap: wrap; }
+.ce-filebar strong { display: block; font: 600 12px var(--mono); overflow-wrap: anywhere; }
+.ce-filebar span { display: block; font-size: 11px; color: var(--text-dim); margin-top: 6px; }
+.ce-filebar .ce-unsaved { color: var(--warning-ink); }
+.ce-file-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ce-tools { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 10px 12px; border-bottom: 1px solid var(--card-border); background: var(--card); }
+.ce-tools > div { display: flex; gap: 4px; flex-wrap: wrap; }
+.ce-tools button { background: transparent; border: 1px solid transparent; border-radius: 6px; color: var(--text-dim); padding: 7px; font: 600 11px var(--font); cursor: pointer; }
+.ce-tools button:hover { color: var(--text); background: var(--bg); }
+.ce-tools button[aria-pressed=true] { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+.ce-file-input { display: none; }
+.ce-status { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-top: 1px solid var(--card-border); background: var(--card); color: var(--text-dim); font: 10px/1.7 var(--mono); }
+.ce-help { padding: 10px 16px; font-size: 10px; color: var(--text-dim); line-height: 1.7; }
+.ce-messages { padding: 8px 12px; max-height: 180px; overflow: auto; border-bottom: 1px solid var(--card-border); }
+.ce-messages .sm-error, .ce-messages .sm-notice { margin: 4px 0; }
+.ce-messages .sm-text-button { margin-left: 12px; }
+.ce-review-legend { display: flex; flex-wrap: wrap; gap: 16px; font: 10px/1.8 var(--mono); padding: 8px 4px; }
+.ce-review-legend span:first-child { color: var(--error-ink); }
+.ce-review-legend span:last-child { color: var(--ok); }
+.ce-host { min-width: 0; }
+.compose-editor .cm-editor { height: 480px; color: var(--text); background: var(--bg); font: 12px/1.9 var(--mono); }
+.compose-editor .cm-editor.cm-focused { outline: none; }
+.compose-editor:focus-within { border-color: var(--accent); }
+.compose-editor .cm-scroller { font-family: var(--mono); overflow: auto; }
+.compose-editor .cm-content { padding: 12px 0; caret-color: var(--text); }
+.compose-editor .cm-line { padding: 0 14px; }
+.compose-editor .cm-gutters { background: var(--card); color: var(--text-dim); border-right: 1px solid var(--card-border); }
+.compose-editor .cm-gutterElement { padding-left: 10px; padding-right: 8px; }
+.compose-editor .cm-activeLine, .compose-editor .cm-activeLineGutter { background: var(--accent-dim); }
+.compose-editor .cm-cursor { border-left-color: var(--text); }
+.compose-editor .cm-selectionBackground, .compose-editor .cm-editor.cm-focused .cm-selectionBackground, .compose-editor .cm-content ::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+.compose-editor .ce-token-key { color: var(--accent); }
+.compose-editor .ce-token-string { color: var(--ok); }
+.compose-editor .ce-token-value { color: var(--color-blue); }
+.compose-editor .ce-token-comment { color: var(--text-dim); font-style: italic; }
+.compose-editor .ce-token-meta { color: var(--warning-ink); }
+.compose-editor .cm-tooltip, .compose-editor .cm-panels { color: var(--text); background: var(--card); border-color: var(--card-border); font: 11px/1.7 var(--font); }
+.compose-editor .cm-tooltip-autocomplete ul li[aria-selected] { background: var(--accent-dim); color: var(--text); }
+.compose-editor .cm-searchMatch { background: color-mix(in srgb, var(--warning-ink) 25%, transparent); outline: 1px solid var(--warning-ink); }
+.compose-editor .cm-searchMatch-selected { background: var(--accent-dim); outline-color: var(--accent); }
+.compose-editor .cm-foldPlaceholder { color: var(--accent); background: var(--card); border-color: var(--card-border); }
+.compose-editor .cm-panel input:not([type=checkbox]), .compose-editor .cm-panel select { width: auto; max-width: 100%; min-height: 30px; padding: 4px 8px; margin: 3px; font: 11px var(--mono); background: var(--bg); color: var(--text); border: 1px solid var(--card-border); }
+.compose-editor .cm-panel label { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; }
+.compose-editor .cm-button { color: var(--text); background: var(--bg); border: 1px solid var(--card-border); border-radius: 6px; font: 11px var(--font); padding: 5px 8px; }
+.compose-editor .cm-deletedChunk { background: color-mix(in srgb, var(--error-ink) 10%, var(--bg)); }
+.compose-editor .cm-deletedChunk .cm-deletedText, .compose-editor .cm-deletedLine { background: color-mix(in srgb, var(--error-ink) 18%, transparent); }
+.compose-editor .cm-insertedLine, .compose-editor .cm-insertedText { background: color-mix(in srgb, var(--ok) 15%, transparent); }
+.compose-editor .cm-changedLine { background: color-mix(in srgb, var(--ok) 8%, transparent); }
+.compose-editor.ce-expanded { position: fixed; inset: 20px; z-index: 1600; display: flex; flex-direction: column; border-color: var(--accent); }
+.ce-expanded .ce-host { flex: 1; min-height: 0; }
+.ce-expanded .cm-editor { height: 100%; }
+.ce-expanded .ce-filebar, .ce-expanded .ce-tools, .ce-expanded .ce-status, .ce-expanded .ce-help, .ce-expanded .ce-messages { flex-shrink: 0; }
+.ce-expanded .ce-messages { max-height: 120px; }
+@media(max-width:700px) { .compose-editor .cm-editor { height: 400px; font-size: 11px; } .compose-editor.ce-expanded { inset: 8px; } .ce-expanded .cm-editor { height: 100%; } .ce-filebar { padding: 12px; } .ce-file-actions { width: 100%; } .ce-file-actions button { flex: 1; } .ce-tools { flex-wrap: nowrap; overflow-x: auto; padding: 8px; gap: 8px; } .ce-tools > div { flex-wrap: nowrap; flex-shrink: 0; } .ce-tools button { white-space: nowrap; } .ce-help { font-size: 9px; } .ce-status { font-size: 9px; padding: 8px; } .compose-editor .cm-panel input:not([type=checkbox]) { max-width: 135px; } }
+
+.sm-new > .compose-editor { margin-top: 24px; }
+.sm-editor > .sm-footnote { margin-top: 12px; }
+
+/* Keep the expanded editor relative to the viewport, above mobile navigation. */
+.page-content:has(.ce-expanded) { transform: none; animation: none; position: relative; z-index: 1600; }

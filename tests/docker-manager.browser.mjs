@@ -7,7 +7,7 @@ const errors = [], writes = []; page.on('pageerror', error => errors.push(error.
 const id = n => n.toString(16).repeat(64), iid = n => `sha256:${id(n)}`;
 let containers = ['jellyfin', 'navidrome', 'unmanic', 'qbittorrent', 'gluetun', 'uptime-kuma'].map((name, i) => ({ id: id(i + 1), name, image: ['jellyfin/jellyfin:10.10.7', 'deluan/navidrome:latest', 'josh5/unmanic:latest', 'linuxserver/qbittorrent:latest', 'qmcgaw/gluetun:latest', 'louislam/uptime-kuma:1'][i], image_id: iid(i + 1), stack: i < 3 ? 'media' : i < 5 ? 'downloads' : 'tools', state: i === 5 ? 'exited' : 'running', status: i === 5 ? 'Exited (0) 2 days ago' : 'Up 3 days', cpu_percent: [2.8, .4, 12.6, 1.2, .3, 0][i], memory_usage: [614, 186, 428, 246, 64, 0][i] * 1048576 }));
 let images = containers.map((container, i) => ({ id: iid(i + 1), tags: [container.image], digests: [], size: (i + 1) * 200e6, created: 1790500000, containers: [{ id: container.id, name: container.name, state: container.state }] })).concat([{ id: iid(7), tags: ['alpine:3.20'], digests: [], size: 7800000, created: 1790500000, containers: [] }]);
-let jobs = [], fail = false, content = 'services:\n  jellyfin:\n    image: jellyfin/jellyfin:10.10.7\n', revision = 'one';
+let jobs = [], fail = false, content = 'services:\n  jellyfin:\n    image: jellyfin/jellyfin:10.10.7\n', revision = 'one', saveFailure = '', delaySave = null;
 const stack = name => ({ name, files: [`/opt/stacks/${name}/compose.yaml`], containers: containers.filter(c => c.stack === name), running: containers.filter(c => c.stack === name && c.state === 'running').length, total: containers.filter(c => c.stack === name).length, manageable: name !== 'tools', reason: name === 'tools' ? 'This project is outside /opt/stacks.' : '', status: name === 'tools' ? 'stopped' : 'running', content, revision });
 async function json(route, data, status = 200) { return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) }); }
 await page.route('**/sys-api/docker/**', async route => {
@@ -34,6 +34,8 @@ await page.route('**/stack-api/**', async route => {
   if (method !== 'GET') writes.push({ path, method, data });
   if (path === '/stacks') return json(route, method === 'POST' ? { name: data.name } : { root: '/opt/stacks', composeVersion: 'v2.39.0', stacks: ['media', 'downloads', 'tools'].map(stack) });
   if (path.endsWith('/validate')) return json(route, { output: 'valid' });
+  if (method === 'PUT' && saveFailure) return json(route, { error: saveFailure }, 409);
+  if (method === 'PUT' && delaySave) await delaySave;
   if (method === 'PUT') { content = data.content; revision = 'two'; return json(route, { revision, backup: 'compose.yaml.backup' }); }
   if (path.endsWith('/logs')) return json(route, { output: 'Stack service ready' });
   if (path.endsWith('/actions')) return json(route, { id: 'stack-job', action: data.action, status: 'succeeded', output: 'Done', startedAt: Date.now() });
@@ -58,10 +60,81 @@ try {
   await page.getByRole('textbox', { name: 'Compose configuration', exact: true }).fill(content + '    restart: unless-stopped\n');
   page.once('dialog', dialog => dialog.dismiss()); await tab('Images').click(); assert.ok(await page.getByRole('textbox', { name: 'Compose configuration', exact: true }).isVisible());
   await button('Validate').click(); await page.getByRole('status').filter({ hasText: 'configuration is valid' }).waitFor();
-  await button('Save Compose').click(); await page.getByRole('status').filter({ hasText: 'Saved.' }).waitFor(); assert.equal(writes.at(-1).method, 'PUT');
+  await button('Save').click(); await page.getByRole('status').filter({ hasText: 'Saved.' }).waitFor(); assert.equal(writes.at(-1).method, 'PUT');
+  // Exercise editor behavior without writing any real Compose files.
+  const editor = page.getByRole('textbox', { name: 'Compose configuration', exact: true });
+  const editorText = () => editor.innerText();
+  const replaceDraft = async text => { await editor.click(); await page.keyboard.press('Control+a'); await page.keyboard.insertText(text); };
+  const baseline = content;
+  assert.ok(await page.locator('.cm-lineNumbers').isVisible());
+  assert.ok(await page.locator('.ce-token-key').count());
+  assert.ok(await button('Discard').isDisabled());
+  await replaceDraft(baseline + '    # changed draft\n');
+  await button('Undo').click(); assert.equal((await editorText()).trimEnd(), baseline.trimEnd());
+  await button('Redo').click(); assert.match(await editorText(), /changed draft/);
+  await button('Review changes').click(); await page.locator('.cm-insertedLine').first().waitFor();
+  await button('Expand editor').click(); assert.ok(await page.locator('.ce-expanded').isVisible());
+  await editor.click(); await page.keyboard.press('ArrowRight');
+  await page.screenshot({ path: resolve('artifacts/compose-editor-expanded.png') });
+  await page.keyboard.press('Escape'); assert.equal(await page.locator('.ce-expanded').count(), 0);
+  await button('Wrap').click(); assert.ok(await page.locator('.cm-lineWrapping').isVisible());
+  await button('Find / Replace').click(); await page.getByRole('textbox', { name: 'Find', exact: true }).fill('changed draft');
+  await page.getByRole('textbox', { name: 'Replace', exact: true }).fill('replacement');
+  await page.getByRole('button', { name: 'replace all', exact: true }).click(); assert.match(await editorText(), /replacement/);
+  await page.getByRole('button', { name: 'close', exact: true }).click();
+  page.once('dialog', dialog => dialog.dismiss()); await button('Discard').click(); assert.match(await editorText(), /replacement/);
+  const writesBeforeDiscard = writes.length;
+  page.once('dialog', dialog => dialog.accept()); await button('Discard').click();
+  await page.getByRole('status').filter({ hasText: 'Draft discarded' }).waitFor(); assert.equal(writes.length, writesBeforeDiscard); assert.ok(await button('Save').isDisabled());
+  assert.equal(await page.locator('.cm-insertedLine').count(), 0);
+  await replaceDraft(baseline + '    # keyboard save\n');
+  saveFailure = 'Compose file changed on disk. Reload before saving.';
+  await page.keyboard.press('Control+s'); await page.getByRole('alert').filter({ hasText: 'changed on disk' }).waitFor(); assert.match(await editorText(), /keyboard save/); assert.ok(await button('Discard').isEnabled());
+  saveFailure = '';
+  let releaseSave; delaySave = new Promise(resolve => { releaseSave = resolve; });
+  await editor.click(); await page.keyboard.press('Control+s');
+  await page.waitForFunction(() => document.querySelector('.cm-content')?.getAttribute('aria-readonly') === 'true');
+  await page.keyboard.insertText('MUST_NOT_APPEAR'); assert.doesNotMatch(await editorText(), /MUST_NOT_APPEAR/);
+  releaseSave(); delaySave = null; await page.getByRole('status').filter({ hasText: 'Saved.' }).waitFor(); assert.equal(writes.at(-1).data.revision, 'two');
+  assert.equal(await page.locator('.cm-insertedLine').count(), 0); assert.ok(await button('Save').isDisabled());
+  page.once('dialog', dialog => dialog.accept());
+  const imported = 'services:\n  app:\n    image: nginx:alpine\n';
+  await page.getByLabel('Import Compose file').setInputFiles({ name: 'example.yaml', mimeType: 'text/yaml', buffer: Buffer.from(imported) });
+  await page.getByRole('status').filter({ hasText: 'Imported example.yaml' }).waitFor(); assert.equal(content.includes('nginx'), false);
+  const downloadPromise = page.waitForEvent('download'); await button('Download YAML').click();
+  const download = await downloadPromise; assert.equal(download.suggestedFilename(), 'compose.yaml');
+  const stream = await download.createReadStream(); let downloaded = ''; for await (const chunk of stream) downloaded += chunk.toString(); assert.equal(downloaded, imported);
+  await button('Review changes').click();
+  await button('Fold all').click(); assert.ok(await page.locator('.cm-foldPlaceholder').count()); await button('Unfold').click(); assert.equal(await page.locator('.cm-foldPlaceholder').count(), 0);
+  await button('Go to line').click(); await page.getByRole('textbox', { name: 'Go to line' }).fill('3'); await page.keyboard.press('Enter'); await page.getByText('Ln 3, Col 1 · 4 lines', { exact: true }).waitFor();
+  await button('Indent').click(); assert.match(await editorText(), /      image/); await button('Outdent').click();
+  await button('Comment').click(); assert.match(await editorText(), /# image/); await button('Comment').click();
+  for (const theme of ['Light', 'Dark', 'OLED']) {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.locator('.nav-footer').getByRole('button', { name: theme, exact: true }).click();
+    for (const width of [1920, 768, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${theme} editor overflow ${width}`);
+      await button('Expand editor').click();
+      const expandedBounds = await page.locator('.ce-expanded').boundingBox(); assert.ok(expandedBounds.y >= 0 && expandedBounds.y <= 20, 'Expanded editor must stay inside the viewport');
+      assert.equal(await button('Save').evaluate(element => { const r = element.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === element; }), true, 'Save must be visible above navigation');
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${theme} expanded editor overflow ${width}`);
+      if (theme === 'Dark' && width === 390) await page.screenshot({ path: resolve('artifacts/compose-editor-mobile.png') });
+      await button('Exit expanded view').click();
+    }
+  }
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  page.once('dialog', dialog => dialog.accept()); await button('Discard').click();
+  await page.locator('.sm-stack-row').filter({ hasText: 'tools' }).click(); await page.getByText('View only', { exact: true }).last().waitFor();
+  assert.ok(await button('Save').isDisabled()); assert.ok(await button('Import YAML').isDisabled());
+  const readonly = await editorText(); await editor.click(); await page.keyboard.press('Control+a'); await page.keyboard.insertText('MUST_NOT_APPEAR'); assert.equal(await editorText(), readonly);
   await tab('Images').click(); await button('alpine:3.20').click(); await button('Remove image').click(); await page.getByRole('dialog').getByRole('button', { name: 'Remove images', exact: true }).click(); await page.getByRole('status').filter({ hasText: '1 images removed' }).waitFor(); assert.equal(writes.at(-1).path, `/images/${iid(7)}`);
   await button('↓ Pull image').click(); await page.getByRole('textbox', { name: 'Image reference' }).fill('alpine:3.21'); await page.getByRole('dialog').getByRole('button', { name: 'Pull image', exact: true }).click(); await page.locator('.dm-job summary').filter({ hasText: 'succeeded' }).waitFor(); assert.deepEqual(writes.at(-1).data, { reference: 'alpine:3.21' });
   await button('+ New stack').click(); await page.getByRole('textbox', { name: 'Stack name' }).fill('sample');
+  await page.getByRole('textbox', { name: 'Compose configuration', exact: true }).waitFor();
+  await button('Create stack').click(); await page.getByRole('heading', { name: 'sample', exact: true }).waitFor();
+  assert.deepEqual(writes.at(-1).data.name, 'sample');
+  await button('+ New stack').click(); await page.getByRole('textbox', { name: 'Stack name' }).fill('another-sample');
   page.once('dialog', dialog => dialog.dismiss()); await page.locator('.nav-item').filter({ hasText: /^Home$/ }).click(); assert.ok(await page.getByRole('textbox', { name: 'Stack name' }).isVisible());
   page.once('dialog', dialog => dialog.accept()); await tab('Containers').click(); await button('jellyfin').waitFor();
   for (const theme of ['Light', 'Dark', 'OLED']) { await page.locator('.nav-footer').getByRole('button', { name: theme, exact: true }).click(); for (const resource of ['Containers', 'Images', 'Stacks']) { await tab(resource).click(); for (const width of [1920, 1440, 768, 390, 320]) { await page.setViewportSize({ width, height: 1080 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${theme} ${resource} overflow ${width}`); } await page.setViewportSize({ width: 1920, height: 1080 }); } }

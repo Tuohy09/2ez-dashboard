@@ -4,7 +4,7 @@ Open **Docker → Stacks** in the dashboard. Stack management is now part of the
 It uses Docker Compose directly and shares `/opt/stacks` with the existing Dockge installation.
 
 - **New stack** validates and saves a Compose file without deploying it.
-- **Compose → Validate** checks edits without saving. **Save Compose** validates,
+- **Compose → Validate** checks edits without saving. **Save** validates,
   makes a timestamped backup beside the file, then saves atomically. **Deploy**
   applies the saved configuration using `docker compose up -d`.
 - **Start**, **Stop**, **Restart**, **Pull images**, and **Take down** operate on
@@ -17,6 +17,29 @@ It uses Docker Compose directly and shares `/opt/stacks` with the existing Dockg
 - A stack operation continues when you change tabs. Reopening the stack restores
   its latest operation output. Commands time out after ten minutes; refresh the
   stack to inspect actual state after a timeout or lost connection.
+
+## Compose editor
+
+The existing-stack and new-stack editors include line numbers, YAML syntax
+highlighting, Compose-key suggestions, bracket matching, two-space indentation,
+code folding, undo/redo, find-and-replace, go-to-line, wrapping, and an expanded
+view. The footer tracks the cursor position and whether the draft is modified.
+
+- **Save** validates and backs up the file. **Discard** restores the last loaded
+  or saved version after confirmation, without writing anything to the server.
+  **Reload** fetches the current file from disk and confirms before replacing edits.
+- **Review changes** shows additions and removals against the saved version.
+  Saving resets this comparison to the new saved version.
+- **Import YAML** loads a local file into the draft; it does not save or deploy.
+  **Download YAML** downloads the current draft, including unsaved edits.
+- **Ctrl/Cmd+S** saves (or creates a new stack), **Ctrl/Cmd+Enter** validates an
+  existing stack, **Ctrl/Cmd+F** searches, and **Tab / Shift+Tab** indent/outdent.
+  Press **Esc**, then **Tab** to move keyboard focus out of the editor.
+- Validation errors and conflicting disk revisions preserve the draft. Editing
+  is locked during a save or reload. External and protected stacks stay read-only.
+
+Edits stay in memory, not browser storage. Leaving with an unsaved draft prompts
+for confirmation. Save and Deploy remain separate actions.
 
 Existing project names, container status, working directories, and file locations
 come from Docker's Compose labels. Saved files are also discovered one directory
