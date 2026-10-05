@@ -22,6 +22,8 @@ services:
     environment:
       # Host user the terminal logs in as; root gets a plain `bash -l`.
       TERMINAL_USER: root
+      FILE_BROWSER_SESSION_FILE: /var/lib/2ez-files/sessions.json
+      FILE_BROWSER_BASE: ${FILE_BROWSER_BASE:-https://2ez.dinosaur-banana.ts.net:8084}
       UNMANIC_BASE: ${UNMANIC_BASE:-http://127.0.0.1:8888/unmanic}
       QBT_BASE: ${QBT_BASE:-http://127.0.0.1:8080}
       QBT_USERNAME: ${QBT_USERNAME:-}
@@ -29,6 +31,7 @@ services:
       STACKS_DIR: /opt/stacks
       STACK_HOST_ROOT: /host-root
     volumes:
+      - file-browser-sessions:/var/lib/2ez-files
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /etc/os-release:/host/etc/os-release:ro
@@ -37,3 +40,6 @@ services:
       - /:/host-root:ro
       # Match the host path so Compose resolves relative bind mounts correctly.
       - /opt/stacks:/opt/stacks
+
+volumes:
+  file-browser-sessions:

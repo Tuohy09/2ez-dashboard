@@ -7,6 +7,7 @@ import TWOEZ_CSS from "./2ez.css?raw";
 import DockerManager from "./docker/DockerManager";
 import QBittorrentPage from "./qbittorrent/QBittorrentPage";
 import UnmanicPage from "./unmanic/UnmanicPage";
+import FileBrowserPage from "./files/FileBrowserPage";
 import { unmanicRequest } from "./unmanic/api";
 
 // ─── ANIMATION GATE ──────────────────────────────────────────────
@@ -52,16 +53,17 @@ const SVC = {
 const SERVICE_INDEX = [
   ...["sonarr","radarr","prowlarr","bazarr","beetsflask","slskd","lrcget","audiomuse","lrcgen"].map(id => ({ svcId: id, page: "media-auto", pageLabel: "Media Automation" })),
   ...["jellyfin","navidrome","seerr","immich","nextcloud"].map(id => ({ svcId: id, page: "media-srv", pageLabel: "Media Server" })),
-  ...["cockpit","dockge","speedtest","filebrowser","uptimekuma","wud","notifiarr","upsnap","cronicle"].map(id => ({ svcId: id, page: "mgmt", pageLabel: "Management" })),
+  ...["cockpit","dockge","speedtest","uptimekuma","wud","notifiarr","upsnap","cronicle"].map(id => ({ svcId: id, page: "mgmt", pageLabel: "Management" })),
   { svcId: "qbt",     page: "qbittorrent", pageLabel: "qBittorrent" },
   { svcId: "unmanic", page: "unmanic", pageLabel: "Unmanic" },
+  { svcId: "filebrowser", page: "files", pageLabel: "Files" },
 ].map(e => ({ ...e, name: SVC[e.svcId].name, desc: SVC[e.svcId].desc }));
 
 function openService(event, id) {
   recordServiceClick(id);
-  if (["qbt", "unmanic"].includes(id) && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+  if (["qbt", "unmanic", "filebrowser"].includes(id) && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
     event.preventDefault();
-    window.dispatchEvent(new CustomEvent("2ez-navigate", { detail: id === "qbt" ? "qbittorrent" : "unmanic" }));
+    window.dispatchEvent(new CustomEvent("2ez-navigate", { detail: id === "qbt" ? "qbittorrent" : id === "filebrowser" ? "files" : "unmanic" }));
   }
 }
 
@@ -2855,6 +2857,8 @@ const NAV_ITEMS = [
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="10" width="4" height="4"/><rect x="8" y="10" width="4" height="4"/><rect x="13" y="10" width="4" height="4"/><rect x="8" y="5" width="4" height="4"/><path d="M2 14h18a4 4 0 0 0 1.5-3c.5 1 .8 2 .5 3"/><path d="M5 18a2 2 0 0 0 2 2h6a5 5 0 0 0 5-4"/></svg> },
   { id: "qbittorrent", label: "qBittorrent", shortLabel: "Torrents", abbr: "QB", col: "#3986E8",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg> },
+  { id: "files", label: "Files", shortLabel: "Files", abbr: "FB", col: "#7952D8",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5h6l2 3h10v12H3Z" /></svg> },
   { id: "unmanic", label: "Unmanic", shortLabel: "Unmanic", abbr: "UM", col: "#3986E8",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h17m-4-4 4 4-4 4M21 16H4m4-4-4 4 4 4"/></svg> },
   { id: "media-auto", label: "Media Automation",       shortLabel: "Automate",  abbr: "MA", col: "#A855F7",
@@ -4751,7 +4755,7 @@ export default function App() {
 }
 
 function AppInner() {
-  const [activePage, setActivePage] = useState("home");
+  const [activePage, setActivePage] = useState(() => new URLSearchParams(window.location.search).has("filesPreview") || window.location.hash === "#files" ? "files" : "home");
   const [menuOpen, setMenuOpen]     = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
 
@@ -4850,7 +4854,7 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
-    const open = event => { if (["qbittorrent", "unmanic"].includes(event.detail)) navigate(event.detail); };
+    const open = event => { if (["qbittorrent", "unmanic", "files"].includes(event.detail)) navigate(event.detail); };
     window.addEventListener("2ez-navigate", open);
     return () => window.removeEventListener("2ez-navigate", open);
   }, [navigate]);
@@ -4905,6 +4909,7 @@ function AppInner() {
       {activePage === "home"       && <HomePage            onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "main"       && <MainPage key={layoutResetKey} onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "qbittorrent" && <div className="shell"><PageHeader title="qBittorrent" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><QBittorrentPage /></div>}
+      {activePage === "files" && <div className="shell files-shell"><PageHeader title="Files" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><FileBrowserPage /></div>}
       {activePage === "unmanic" && <div className="shell"><PageHeader title="Unmanic" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><UnmanicPage /></div>}
       {activePage === "docker"     && <div className="shell"><PageHeader title="Docker" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><DockerManager onDirtyChange={onStackDirtyChange} /></div>}
       {activePage === "media-auto" && <MediaAutomationPage onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}

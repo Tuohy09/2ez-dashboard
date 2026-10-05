@@ -8,6 +8,7 @@ import stackManager from './stack-manager.js'
 import { createQbtProxy } from './qbt-proxy.js'
 import { createDockerManager } from './docker-manager.js'
 import { createUnmanicProxy } from './unmanic-proxy.js'
+import { createFileBrowserProxy } from './file-browser-proxy.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -15,6 +16,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 app.use('/qbt', createQbtProxy())
 app.use('/um-api', createUnmanicProxy())
+app.use('/files-api', createFileBrowserProxy())
 app.use('/docker-api', createDockerManager())
 
 // System metrics — read straight from the Linux kernel (replaces Glances)
