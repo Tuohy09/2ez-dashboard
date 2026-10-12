@@ -20,11 +20,19 @@ services:
       - seccomp:unconfined
       - apparmor:unconfined
     environment:
+      DASHBOARD_ORIGINS: ${DASHBOARD_ORIGINS:-https://2ez.dinosaur-banana.ts.net,http://127.0.0.1:3080,http://localhost:3080}
+      JELLYFIN_API_KEY: ${JELLYFIN_API_KEY:-}
+      NAVIDROME_AUTH_PARAMS: ${NAVIDROME_AUTH_PARAMS:-}
+      SPEEDTEST_API_TOKEN: ${SPEEDTEST_API_TOKEN:-}
       # Host user the terminal logs in as; root gets a plain `bash -l`.
       TERMINAL_USER: root
       FILE_BROWSER_SESSION_FILE: /var/lib/2ez-files/sessions.json
       FILE_BROWSER_BASE: ${FILE_BROWSER_BASE:-https://2ez.dinosaur-banana.ts.net:8084}
       UNMANIC_BASE: ${UNMANIC_BASE:-http://127.0.0.1:8888/unmanic}
+      SONARR_BASE: ${SONARR_BASE:-http://127.0.0.1:8989/sonarr}
+      SONARR_API_KEY: ${SONARR_API_KEY:-}
+      RADARR_BASE: ${RADARR_BASE:-http://127.0.0.1:7878/radarr}
+      RADARR_API_KEY: ${RADARR_API_KEY:-}
       QBT_BASE: ${QBT_BASE:-http://127.0.0.1:8080}
       QBT_USERNAME: ${QBT_USERNAME:-}
       QBT_PASSWORD: ${QBT_PASSWORD:-}

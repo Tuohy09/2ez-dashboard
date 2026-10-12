@@ -1,6 +1,6 @@
 import express from 'express'
 import { randomBytes } from 'node:crypto'
-import { Readable } from 'node:stream'
+import { openDownload } from './download-stream.js'
 import { mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs'
 import path from 'node:path'
 
@@ -145,9 +145,13 @@ export function createFileBrowserProxy({ base = process.env.FILE_BROWSER_BASE ||
   const read = async (req, res, kind) => {
     const encoded = resolvePath(req)
     if (encoded === null) return res.status(400).json({ error: 'Invalid file path. Choose a folder in the browser.' })
+    let download
     try {
-      const response = await upstream(`${kind === 'resources' ? 'resources' : 'raw'}${encoded}`, { headers: { 'X-Auth': req.filesSession.token, ...(kind === 'raw' && req.get('Range') ? { Range: req.get('Range') } : {}) } })
+      const headers = { 'X-Auth': req.filesSession.token, ...(kind === 'raw' && req.get('Range') ? { Range: req.get('Range') } : {}) }
+      if (kind === 'raw') download = await openDownload(`${base.replace(/\/$/, '')}/api/raw${encoded}`, { fetcher, headers, client: res })
+      const response = download ? download.response : await upstream(`${kind === 'resources' ? 'resources' : 'raw'}${encoded}`, { headers })
       if (!response.ok) {
+        await download?.cancel()
         if (response.status === 401) removeSession(sessionId(req))
         return res.status([401, 403, 404, 416].includes(response.status) ? response.status : 502).json({ error: response.status === 403 ? 'Your File Browser account cannot access this folder. Choose another folder or ask the administrator for access.' : response.status === 401 ? 'Your session expired. Sign in to File Browser again.' : response.status === 404 ? 'This file or folder no longer exists. Open the parent folder and refresh.' : 'File Browser could not read this file. Refresh and try again.' })
       }
@@ -170,11 +174,11 @@ export function createFileBrowserProxy({ base = process.env.FILE_BROWSER_BASE ||
       res.status(response.status).set('Content-Type', inline ? inlineType : 'application/octet-stream')
       res.set('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(path.basename(req.query.path || 'download'))}`)
       for (const header of ['content-length', 'content-range', 'accept-ranges']) if (response.headers.has(header)) res.set(header, response.headers.get(header))
-      const stream = Readable.fromWeb(response.body)
+      const stream = download.stream()
       res.on('close', () => stream.destroy())
       stream.on('error', () => res.destroy())
       stream.pipe(res)
-    } catch { if (!res.headersSent) res.status(502).json({ error: 'Cannot reach File Browser. Check the service connection and try again.' }) }
+    } catch { await download?.cancel(); if (!res.headersSent) res.status(502).json({ error: 'Cannot reach File Browser. Check the service connection and try again.' }) }
   }
   router.get('/resources', (req, res) => read(req, res, 'resources'))
   router.get('/raw', (req, res) => read(req, res, 'raw'))

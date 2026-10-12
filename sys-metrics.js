@@ -10,7 +10,9 @@ import express from 'express'
 import fs from 'fs'
 import os from 'os'
 import http from 'http'
-import { execSync, execFileSync } from 'child_process'
+import { execFile, execFileSync } from 'child_process'
+import { promisify } from 'node:util'
+const execFileAsync = promisify(execFile)
 
 // When mounted into a container we read the host's /proc and /sys via
 // the bind mounts declared in docker-compose; running natively on the
@@ -70,7 +72,8 @@ function parseCpuStat() {
     const label = parts[0]
     const vals = parts.slice(1).map(num)
     const idle = (vals[3] || 0) + (vals[4] || 0)        // idle + iowait
-    const total = vals.reduce((a, b) => a + b, 0)
+    // guest time is already included in user/nice counters.
+    const total = vals.slice(0, 8).reduce((a, b) => a + b, 0)
     if (label === 'cpu') out.total = [idle, total]
     else out.cores[parseInt(label.slice(3), 10)] = [idle, total]
   }
@@ -264,28 +267,6 @@ function scheduleDockerSampler() {
 scheduleDockerSampler()
 
 // ─── Docker management (start/stop/logs/inspect) ─────────────────
-// Lifecycle action (start/stop/restart/delete). Docker replies 204 on
-// success; anything else surfaces the daemon's error message.
-function dockerAction(method, path) {
-  return new Promise((resolve, reject) => {
-    const req = http.request({ socketPath: DOCKER_SOCK, path, method, timeout: 12000 }, (res) => {
-      let body = ''
-      res.on('data', c => (body += c))
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) resolve({ ok: true })
-        else {
-          let msg = body
-          try { msg = JSON.parse(body).message || body } catch { /* keep raw */ }
-          reject(new Error(`docker ${res.statusCode}: ${String(msg).slice(0, 300)}`))
-        }
-      })
-    })
-    req.on('error', reject)
-    req.on('timeout', () => req.destroy(new Error('docker timeout')))
-    req.end()
-  })
-}
-
 // Raw byte stream (used for container logs).
 function dockerRaw(path) {
   return new Promise((resolve, reject) => {
@@ -430,21 +411,25 @@ function formatUptime(sec) {
   return parts.join(' ')
 }
 
-function readFilesystems() {
-  let out
-  try { out = execSync('df -B1', { encoding: 'utf8', timeout: 3000 }) }
-  catch { return [] }
+let filesystemCache = null, filesystemAt = 0, filesystemPending = null
+async function readFilesystems() {
+  if (filesystemCache && Date.now() - filesystemAt < 10000) return filesystemCache
+  if (!filesystemPending) filesystemPending = collectFilesystems().then(rows => { filesystemCache = rows; filesystemAt = Date.now(); return rows }).finally(() => { filesystemPending = null })
+  return filesystemPending
+}
+async function collectFilesystems() {
+  const { stdout: out } = await execFileAsync('df', ['-B1', '--output=source,size,used,avail,pcent,target'], { encoding: 'utf8', timeout: 3000 })
   const lines = out.trim().split('\n').slice(1)
   const rows = []
   for (const line of lines) {
     const t = line.trim().split(/\s+/)
     if (t.length < 6) continue
-    const size = num(t[t.length - 5])
-    const used = num(t[t.length - 4])
-    const free = num(t[t.length - 3])
-    const percent = num(t[t.length - 2].replace('%', ''))
+    const size = num(t[1])
+    const used = num(t[2])
+    const free = num(t[3])
+    const percent = num(t[4].replace('%', ''))
     const mnt = t.slice(5).join(' ')            // mount point (may contain spaces)
-    const device = t.slice(0, t.length - 5).join(' ')
+    const device = t[0]
     if (size <= 0) continue
 
     // Real physical devices only, mounted under the host-root bind mount.
@@ -464,12 +449,14 @@ function readFilesystems() {
 // Per-process CPU% needs a delta; keep the previous snapshot and
 // measure against whenever /processlist was last requested.
 let prevProc = null // { ts, totalJiffies, pids: Map(pid → jiffies) }
+let processCache = null, processAt = 0
 function readProcesses() {
+  if (processCache && Date.now() - processAt < 2000) return processCache
   const memTotal = readMeminfo().MemTotal || 1
   const uname = users()
   let totalJiffies = 0
   const cpuLine = read(`${PROC}/stat`).split('\n').find(l => l.startsWith('cpu '))
-  if (cpuLine) totalJiffies = cpuLine.trim().split(/\s+/).slice(1).map(num).reduce((a, b) => a + b, 0)
+  if (cpuLine) totalJiffies = cpuLine.trim().split(/\s+/).slice(1, 9).map(num).reduce((a, b) => a + b, 0)
   const ncpu = os.cpus().length || 1
   const totalDelta = prevProc ? totalJiffies - prevProc.totalJiffies : 0
 
@@ -517,6 +504,7 @@ function readProcesses() {
     })
   }
   prevProc = { ts: Date.now(), totalJiffies, pids }
+  processCache = list; processAt = Date.now()
   return list
 }
 
@@ -618,7 +606,7 @@ router.get('/network/history', (req, res) => send(res, () => {
   return pts
 }))
 router.get('/diskio', (_req, res) => send(res, () => state.diskio))
-router.get('/fs', (_req, res) => send(res, readFilesystems))
+router.get('/fs', (_req, res) => sendAsync(res, readFilesystems))
 router.get('/sensors', (_req, res) => send(res, readSensors))
 router.get('/processlist', (_req, res) => send(res, readProcesses))
 
@@ -663,9 +651,10 @@ router.get('/docker/:id/inspect', (req, res) => sendAsync(res, async () => {
   return extractInspect(info)
 }))
 
-router.post('/docker/:id/start',   (req, res) => sendAsync(res, () => dockerAction('POST', `/containers/${req.params.id}/start`)))
-router.post('/docker/:id/stop',    (req, res) => sendAsync(res, () => dockerAction('POST', `/containers/${req.params.id}/stop`)))
-router.post('/docker/:id/restart', (req, res) => sendAsync(res, () => dockerAction('POST', `/containers/${req.params.id}/restart`)))
-router.delete('/docker/:id',       (req, res) => sendAsync(res, () => dockerAction('DELETE', `/containers/${req.params.id}?force=1`)))
+// Mutations live exclusively in /docker-api, with origin and self-protection checks.
+router.all('/docker/:id{/:action}', (req, res, next) => {
+  if (['GET', 'HEAD'].includes(req.method)) return next()
+  res.status(410).json({ error: 'Use the protected Docker manager API.' })
+})
 
 export default router

@@ -3,16 +3,18 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  build: { sourcemap: true },
+  build: { sourcemap: false },
   server: {
     proxy: {
+      '/widget-api': { target: 'http://127.0.0.1:3080', changeOrigin: false },
+      '/arr-api': { target: process.env.ARR_PROXY_TARGET || 'http://127.0.0.1:3080', changeOrigin: false },
       '/docker-api': { target: process.env.DOCKER_PROXY_TARGET || 'http://127.0.0.1:3080', changeOrigin: false },
       '/files-api': { target: process.env.FILES_PROXY_TARGET || 'http://127.0.0.1:3080', changeOrigin: false },
       '/um-api': { target: process.env.UNMANIC_PROXY_TARGET || 'http://127.0.0.1:3080', changeOrigin: false },
       '/qbt': { target: process.env.QBT_PROXY_TARGET || 'http://127.0.0.1:3080', changeOrigin: false },
       '/stack-api': { target: 'http://127.0.0.1:3080', changeOrigin: false },
-      '/sys-api':   { target: 'http://192.168.0.170:3080',  changeOrigin: true },
-      '/terminal':  { target: 'http://192.168.0.170:3080',  changeOrigin: true, ws: true },
+      '/sys-api':   { target: 'http://127.0.0.1:3080', changeOrigin: false },
+      '/terminal':  { target: 'http://127.0.0.1:3080', changeOrigin: false, ws: true },
       '/speedtest': { target: 'http://192.168.0.170:8083',  changeOrigin: true, rewrite: (p) => p.replace(/^\/speedtest/, '') },
     }
   }

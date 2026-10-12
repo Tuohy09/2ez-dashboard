@@ -28,7 +28,7 @@ export default defineConfig([
   },
   {
     // Node backend files (Express server + system-metrics reader)
-    files: ['server.js', 'sys-metrics.js', 'stack-manager.js', 'qbt-proxy.js', 'unmanic-proxy.js', 'file-browser-proxy.js', 'docker-manager.js', 'tests/**/*.js', 'vite.config.js'],
+    files: ['server.js', 'access-policy.js', 'terminal-server.js', 'download-stream.js', 'widget-proxy.js', 'upstream-proxy.js', 'sys-metrics.js', 'stack-manager.js', 'qbt-proxy.js', 'unmanic-proxy.js', 'file-browser-proxy.js', 'docker-manager.js', 'arr-proxy.js', 'tests/**/*.js', 'vite.config.js'],
     languageOptions: {
       globals: globals.node,
       parserOptions: { sourceType: 'module' },

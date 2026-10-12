@@ -1,5 +1,5 @@
 import express from 'express'
-import { createProxyMiddleware } from 'http-proxy-middleware'
+import { createUpstreamProxy } from './upstream-proxy.js'
 import { fileURLToPath } from 'url'
 import { spawnSync } from 'child_process'
 import path from 'path'
@@ -9,13 +9,24 @@ import { createQbtProxy } from './qbt-proxy.js'
 import { createDockerManager } from './docker-manager.js'
 import { createUnmanicProxy } from './unmanic-proxy.js'
 import { createFileBrowserProxy } from './file-browser-proxy.js'
+import { createArrProxy } from './arr-proxy.js'
+import { createAccessPolicy } from './access-policy.js'
+import { attachTerminal } from './terminal-server.js'
+import { createWidgetProxy } from './widget-proxy.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // ── Express app ──────────────────────────────────────────────────
 const app = express()
+const access = createAccessPolicy()
+app.disable('x-powered-by')
+app.use(access.middleware)
+app.get('/healthz', (_req, res) => res.set('Cache-Control', 'no-store').json({ ok: true }))
+app.use('/widget-api', createWidgetProxy())
 app.use('/qbt', createQbtProxy())
 app.use('/um-api', createUnmanicProxy())
+app.use('/arr-api/sonarr', createArrProxy({ service: 'sonarr' }))
+app.use('/arr-api/radarr', createArrProxy({ service: 'radarr' }))
 app.use('/files-api', createFileBrowserProxy())
 app.use('/docker-api', createDockerManager())
 
@@ -27,25 +38,24 @@ app.use('/stack-api', stackManager)
 const terminalInfo = { mode: 'disabled', label: 'off', detail: 'terminal backend unavailable' }
 app.get('/terminal/info', (_req, res) => res.json(terminalInfo))
 
-// Standard upstream proxies
-// app.use('/mount', ...) causes Express to strip the mount path before the middleware
-// sees req.url, so pathRewrite re-prepends it before forwarding to the upstream.
-app.use('/unmanic',   createProxyMiddleware({ target: 'http://127.0.0.1:8888',  changeOrigin: true, pathRewrite: { '^': '/unmanic'   } }))
-app.use('/jellyfin',  createProxyMiddleware({ target: 'http://127.0.0.1:8096',  changeOrigin: true, pathRewrite: { '^': '/jellyfin'  } }))
-app.use('/navidrome', createProxyMiddleware({ target: 'http://127.0.0.1:4533',  changeOrigin: true, pathRewrite: { '^': '/navidrome' } }))
-app.use('/speedtest', createProxyMiddleware({ target: 'http://127.0.0.1:8083',  changeOrigin: true, pathRewrite: { '^': ''           } }))
+// Local development/full-UI routes; production Caddy also serves these upstreams.
+app.use('/unmanic', createUpstreamProxy('http://127.0.0.1:8888', '/unmanic'))
+app.use('/jellyfin', createUpstreamProxy('http://127.0.0.1:8096', '/jellyfin'))
+app.use('/navidrome', createUpstreamProxy('http://127.0.0.1:4533', '/navidrome'))
+app.use('/speedtest', createUpstreamProxy('http://127.0.0.1:8083'))
 
 // Vite build output
-app.use(express.static(path.join(__dirname, 'dist')))
+app.use('/assets', express.static(path.join(__dirname, 'dist/assets'), { maxAge: '1y', immutable: true }))
+app.use(express.static(path.join(__dirname, 'dist'), { setHeaders: res => res.set('Cache-Control', 'no-cache') }))
 
 // SPA fallback
 app.get(/.*/, (_req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'))
+  res.set('Cache-Control', 'no-cache').sendFile(path.join(__dirname, 'dist', 'index.html'))
 })
 
 const PORT = process.env.PORT || 3080
-const server = app.listen(PORT, () => {
-  console.log(`[2ez] server running on http://0.0.0.0:${PORT}`)
+const server = app.listen(PORT, '127.0.0.1', () => {
+  console.log(`[2ez] server running on http://127.0.0.1:${PORT}`)
 })
 
 // ── WebSocket terminal ────────────────────────────────────────────
@@ -115,44 +125,6 @@ async function setupTerminal(httpServer) {
     : { mode: 'container', label: 'container', detail: `${path.basename(shell.file)} inside the dashboard container` })
   console.log(`[terminal] shell mode: ${terminalInfo.mode} — ${terminalInfo.detail}`)
 
-  const wss = new WebSocketServer({ server: httpServer, path: '/terminal' })
-  wss.on('connection', (ws) => {
-    let term
-    try {
-      term = pty.spawn(shell.file, shell.args, {
-        name: 'xterm-color',
-        cols: 80,
-        rows: 24,
-        cwd: shell.cwd,
-        env: shell.env,
-      })
-    } catch (err) {
-      try { ws.send(`\r\n\x1b[31mFailed to start shell: ${err.message}\x1b[0m\r\n`); ws.close() } catch { /* ignore */ }
-      return
-    }
-
-    console.log(`[terminal] session opened (${terminalInfo.mode})`)
-    term.onData((d) => { try { if (ws.readyState === ws.OPEN) ws.send(d) } catch { /* ignore */ } })
-    term.onExit(({ exitCode }) => {
-      // A host shell that dies straight away usually means nsenter lost its
-      // privileges (compose edited, container recreated) — say so rather
-      // than leaving a blank pane behind.
-      if (terminalInfo.mode === 'host' && exitCode !== 0) {
-        try { ws.send(`\r\n\x1b[31m[host shell exited ${exitCode} — check the container still has pid:host and CAP_SYS_ADMIN]\x1b[0m\r\n`) } catch { /* ignore */ }
-      }
-      try { ws.close() } catch { /* ignore */ }
-    })
-
-    ws.on('message', (raw) => {
-      let m
-      try { m = JSON.parse(raw.toString()) } catch { return }
-      if (m.type === 'input' && typeof m.data === 'string') term.write(m.data)
-      else if (m.type === 'resize' && m.cols > 0 && m.rows > 0) { try { term.resize(m.cols, m.rows) } catch { /* ignore */ } }
-    })
-    const kill = () => { try { term.kill() } catch { /* ignore */ } }
-    ws.on('close', () => { console.log('[terminal] session closed'); kill() })
-    ws.on('error', kill)
-  })
-  console.log('[terminal] websocket endpoint ready at /terminal')
+  attachTerminal({ httpServer, WebSocketServer, pty, shell, permits: access.permits })
 }
 setupTerminal(server)

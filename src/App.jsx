@@ -1,14 +1,13 @@
-import { useState, useEffect, useRef, useCallback, forwardRef, createContext, useContext } from "react";
+import { lazy, Suspense, useState, useEffect, useRef, useCallback, forwardRef, createContext, useContext } from "react";
 import { createPortal } from "react-dom";
-import { Terminal } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
-import "@xterm/xterm/css/xterm.css";
 import TWOEZ_CSS from "./2ez.css?raw";
-import DockerManager from "./docker/DockerManager";
-import QBittorrentPage from "./qbittorrent/QBittorrentPage";
-import UnmanicPage from "./unmanic/UnmanicPage";
-import FileBrowserPage from "./files/FileBrowserPage";
+const DockerManager = lazy(() => import("./docker/DockerManager"));
+const QBittorrentPage = lazy(() => import("./qbittorrent/QBittorrentPage"));
+const UnmanicPage = lazy(() => import("./unmanic/UnmanicPage"));
+const FileBrowserPage = lazy(() => import("./files/FileBrowserPage"));
 import { unmanicRequest } from "./unmanic/api";
+const ArrPage = lazy(() => import("./arr/ArrPage"));
+import ArrWidget from "./arr/ArrWidget";
 
 // ─── ANIMATION GATE ──────────────────────────────────────────────
 let appMounted = false;
@@ -16,12 +15,10 @@ let appMounted = false;
 // ─── CONFIG ──────────────────────────────────────────────────────
 const SYS_API       = "/sys-api";
 const POLL_INTERVAL = 2000;
-const JF_KEY        = "176d8ddc607e4278b4f198723b69bd9e";
-const NAV_PARAMS    = "u=tuohy&t=c3414658e4154ef03e5453c495b3b06f&s=poopy1&v=1.16.1&c=2ez-dashboard&f=json";
-const ST_TOKEN      = "FEXsBlewacEQZtiCoU3DQVSyJ49iVDlbZjPXqRDQ86093df3";
 
 // ─── SERVICES REGISTRY ───────────────────────────────────────────
 const SVC = {
+  "pc-command-centre": { id: "pc-command-centre", name: "PC Command Centre", url: "https://2ez.dinosaur-banana.ts.net:8443", abbr: "PC", col: "#3B82F6", desc: "PC controls & monitoring" },
   audiomuse:   { id: "audiomuse",   name: "AudioMuse AI",   url: "https://2ez.dinosaur-banana.ts.net:8001",        abbr: "AM", col: "#A855F7", desc: "Music analysis & playlists" },
   lrcgen:      { id: "lrcgen",      name: "LRC Generator",  url: "https://2ez.dinosaur-banana.ts.net/lrcgen/",    abbr: "LG", col: "#F59E0B", desc: "Synced lyrics generator"    },
   notifiarr:   { id: "notifiarr",   name: "Notifiarr",      url: "http://2ez.dinosaur-banana.ts.net:5454",        abbr: "NF", col: "#EC4899", desc: "Notifications & integrations" },
@@ -51,9 +48,11 @@ const SVC = {
 
 // ─── SERVICE SEARCH INDEX ────────────────────────────────────────
 const SERVICE_INDEX = [
-  ...["sonarr","radarr","prowlarr","bazarr","beetsflask","slskd","lrcget","audiomuse","lrcgen"].map(id => ({ svcId: id, page: "media-auto", pageLabel: "Media Automation" })),
+  { svcId: "sonarr", page: "sonarr", pageLabel: "Sonarr" },
+  { svcId: "radarr", page: "radarr", pageLabel: "Radarr" },
+  ...["prowlarr","bazarr","beetsflask","slskd","lrcget","audiomuse","lrcgen"].map(id => ({ svcId: id, page: "media-auto", pageLabel: "Media Automation" })),
   ...["jellyfin","navidrome","seerr","immich","nextcloud"].map(id => ({ svcId: id, page: "media-srv", pageLabel: "Media Server" })),
-  ...["cockpit","dockge","speedtest","uptimekuma","wud","notifiarr","upsnap","cronicle"].map(id => ({ svcId: id, page: "mgmt", pageLabel: "Management" })),
+  ...["cockpit","dockge","speedtest","uptimekuma","wud","notifiarr","upsnap","cronicle","pc-command-centre"].map(id => ({ svcId: id, page: "mgmt", pageLabel: "Management" })),
   { svcId: "qbt",     page: "qbittorrent", pageLabel: "qBittorrent" },
   { svcId: "unmanic", page: "unmanic", pageLabel: "Unmanic" },
   { svcId: "filebrowser", page: "files", pageLabel: "Files" },
@@ -61,9 +60,9 @@ const SERVICE_INDEX = [
 
 function openService(event, id) {
   recordServiceClick(id);
-  if (["qbt", "unmanic", "filebrowser"].includes(id) && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+  if (["qbt", "unmanic", "filebrowser", "sonarr", "radarr"].includes(id) && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
     event.preventDefault();
-    window.dispatchEvent(new CustomEvent("2ez-navigate", { detail: id === "qbt" ? "qbittorrent" : id === "filebrowser" ? "files" : "unmanic" }));
+    window.dispatchEvent(new CustomEvent("2ez-navigate", { detail: id === "qbt" ? "qbittorrent" : id === "filebrowser" ? "files" : id }));
   }
 }
 
@@ -109,6 +108,7 @@ function timeAgo(ts) {
 
 // ─── SERVICE ICONS ────────────────────────────────────────────────
 const ICON_PATHS = {
+  "pc-command-centre": <><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4M6 10h3l2-4 3 8 2-4h2"/></>,
   audiomuse: <><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M3 4v4M1 6h4"/></>,
   lrcgen: <><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></>,
   notifiarr: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></>,
@@ -1416,32 +1416,32 @@ function DataProvider({ children }) {
 
   // ── Jellyfin sessions (15s) + counts (60s) ────────────────────
   useEffect(() => {
-    function run() { fetchService(`/jellyfin/Sessions?api_key=${JF_KEY}`).then(readServiceResponse).then(sessions => { if (!Array.isArray(sessions)) throw new Error("error"); setJellyfin(prev => ({ ...prev, sessions })); setServiceStatus(prev => ({ ...prev, jellyfin: "ready" })); }).catch(error => { setJellyfin({ sessions: null, counts: null }); setServiceStatus(prev => ({ ...prev, jellyfin: error.message === "denied" ? "denied" : "error" })); }); }
+    function run() { fetchService("/widget-api/jellyfin/sessions").then(readServiceResponse).then(sessions => { if (!Array.isArray(sessions)) throw new Error("error"); setJellyfin(prev => ({ ...prev, sessions })); setServiceStatus(prev => ({ ...prev, jellyfin: "ready" })); }).catch(error => { setJellyfin({ sessions: null, counts: null }); setServiceStatus(prev => ({ ...prev, jellyfin: error.message === "denied" ? "denied" : "error" })); }); }
     run(); const id = setInterval(run, 15000); return () => clearInterval(id);
   }, []);
   useEffect(() => {
-    function run() { fetchService(`/jellyfin/Items/Counts?api_key=${JF_KEY}`).then(readServiceResponse).then(counts => setJellyfin(prev => ({ ...prev, counts }))).catch(() => {}); }
+    function run() { fetchService("/widget-api/jellyfin/counts").then(readServiceResponse).then(counts => setJellyfin(prev => ({ ...prev, counts }))).catch(() => {}); }
     run(); const id = setInterval(run, 60000); return () => clearInterval(id);
   }, []);
 
   // ── Navidrome now-playing (10s) · artists (120s) · albums (60s)
   useEffect(() => {
     function run() {
-      fetchService(`/navidrome/rest/getNowPlaying.view?${NAV_PARAMS}`).then(readServiceResponse)
+      fetchService("/widget-api/navidrome/playing").then(readServiceResponse)
         .then(d => { if (!d["subsonic-response"]?.nowPlaying) throw new Error("error"); const entry = d["subsonic-response"].nowPlaying.entry || []; setNavidrome(prev => ({ ...prev, nowPlaying: Array.isArray(entry) ? entry : [entry].filter(Boolean) })); setServiceStatus(prev => ({ ...prev, navidrome: "ready" })); }).catch(error => { setNavidrome({ nowPlaying: null, artistCount: null, recentAlbums: null }); setServiceStatus(prev => ({ ...prev, navidrome: error.message === "denied" ? "denied" : "error" })); });
     }
     run(); const id = setInterval(run, 10000); return () => clearInterval(id);
   }, []);
   useEffect(() => {
     function run() {
-      fetchService(`/navidrome/rest/getArtists.view?${NAV_PARAMS}`).then(readServiceResponse)
+      fetchService("/widget-api/navidrome/artists").then(readServiceResponse)
         .then(d => { const idx = Array.isArray(d["subsonic-response"]?.artists?.index) ? d["subsonic-response"].artists.index : []; setNavidrome(prev => ({ ...prev, artistCount: idx.reduce((n, i) => n + (i.artist?.length || 0), 0) })); }).catch(() => {});
     }
     run(); const id = setInterval(run, 120000); return () => clearInterval(id);
   }, []);
   useEffect(() => {
     function run() {
-      fetchService(`/navidrome/rest/getAlbumList2.view?type=newest&size=3&${NAV_PARAMS}`).then(readServiceResponse)
+      fetchService("/widget-api/navidrome/albums").then(readServiceResponse)
         .then(d => { const album = d["subsonic-response"]?.albumList2?.album; setNavidrome(prev => ({ ...prev, recentAlbums: Array.isArray(album) ? album : [] })); }).catch(() => {});
     }
     run(); const id = setInterval(run, 60000); return () => clearInterval(id);
@@ -1450,7 +1450,7 @@ function DataProvider({ children }) {
   // ── Speedtest (5 min) ─────────────────────────────────────────
   useEffect(() => {
     function run() {
-      fetchService("/speedtest/api/v1/results/latest", { headers: { Authorization: `Bearer ${ST_TOKEN}` } }).then(readServiceResponse)
+      fetchService("/widget-api/speedtest/latest").then(readServiceResponse)
         .then(d => { setSpeedtest({ result: d?.data ?? null }); setServiceStatus(prev => ({ ...prev, speedtest: "ready" })); }).catch(error => { setSpeedtest({ result: null }); setServiceStatus(prev => ({ ...prev, speedtest: error.message === "denied" ? "denied" : "error" })); });
     }
     run(); const id = setInterval(run, 300000); return () => clearInterval(id);
@@ -2861,6 +2861,8 @@ const NAV_ITEMS = [
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5h6l2 3h10v12H3Z" /></svg> },
   { id: "unmanic", label: "Unmanic", shortLabel: "Unmanic", abbr: "UM", col: "#3986E8",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h17m-4-4 4 4-4 4M21 16H4m4-4-4 4 4 4"/></svg> },
+  { id: "sonarr", label: "Sonarr", shortLabel: "Sonarr", abbr: "SN", col: "#7952D8", icon: <SvcIcon id="sonarr" color="currentColor" /> },
+  { id: "radarr", label: "Radarr", shortLabel: "Radarr", abbr: "RD", col: "#7952D8", icon: <SvcIcon id="radarr" color="currentColor" /> },
   { id: "media-auto", label: "Media Automation",       shortLabel: "Automate",  abbr: "MA", col: "#A855F7",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="8" width="20" height="14" rx="2"/><path d="M2 13h20"/><path d="M4 8V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/><path d="M7 6l2 2M13 5l2 3"/></svg> },
   { id: "media-srv",  label: "Media Server",           shortLabel: "Media",     abbr: "MS", col: "#00A4DC",
@@ -3844,7 +3846,7 @@ const SERVICE_GROUPS = {
   ],
   "media-srv": [{ title: "Your libraries", description: "Requests, photos and personal files.", ids: ["seerr", "immich", "nextcloud"] }],
   mgmt: [
-    { title: "Host & storage", description: "Manage the machine and its files.", ids: ["cockpit", "dockge", "filebrowser", "upsnap"] },
+    { title: "Host & storage", description: "Manage the machine and its files.", ids: ["cockpit", "dockge", "filebrowser", "upsnap", "pc-command-centre"] },
     { title: "Monitoring & jobs", description: "Track availability, updates and scheduled work.", ids: ["uptimekuma", "wud", "notifiarr", "cronicle"] },
   ],
 };
@@ -3885,7 +3887,7 @@ function ServiceWorkspace({ pageKey, title, description, activity, children, onE
       {activity && <div className={`service-activity activity-${pageKey}`}>{activity}</div>}
       <div className="directory-toolbar"><p className="eyebrow">SERVICE DIRECTORY</p><label className="directory-filter"><SearchIcon /><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Filter services…" aria-label="Filter services" />{query && <button onClick={() => setQuery("")} aria-label="Clear service filter">×</button>}</label></div>
       <ServiceDirectory groups={SERVICE_GROUPS[pageKey]} query={query} />
-      <p className="directory-note">Services open in a new tab. Running labels reflect reported container state.</p>
+      <p className="directory-note">Integrated services open in the dashboard; other services open in a new tab. Running labels reflect reported container state.</p>
     </>}
   </>;
 }
@@ -3934,7 +3936,7 @@ function MediaAutomationPage({ onMenuToggle, onNavigate, bellProps }) {
   const defaultIds = ["sonarr", "radarr", "prowlarr", "bazarr", "beetsflask", "slskd", "lrcget", "audiomuse", "lrcgen"];
   const [mobileOrder, setMobileOrder] = useMobileOrder("media-auto", defaultIds);
   const [editOpen, setEditOpen] = useState(false);
-  const items = defaultIds.map(id => ({ id, node: <SvcCard id={id} /> }));
+  const items = defaultIds.map(id => ({ id, node: ["sonarr", "radarr"].includes(id) ? <ArrWidget service={id} /> : <SvcCard id={id} /> }));
   const modalItems = defaultIds.map(id => ({ id, label: SVC[id]?.name ?? id }));
   const defaultSizes = Object.fromEntries(defaultIds.map(id => [id, "compact"]));
   const defaultPositions = {
@@ -3946,7 +3948,7 @@ function MediaAutomationPage({ onMenuToggle, onNavigate, bellProps }) {
     <div className="shell">
       <PageHeader title="Media Automation" onMenuToggle={onMenuToggle} onNavigate={onNavigate} bellProps={bellProps} />
       <div className="page-content">
-        <ServiceWorkspace pageKey="media-auto" title="Media automation." description="Find your next watch. Keep your music and lyrics in order." onEditLayout={() => setEditOpen(true)}>
+        <ServiceWorkspace pageKey="media-auto" title="Media automation." description="Find your next watch. Keep your music and lyrics in order." onEditLayout={() => setEditOpen(true)} activity={<><ArrWidget service="sonarr" /><ArrWidget service="radarr" /></>}>
 
         <DraggableGrid pageKey="media-auto" items={items} resizable={new Set()} defaultSizes={defaultSizes} defaultPositions={defaultPositions} mobileOrder={mobileOrder} className="half-mobile" onReorder={setMobileOrder} />
         </ServiceWorkspace>
@@ -3990,7 +3992,7 @@ function MediaServerPage({ onMenuToggle, onNavigate, bellProps }) {
 
 // ─── MANAGEMENT PAGE ─────────────────────────────────────────────
 function ManagementPage({ onMenuToggle, onNavigate, bellProps }) {
-  const defaultIds = ["cockpit", "dockge", "speedtest", "filebrowser", "uptimekuma", "wud", "notifiarr", "upsnap", "cronicle"];
+  const defaultIds = ["cockpit", "dockge", "speedtest", "filebrowser", "uptimekuma", "wud", "notifiarr", "upsnap", "cronicle", "pc-command-centre"];
   const [mobileOrder, setMobileOrder] = useMobileOrder("mgmt", defaultIds);
   const [editOpen, setEditOpen] = useState(false);
   const items = [
@@ -4000,13 +4002,13 @@ function ManagementPage({ onMenuToggle, onNavigate, bellProps }) {
     { id: "filebrowser", node: <SvcCard id="filebrowser" /> },
     { id: "uptimekuma",  node: <SvcCard id="uptimekuma" /> },
     { id: "wud",         node: <SvcCard id="wud" /> },
-    ...["notifiarr", "upsnap", "cronicle"].map(id => ({ id, node: <SvcCard id={id} /> })),
+    ...["notifiarr", "upsnap", "cronicle", "pc-command-centre"].map(id => ({ id, node: <SvcCard id={id} /> })),
   ];
   const modalItems = defaultIds.map(id => ({ id, label: SVC[id]?.name ?? id }));
-  const defaultSizes = { cockpit: "compact", dockge: "compact", speedtest: "medium", filebrowser: "compact", uptimekuma: "compact", wud: "compact", notifiarr: "compact", upsnap: "compact", cronicle: "compact" };
+  const defaultSizes = { cockpit: "compact", dockge: "compact", speedtest: "medium", filebrowser: "compact", uptimekuma: "compact", wud: "compact", notifiarr: "compact", upsnap: "compact", cronicle: "compact", "pc-command-centre": "compact" };
   const defaultPositions = {
     cockpit: {col:1,row:1}, dockge: {col:1,row:2}, speedtest: {col:2,row:1}, filebrowser: {col:3,row:1}, uptimekuma: {col:4,row:1}, wud: {col:4,row:2},
-    notifiarr: {col:3,row:2}, upsnap: {col:1,row:3}, cronicle: {col:2,row:3},
+    notifiarr: {col:3,row:2}, upsnap: {col:1,row:3}, cronicle: {col:2,row:3}, "pc-command-centre": {col:3,row:3},
   };
   return (
     <div className="shell">
@@ -4024,69 +4026,7 @@ function ManagementPage({ onMenuToggle, onNavigate, bellProps }) {
 
 // ─── TERMINAL ────────────────────────────────────────────────────
 // xterm.js front-end wired to the /terminal WebSocket (node-pty shell).
-const TERM_THEME = {
-  background: "#0a0e14", foreground: "#c8e6d8",
-  cursor: "#22D3A7", cursorAccent: "#0a0e14",
-  selectionBackground: "rgba(34,211,167,0.28)",
-  black: "#0a0e14", brightBlack: "#3b4754",
-  red: "#ef4444", brightRed: "#f87171",
-  green: "#22D3A7", brightGreen: "#4ade80",
-  yellow: "#f59e0b", brightYellow: "#fbbf24",
-  blue: "#2979FF", brightBlue: "#60a5fa",
-  magenta: "#a855f7", brightMagenta: "#c084fc",
-  cyan: "#22d3ee", brightCyan: "#67e8f9",
-  white: "#c8e6d8", brightWhite: "#f0fdf4",
-};
-
-function TerminalView() {
-  const hostRef = useRef(null);
-  useEffect(() => {
-    const term = new Terminal({
-      fontFamily: '"DM Mono", ui-monospace, monospace',
-      fontSize: 13, cursorBlink: true, theme: TERM_THEME, allowProposedApi: true,
-    });
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.open(hostRef.current);
-    const safeFit = () => { try { fit.fit(); } catch { /* not laid out yet */ } };
-    requestAnimationFrame(safeFit);
-
-    const proto = location.protocol === "https:" ? "wss" : "ws";
-    const ws = new WebSocket(`${proto}://${location.host}/terminal`);
-    ws.binaryType = "arraybuffer";
-    let alive = true;
-    term.writeln("\x1b[38;5;80mConnecting to shell…\x1b[0m");
-
-    ws.onopen = () => {
-      term.clear();
-      safeFit();
-      try { ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows })); } catch { /* ignore */ }
-    };
-    ws.onmessage = (e) => term.write(typeof e.data === "string" ? e.data : new Uint8Array(e.data));
-    ws.onclose = () => { if (alive) term.write("\r\n\x1b[38;5;244m[session ended]\x1b[0m\r\n"); };
-    ws.onerror = () => { if (alive) term.write("\r\n\x1b[31m[connection error — is the terminal backend running?]\x1b[0m\r\n"); };
-
-    const dataSub = term.onData((d) => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "input", data: d })); });
-
-    const onResize = () => {
-      safeFit();
-      if (ws.readyState === WebSocket.OPEN) { try { ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows })); } catch { /* ignore */ } }
-    };
-    const ro = new ResizeObserver(onResize);
-    if (hostRef.current) ro.observe(hostRef.current);
-    window.addEventListener("resize", onResize);
-
-    return () => {
-      alive = false;
-      ro.disconnect();
-      window.removeEventListener("resize", onResize);
-      dataSub.dispose();
-      try { ws.close(); } catch { /* ignore */ }
-      term.dispose();
-    };
-  }, []);
-  return <div ref={hostRef} className="term-host" />;
-}
+const TerminalView = lazy(() => import("./TerminalView"));
 
 // The backend hands out either a real host shell (nsenter into PID 1) or,
 // when the container lacks the privileges for that, a shell inside the
@@ -4123,7 +4063,7 @@ function TerminalWidget() {
         </div>
         <TerminalBadge />
       </div>
-      <div className="term-card-body"><TerminalView /></div>
+      <div className="term-card-body"><Suspense fallback={<div role="status" style={{ padding: 24 }}>Loading…</div>}><TerminalView /></Suspense></div>
     </div>
   );
 }
@@ -4145,7 +4085,7 @@ function TerminalModal({ onClose }) {
           </div>
           <button className="close-btn" onClick={onClose}>× Close</button>
         </div>
-        <div className="term-modal-body"><TerminalView /></div>
+        <div className="term-modal-body"><Suspense fallback={<div role="status" style={{ padding: 24 }}>Loading…</div>}><TerminalView /></Suspense></div>
       </div>
     </div>,
     document.body
@@ -4411,8 +4351,8 @@ const SYS_WIDGET_LABELS = {
   load: "Load Average", alert: "Alerts", processes: "Processes", diskio: "Disk I/O",
 };
 // Services that have dedicated live-data widgets (vs. plain quick links).
-const SVC_LIVE_WIDGETS = ["jellyfin", "qbt", "unmanic", "speedtest", "navidrome"];
-const LINK_WIDGETS = ["sonarr", "radarr", "prowlarr", "bazarr", "seerr", "nextcloud", "immich", "cockpit", "dockge", "filebrowser", "slskd", "beetsflask", "lrcget", "uptimekuma", "wud", "audiomuse", "lrcgen", "notifiarr", "upsnap", "cronicle"];
+const SVC_LIVE_WIDGETS = ["jellyfin", "qbt", "unmanic", "speedtest", "navidrome", "sonarr", "radarr"];
+const LINK_WIDGETS = ["sonarr", "radarr", "prowlarr", "bazarr", "seerr", "nextcloud", "immich", "cockpit", "dockge", "filebrowser", "slskd", "beetsflask", "lrcget", "uptimekuma", "wud", "audiomuse", "lrcgen", "notifiarr", "upsnap", "cronicle", "pc-command-centre"];
 
 const TOOL_WIDGET_LABELS = { terminal: "Terminal" };
 
@@ -4447,6 +4387,8 @@ function WidgetNode({ wid }) {
       case "jellyfin":  return <JellyfinWidget />;
       case "qbt":       return <QBittorrentWidget />;
       case "unmanic":   return <UnmanicWidget />;
+      case "sonarr":
+      case "radarr":    return <ArrWidget service={key} />;
       case "speedtest": return <SpeedtestWidget />;
       case "navidrome": return <NavidromeWidget />;
       default: return null;
@@ -4755,7 +4697,7 @@ export default function App() {
 }
 
 function AppInner() {
-  const [activePage, setActivePage] = useState(() => new URLSearchParams(window.location.search).has("filesPreview") || window.location.hash === "#files" ? "files" : "home");
+  const [activePage, setActivePage] = useState(() => new URLSearchParams(window.location.search).has("filesPreview") ? "files" : ["files", "sonarr", "radarr"].includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : "home");
   const [menuOpen, setMenuOpen]     = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
 
@@ -4854,9 +4796,18 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
-    const open = event => { if (["qbittorrent", "unmanic", "files"].includes(event.detail)) navigate(event.detail); };
+    const open = event => { if (["qbittorrent", "unmanic", "files", "sonarr", "radarr"].includes(event.detail)) navigate(event.detail); };
     window.addEventListener("2ez-navigate", open);
     return () => window.removeEventListener("2ez-navigate", open);
+  }, [navigate]);
+
+  useEffect(() => {
+    const openHash = () => {
+      const page = window.location.hash.slice(1);
+      if (["files", "sonarr", "radarr"].includes(page)) navigate(page);
+    };
+    window.addEventListener("hashchange", openHash);
+    return () => window.removeEventListener("hashchange", openHash);
   }, [navigate]);
 
   const toggleMenu = useCallback(() => setMenuOpen(o => !o), []);
@@ -4908,10 +4859,11 @@ function AppInner() {
 
       {activePage === "home"       && <HomePage            onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "main"       && <MainPage key={layoutResetKey} onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
-      {activePage === "qbittorrent" && <div className="shell"><PageHeader title="qBittorrent" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><QBittorrentPage /></div>}
-      {activePage === "files" && <div className="shell files-shell"><PageHeader title="Files" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><FileBrowserPage /></div>}
-      {activePage === "unmanic" && <div className="shell"><PageHeader title="Unmanic" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><UnmanicPage /></div>}
-      {activePage === "docker"     && <div className="shell"><PageHeader title="Docker" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><DockerManager onDirtyChange={onStackDirtyChange} /></div>}
+      {activePage === "qbittorrent" && <div className="shell"><PageHeader title="qBittorrent" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><Suspense fallback={<div role="status" style={{ padding: 24 }}>Loading…</div>}><QBittorrentPage /></Suspense></div>}
+      {activePage === "files" && <div className="shell files-shell"><PageHeader title="Files" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><Suspense fallback={<div role="status" style={{ padding: 24 }}>Loading…</div>}><FileBrowserPage /></Suspense></div>}
+      {activePage === "unmanic" && <div className="shell"><PageHeader title="Unmanic" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><Suspense fallback={<div role="status" style={{ padding: 24 }}>Loading…</div>}><UnmanicPage /></Suspense></div>}
+      {["sonarr", "radarr"].includes(activePage) && <div className="shell"><PageHeader title={SVC[activePage].name} onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><Suspense fallback={<div role="status" style={{ padding: 24 }}>Loading…</div>}><ArrPage key={activePage} service={activePage} /></Suspense></div>}
+      {activePage === "docker"     && <div className="shell"><PageHeader title="Docker" onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} /><Suspense fallback={<div role="status" style={{ padding: 24 }}>Loading…</div>}><DockerManager onDirtyChange={onStackDirtyChange} /></Suspense></div>}
       {activePage === "media-auto" && <MediaAutomationPage onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "media-srv"  && <MediaServerPage     onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
       {activePage === "mgmt"       && <ManagementPage      onMenuToggle={toggleMenu} onNavigate={navigate} bellProps={bellProps} />}
